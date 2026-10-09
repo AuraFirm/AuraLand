@@ -43,7 +43,7 @@ harness with seeded world; CI workflows, Dockerfiles, compose file; six ADRs; th
 db 10); simulation scenario run over 500 seeds.
 
 ## Key decisions and deviations
-ADRs 0001–0013. Notable: kit corrections (pnpm settings location, root entry limit 14, no
+ADRs 0001–0010. Notable: kit corrections (pnpm settings location, root entry limit 14, no
 Testcontainers, access-log position), TypeScript 7 forcing oxc-parser and `ignoreBuildErrors`.
 
 ## Security gate (docs/kit/08 section 14)
