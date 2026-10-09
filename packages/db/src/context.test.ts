@@ -3,7 +3,13 @@
 // leak between requests that reuse the same pooled connection.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "./client.ts";
-import { assertContextValid, type RequestContext, withRequestContext } from "./context.ts";
+import {
+    assertContextValid,
+    assertRoleValid,
+    type RequestContext,
+    type Transaction,
+    withRequestContext,
+} from "./context.ts";
 import { adminUrl, createTestDatabase, type TestDatabase } from "./test-helpers.ts";
 
 const ORG_A = "018f0000-0000-7000-8000-00000000000a";
@@ -38,14 +44,18 @@ afterAll(async () => {
 });
 
 function visibleValues(context: RequestContext, database: Database = testDb.database) {
-    return withRequestContext(database.sql, context, async (transaction) => {
-        // Superusers bypass RLS, so the work runs as an ordinary role like production does.
-        await transaction`set local role aura_probe_app`;
-        const rows = await transaction<
-            { value: string }[]
-        >`select value from probe_rows order by value`;
-        return rows.map((row) => row.value);
-    });
+    return withRequestContext(
+        database.sql,
+        { ...context, role: "aura_app" },
+        async (transaction) => {
+            // Superusers bypass RLS, so the work runs as an ordinary role like production does.
+            await transaction`set local role aura_probe_app`;
+            const rows = await transaction<
+                { value: string }[]
+            >`select value from probe_rows order by value`;
+            return rows.map((row) => row.value);
+        },
+    );
 }
 
 const userInOrg = (orgIds: string[]): RequestContext => ({
@@ -91,5 +101,49 @@ describe("withRequestContext", () => {
         const tooMany = Array.from({ length: 65 }, () => ORG_A);
         expect(bad(userInOrg(tooMany))).toThrow(/limit/);
         expect(bad(userInOrg(Array.from({ length: 64 }, () => ORG_A)))).not.toThrow();
+    });
+});
+
+describe("role switching", () => {
+    const user: RequestContext = {
+        actorKind: "user",
+        userId: "018f0000-0000-7000-8000-0000000000aa",
+        orgIds: [],
+    };
+    const currentUser = (tx: Transaction) => tx<{ name: string }[]>`select current_user as name`;
+
+    it("runs the work as the requested role and returns to the login role afterwards", async () => {
+        const login = (
+            await singleConnection.sql<{ name: string }[]>`select current_user as name`
+        )[0]?.name;
+        for (const role of ["aura_app", "aura_auth"] as const) {
+            const inside = await withRequestContext(
+                singleConnection.sql,
+                { ...user, role },
+                currentUser,
+            );
+            expect(inside[0]?.name).toBe(role);
+        }
+        // The same single connection is reused; nothing may linger after the transaction.
+        const after = await singleConnection.sql<{ name: string }[]>`select current_user as name`;
+        expect(after[0]?.name).toBe(login);
+    });
+
+    it("rolls the role back when the work fails, so the next request starts clean", async () => {
+        await expect(
+            withRequestContext(singleConnection.sql, { ...user, role: "aura_auth" }, async () => {
+                throw new Error("boom");
+            }),
+        ).rejects.toThrow("boom");
+        const after = await singleConnection.sql<{ name: string }[]>`select current_user as name`;
+        expect(after[0]?.name).not.toBe("aura_auth");
+    });
+
+    it("refuses any role that is not one of the two application roles", () => {
+        for (const role of ["postgres", "aura", "aura_app, aura_auth", "", "AURA_APP", "none"]) {
+            expect(() => assertRoleValid(role)).toThrow(/role/);
+        }
+        for (const role of ["aura_app", "aura_auth"])
+            expect(() => assertRoleValid(role)).not.toThrow();
     });
 });
