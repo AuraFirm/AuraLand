@@ -20,7 +20,8 @@
         "test:e2e": "echo 'No end-to-end tests exist before Stage 1.' && exit 1",
         "build": "pnpm --recursive run build",
         "db:migrate": "node --env-file=.env packages/db/src/migrate-cli.ts",
-        "audit": "pnpm audit --audit-level high && pnpm audit signatures"
+        "audit": "pnpm audit --audit-level high && pnpm audit signatures",
+        "check:semgrep": "node tools/semgrep-cli.ts"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.15",

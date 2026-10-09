@@ -16,7 +16,11 @@ const listed = execFileSync(
 const files = listed
     .split("\n")
     .filter(
-        (file) => file.length > 0 && !file.startsWith("docs/kit/") && !file.includes("/generated/"),
+        (file) =>
+            file.length > 0 &&
+            !file.startsWith("docs/kit/") &&
+            !file.startsWith("tools/semgrep/") &&
+            !file.includes("/generated/"),
     );
 
 const sources = new Map<string, string>();

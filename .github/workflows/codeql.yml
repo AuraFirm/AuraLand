@@ -1,11 +1,11 @@
-# First run (2026-10-10) analyzed all files but failed to upload results without `actions: read`.
+# Manual only. CodeQL analyzes this repository fine, but uploading results from a private repository
+# needs GitHub Code Security (Advanced Security), which this organization has not enabled (first run
+# 2026-10-10). Semgrep (tools/semgrep, run by ci.yml) covers automated scanning meanwhile. To
+# switch CodeQL back on after enabling the feature or making the repository public, restore the
+# push, pull_request and schedule triggers.
 name: codeql
 on:
-  push:
-    branches: [main]
-  pull_request:
-  schedule:
-    - cron: "17 3 * * 1"
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

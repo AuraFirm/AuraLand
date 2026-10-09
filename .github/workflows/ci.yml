@@ -50,6 +50,18 @@ jobs:
           persist-credentials: false
       - run: docker build --file apps/api/Dockerfile --tag aura-api:ci .
       - run: docker build --file apps/web/Dockerfile --tag aura-web:ci .
+  semgrep:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Node strips types itself, so the runner script needs no dependencies installed.
+      - run: node tools/semgrep-cli.ts
   secrets:
     runs-on: ubuntu-24.04
     timeout-minutes: 10

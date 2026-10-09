@@ -13,6 +13,7 @@ docker compose -f infra/compose.yml up -d        # PostgreSQL 18 on 127.0.0.1:54
 cp .env.example .env
 pnpm db:migrate                                   # needs AURA_DATABASE_URL in the environment
 pnpm check && pnpm test && pnpm test:sim
+pnpm check:semgrep                                # security rules; needs Docker
 pnpm dev                                          # api :3001, web :3000
 ```
 

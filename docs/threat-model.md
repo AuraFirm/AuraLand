@@ -22,6 +22,7 @@ KMS access) → PostgreSQL. The judge fleet and untrusted code execution do not 
 | Denial of service by large or slow requests | API | 256 KiB body cap, header and request timeouts, 503 on unready database | `app.test.ts`, `limits.ts` |
 | Elevation through framework bugs | Next.js | Thin renderer rules, no auth in proxy, no image optimizer, no ISR, nonce CSP | ADR 0005, `csp.test.ts` |
 | Supply-chain compromise | Dependencies, CI | Exact pins, 3-day release age, no unreviewed install scripts, exotic sources blocked, trust policy, depcheck budget, audit and signature checks, pinned action SHAs | `pnpm-workspace.yaml`, `depcheck.test.ts` |
+| Insecure patterns entering the code | Whole repo | Semgrep with project rules (SQL, HTML, eval, shell, weak crypto, TLS bypass, direct HTTP) tested by `semgrep --test`, plus tigerlint | ADR 0007 |
 | Secrets in the repository | Git | `.env` ignored, TruffleHog in CI (not yet run) | `.gitignore`, `ci.yml` |
 
 ## Known gaps (accepted for Stage 0)

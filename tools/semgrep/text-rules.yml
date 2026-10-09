@@ -1,0 +1,58 @@
+# AuraLand security rules (docs/kit/08). They mirror the bans enforced elsewhere by tigerlint, so a
+# second tool catches the same classes in code review of any language Semgrep parses. Each rule has
+# annotated positive and negative cases in rules.ts, checked with `semgrep --test`.
+# Text-pattern rules: they match source text, so they also cover JSX that the parser rules skip.
+rules:
+  - id: aura-no-string-built-sql
+    languages: [generic]
+    severity: ERROR
+    message: "SQL built with interpolation. Use a tagged template (sql`...${value}`) so values are bound."
+    # An untagged backtick string (no identifier directly before the opening backtick) that
+    # contains SQL keywords and a ${} interpolation.
+    pattern-regex: '(?is)(?<![\w$])`[^`]*\b(select\s[^`]*\sfrom|insert\s+into|delete\s+from|update\s+\w+\s+set)\b[^`]*\$\{'
+    paths:
+      include:
+        - "*.ts"
+        - "*.tsx"
+      exclude:
+        - "**/tools/tigerlint.test.ts"
+
+  - id: aura-no-raw-html
+    languages: [generic]
+    severity: ERROR
+    message: "Raw HTML injection. Render user content only through renderMarkdownSafe()."
+    pattern-regex: 'dangerouslySetInnerHTML\s*='
+    paths:
+      include:
+        - "*.tsx"
+        - "*.ts"
+      exclude:
+        - "**/apps/web/src/lib/render-markdown-safe.tsx"
+        - "**/tools/tigerlint.test.ts"
+
+  - id: aura-no-shell-exec
+    languages: [generic]
+    severity: ERROR
+    message: "Shell execution. Use execFile with an argument array, never a shell string."
+    pattern-either:
+      - pattern-regex: 'import\s*\{[^}]*\bexec(Sync)?\b[^}]*\}\s*from\s*["'']((node:)?child_process)["'']'
+      - pattern-regex: 'shell:\s*true'
+    paths:
+      include:
+        - "*.ts"
+        - "*.tsx"
+        - "*.mjs"
+
+  - id: aura-no-tls-bypass
+    languages: [generic]
+    severity: ERROR
+    message: "Disabling TLS verification exposes traffic to interception."
+    pattern-either:
+      - pattern-regex: 'rejectUnauthorized:\s*false'
+      - pattern-regex: 'NODE_TLS_REJECT_UNAUTHORIZED'
+    paths:
+      include:
+        - "*.ts"
+        - "*.tsx"
+        - "*.mjs"
+        - "Dockerfile"

@@ -13,9 +13,8 @@ harness with seeded world; CI workflows, Dockerfiles, compose file; six ADRs; th
 ## Deferred or not done (with reasons)
 | Item | Status | Why |
 |---|---|---|
-| Amd64 images | Not built | Verified on arm64 only (Colima); CI builds on amd64 |
 | Staging deploy of a hello endpoint | **Not done** | No AWS account, region, domain or credentials; decisions D1, D3, D8 open |
-| CI run on GitHub | **Not run** | Remote `origin` is registered (private repo `AuraFirm/AuraLand`) but nothing is pushed; workflow YAML parses but is unproven |
+| CodeQL | Manual only | Needs GitHub Code Security on the private repo; Semgrep runs on every push instead (ADR 0007) |
 | SBOM, signing, provenance | Not done | Needs a registry and a deploy target; add with the first deploy |
 | Branch protection, CODEOWNERS entries | Not done | Needs the GitHub repo and decision D9 (security reviewer) |
 | OpenTelemetry, extra ports, worker role | Deferred | No consumer yet; ADR 0004 and 0006 |
@@ -33,6 +32,7 @@ harness with seeded world; CI workflows, Dockerfiles, compose file; six ADRs; th
 | API runs and shuts down cleanly | Built bundle served health, readiness (real database), 404 and 413 problem responses; SIGTERM exited 0 |
 | Web headers and nonce | Standalone server: all static headers, unique nonce per request, nonce on 5 script tags, no `X-Powered-By` |
 | Docker (added after first report) | Colima VM, Docker 29.5. `infra/compose.yml` starts healthy on PostgreSQL 18.6 (digest-pinned image); `pnpm test` passes 71/71 against it; both Dockerfiles build (API 352 MB, web 403 MB); containers run `--read-only --cap-drop ALL`, non-root (uid 1000); API `/api/readyz` is ready against the compose database; web serves the nonce CSP |
+| CI on GitHub (first run, 2026-10-10) | `verify`, `images` (amd64) and `secrets` jobs succeeded. CodeQL analyzed everything but could not upload results (needs paid GitHub Code Security); replaced by Semgrep, ADR 0007 |
 | Supply chain | `pnpm audit`: no known vulnerabilities; `pnpm audit signatures`: 234 packages verified; 3-day rule rejected two fresh versions; esbuild script denied explicitly |
 
 ## Test totals
@@ -49,7 +49,7 @@ Testcontainers, access-log position), TypeScript 7 forcing oxc-parser and `ignor
 - [x] Logging redaction configured; no PII exists yet
 - [x] Supply-chain controls active
 - [ ] Authz and RLS matrix tests: not applicable until Stage 1 tables exist
-- [ ] SAST/CodeQL, secret scan, container scan: configured, not yet run
+- [x] Secret scan (TruffleHog) passes in CI; SAST (Semgrep) passes locally, CI run pending; container scan (Trivy) not added yet
 - [ ] Human read of `packages/db` and `infra` diffs: pending sign-off
 
 ## Risks and follow-ups (ranked)

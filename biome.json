@@ -6,7 +6,15 @@
         "useIgnoreFile": true
     },
     "files": {
-        "includes": ["**", "!**/dist", "!**/.next", "!**/generated", "!docs/kit", "!pnpm-lock.yaml"]
+        "includes": [
+            "**",
+            "!**/dist",
+            "!**/.next",
+            "!**/generated",
+            "!docs/kit",
+            "!pnpm-lock.yaml",
+            "!tools/semgrep"
+        ]
     },
     "formatter": {
         "enabled": true,

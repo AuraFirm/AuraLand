@@ -1,0 +1,48 @@
+# AuraLand security rules (docs/kit/08). They mirror the bans enforced elsewhere by tigerlint, so a
+# second tool catches the same classes in code review of any language Semgrep parses. Each rule has
+# annotated positive and negative cases in rules.ts, checked with `semgrep --test`.
+rules:
+  - id: aura-no-unsafe-sql
+    languages: [typescript]
+    severity: ERROR
+    message: "sql.unsafe runs a string as SQL. Use a tagged template so values are bound parameters."
+    pattern: $DB.unsafe(...)
+    paths:
+      exclude:
+        - "**/packages/db/src/migrate.ts"
+
+  - id: aura-no-eval
+    languages: [typescript]
+    severity: ERROR
+    message: "eval and new Function execute strings as code."
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+
+  - id: aura-no-math-random
+    languages: [typescript]
+    severity: ERROR
+    message: "Math.random is predictable. Use the Rng port (simulation) or node:crypto (production)."
+    pattern: Math.random()
+    paths:
+      exclude:
+        - "**/*.test.ts"
+
+  - id: aura-no-weak-hash
+    languages: [typescript]
+    severity: ERROR
+    message: "MD5 and SHA-1 are broken. Use SHA-256 or stronger."
+    pattern-either:
+      - pattern: createHash("md5")
+      - pattern: createHash("sha1")
+
+  - id: aura-no-direct-http
+    languages: [typescript]
+    severity: ERROR
+    message: "Outbound HTTP must go through the egress client (SSRF defence, docs/kit/06 section 5)."
+    pattern: fetch(...)
+    paths:
+      exclude:
+        - "**/apps/web/src/lib/api.ts"
+        - "**/apps/api/src/platform/egress.ts"
+        - "**/*.test.ts"
