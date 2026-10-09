@@ -154,6 +154,30 @@ describe("next.js features we do not use", () => {
     });
 });
 
+describe("no-hidden-characters", () => {
+    // Built from code points so this test file itself contains no hidden characters.
+    const hidden = [0x200b, 0x200e, 0x202e, 0x2066, 0xfeff].map((cp) => String.fromCodePoint(cp));
+
+    it("flags invisible and direction-changing characters in code and in strings", () => {
+        for (const character of hidden) {
+            expect(rules(`const a = "x${character}y";`)).toContain("no-hidden-characters");
+            expect(rules(`const a${character} = 1;`, "a.ts")).toContain("no-hidden-characters");
+        }
+    });
+
+    it("allows the same characters written as escapes, and ordinary non-ASCII text", () => {
+        expect(rules('const a = "x\\u202ey";')).not.toContain("no-hidden-characters");
+        expect(rules('const a = "caf\u00e9 \u09ac\u09be\u0982\u09b2\u09be";')).not.toContain(
+            "no-hidden-characters",
+        );
+    });
+
+    it("reports the right line", () => {
+        const found = lintSource("a.ts", `const a = 1;\nconst b = "${hidden[0]}";\n`);
+        expect(found.find((v) => v.rule === "no-hidden-characters")?.line).toBe(2);
+    });
+});
+
 describe("ts-ignore and parse errors", () => {
     it("flags ts-ignore and ts-nocheck but not ts-expect-error", () => {
         expect(rules("// @ts-ignore\nconst a: number = 'x';")).toContain("no-ts-ignore");
