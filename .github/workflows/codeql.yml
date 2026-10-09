@@ -1,10 +1,15 @@
-# Manual only. CodeQL analyzes this repository fine, but uploading results from a private repository
-# needs GitHub Code Security (Advanced Security), which this organization has not enabled (first run
-# 2026-10-10). Semgrep (tools/semgrep, run by ci.yml) covers automated scanning meanwhile. To
-# switch CodeQL back on after enabling the feature or making the repository public, restore the
-# push, pull_request and schedule triggers.
+# CodeQL complements Semgrep (tools/semgrep): Semgrep enforces our own house rules quickly, CodeQL
+# follows data flow to find injection and traversal paths. Free for public repositories (ADR 0007).
+# This is the "advanced setup": do not also enable "default setup" in the repository settings, or
+# GitHub rejects this workflow's uploads. Not a required status check until its first alerts are
+# triaged.
 name: codeql
 on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1"
   workflow_dispatch:
 permissions:
   contents: read

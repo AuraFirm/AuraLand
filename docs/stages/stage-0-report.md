@@ -14,7 +14,7 @@ harness with seeded world; CI workflows, Dockerfiles, compose file; six ADRs; th
 | Item | Status | Why |
 |---|---|---|
 | Staging deploy of a hello endpoint | **Not done** | No AWS account, region, domain or credentials; decisions D1, D3, D8 open |
-| CodeQL | Manual only | Needs GitHub Code Security on the private repo; Semgrep runs on every push instead (ADR 0007) |
+| CodeQL | Re-enabled | Was manual-only while the repo was private; the repo is now public, so it runs beside Semgrep (ADR 0007 amendment) |
 | SBOM, signing, provenance | Not done | Needs a registry and a deploy target; add with the first deploy |
 | Branch protection, CODEOWNERS entries | Not done | Needs the GitHub repo and decision D9 (security reviewer) |
 | OpenTelemetry, extra ports, worker role | Deferred | No consumer yet; ADR 0004 and 0006 |

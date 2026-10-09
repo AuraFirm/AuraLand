@@ -1,5 +1,5 @@
 # 0007 — Semgrep with our own rules instead of CodeQL
-Status: accepted
+Status: accepted; amended 2026-10-10 (CodeQL re-enabled, see the end)
 Date: 2026-10-10
 
 ## Context
@@ -38,3 +38,10 @@ in a staged throwaway file made the scan exit 1; the file was removed.
 
 ## Revisit trigger
 GitHub Code Security enabled, or the repository made public: re-enable CodeQL alongside Semgrep.
+
+## Amendment (2026-10-10): repository made public, CodeQL re-enabled
+The repository became public the same day, and code scanning is free for public repositories, so
+`codeql.yml` runs again on pushes to `main`, on pull requests and weekly, next to Semgrep. We use
+the advanced setup (workflow file, actions pinned by SHA); the repository's "default setup" must
+stay off. CodeQL is not a required status check until its first alerts are triaged. If the
+repository goes private again, CodeQL returns to manual runs.
