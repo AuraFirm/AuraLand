@@ -361,6 +361,33 @@ function checkComments(context: Context): void {
     }
 }
 
+// "Trojan Source": invisible or direction-changing characters make code read differently from how
+// it runs. Raw ones are never needed in source; write them as escapes (docs/kit/08, supply chain).
+const HIDDEN_CODE_POINT_RANGES: ReadonlyArray<readonly [number, number]> = [
+    [0x200b, 0x200f], // zero-width characters and direction marks
+    [0x202a, 0x202e], // embedding and override controls
+    [0x2060, 0x2064], // word joiner and invisible operators
+    [0x2066, 0x2069], // isolate controls
+    [0xfeff, 0xfeff], // byte-order mark
+];
+
+function checkHiddenCharacters(context: Context, source: string): void {
+    let offset = 0;
+    for (const character of source) {
+        const codePoint = character.codePointAt(0) ?? 0;
+        if (HIDDEN_CODE_POINT_RANGES.some(([low, high]) => codePoint >= low && codePoint <= high)) {
+            const node: Node = { type: "Character", start: offset, end: offset + 1 };
+            report(
+                context,
+                node,
+                "no-hidden-characters",
+                `invisible character U+${codePoint.toString(16)}`,
+            );
+        }
+        offset += character.length;
+    }
+}
+
 function isExemptFromFileLength(file: string): boolean {
     return /\.test\.tsx?$|\/generated\//.test(file);
 }
@@ -381,6 +408,7 @@ export function lintSource(file: string, source: string): Violation[] {
     const program: unknown = result.program;
     if (isNode(program)) walk(program, (node, parent) => void checkNode(context, node, parent));
     checkComments(context);
+    checkHiddenCharacters(context, source);
     const lineCount = context.lineStarts.length;
     if (lineCount > FILE_LINES_MAX && !isExemptFromFileLength(file)) {
         context.violations.push({

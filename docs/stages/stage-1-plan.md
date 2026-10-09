@@ -208,3 +208,14 @@ database valid. Each slice merges only with green CI, and the stage report recor
 2. Passkey requirement: **all organization owners and admins**, and platform admins, as in assumption 3.
 3. Organization creation: **rate-limited to 5 per day per user** while the organization is unverified.
 4. Account purge job: **deferred to Stage 3** with the worker role; Stage 1 records the deletion request only.
+
+## 18. Implementation log
+- **Slice 0 (2026-10-10), as built.** Narrowed from the table in section 11: dependencies are installed
+  in the slice that first uses them (an unused dependency fails `depcheck`), so this slice delivers
+  only the shared building blocks: prefixed UUIDv7 ids, identity limits, and input schemas for
+  email, handle, organization slug, names and roles (`@aura/contracts/ids`, `identity`, `limits`),
+  with boundary tests. The roles that exist in Stage 1 are `owner`, `admin`, `member`. While doing
+  this, Biome's formatter turned a regular expression's escapes into raw invisible characters, so a
+  new `tigerlint` rule (`no-hidden-characters`, the "Trojan Source" class) now fails the build if
+  any TypeScript file contains raw zero-width, direction-control or byte-order-mark characters, and
+  the name check uses explicit code point ranges instead of a regular expression.
