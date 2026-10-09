@@ -21,29 +21,36 @@ afterAll(async () => {
     await db.drop();
 });
 
+interface SessionRowInput {
+    readonly tokenHash: Buffer;
+    readonly authMethod: string;
+    readonly privileged: boolean;
+    readonly createdAt: string;
+    readonly lastSeenAt: string;
+    readonly idleExpiresAt: string;
+    readonly absoluteExpiresAt: string;
+}
+
 async function insertSession(
     userId: string,
     tokenByte: number,
-    overrides: Record<string, unknown> = {},
-) {
-    const row = {
-        user_id: userId,
-        token_hash: hash(tokenByte),
-        auth_method: "passkey",
+    overrides: Partial<SessionRowInput> = {},
+): Promise<string> {
+    const row: SessionRowInput = {
+        tokenHash: hash(tokenByte),
+        authMethod: "passkey",
         privileged: false,
-        created_at: "2026-01-01T00:00:00Z",
-        last_seen_at: "2026-01-01T00:00:00Z",
-        idle_expires_at: "2026-01-08T00:00:00Z",
-        absolute_expires_at: "2026-01-31T00:00:00Z",
+        createdAt: "2026-01-01T00:00:00Z",
+        lastSeenAt: "2026-01-01T00:00:00Z",
+        idleExpiresAt: "2026-01-08T00:00:00Z",
+        absoluteExpiresAt: "2026-01-31T00:00:00Z",
         ...overrides,
     };
-    const { sql } = db.database;
-    const [created] = await sql<{ id: string }[]>`
+    const [created] = await db.database.sql<{ id: string }[]>`
         insert into sessions (user_id, token_hash, auth_method, privileged, created_at, last_seen_at,
                               idle_expires_at, absolute_expires_at)
-        values (${row.user_id as string}, ${row.token_hash as Buffer}, ${row.auth_method as string},
-                ${row.privileged as boolean}, ${row.created_at as string}, ${row.last_seen_at as string},
-                ${row.idle_expires_at as string}, ${row.absolute_expires_at as string})
+        values (${userId}, ${row.tokenHash}, ${row.authMethod}, ${row.privileged}, ${row.createdAt},
+                ${row.lastSeenAt}, ${row.idleExpiresAt}, ${row.absoluteExpiresAt})
         returning id`;
     return created?.id ?? "";
 }
@@ -59,16 +66,16 @@ describe("session row rules", () => {
 
     it("refuses hashes of the wrong size, unknown methods and impossible times", async () => {
         await fails(
-            insertSession(A, 2, { token_hash: Buffer.alloc(31, 2) }),
+            insertSession(A, 2, { tokenHash: Buffer.alloc(31, 2) }),
             /sessions_token_hash_size/,
         );
-        await fails(insertSession(A, 3, { auth_method: "password" }), /sessions_auth_method_check/);
+        await fails(insertSession(A, 3, { authMethod: "password" }), /sessions_auth_method_check/);
         await fails(
-            insertSession(A, 4, { idle_expires_at: "2026-02-01T00:00:00Z" }),
+            insertSession(A, 4, { idleExpiresAt: "2026-02-01T00:00:00Z" }),
             /sessions_times_ordered/,
         );
         await fails(
-            insertSession(A, 5, { last_seen_at: "2025-12-31T00:00:00Z" }),
+            insertSession(A, 5, { lastSeenAt: "2025-12-31T00:00:00Z" }),
             /sessions_times_ordered/,
         );
     });

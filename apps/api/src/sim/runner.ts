@@ -7,8 +7,8 @@ import { createWorld, type World } from "./world.ts";
 // `step` performs one random action; `check` throws if any invariant is broken.
 
 export interface ScenarioRun {
-    step(stepIndex: number): void;
-    check(): void;
+    step(stepIndex: number): void | Promise<void>;
+    check(): void | Promise<void>;
 }
 
 export interface Scenario {
@@ -28,16 +28,16 @@ export interface Failure {
 export const SIM_STEPS_MAX = 100_000;
 export const SIM_SEEDS_MAX = 10_000_000;
 
-export function runScenario(scenario: Scenario, seed: number): Failure | null {
+export async function runScenario(scenario: Scenario, seed: number): Promise<Failure | null> {
     assert(scenario.stepsMax >= 1 && scenario.stepsMax <= SIM_STEPS_MAX, "steps within bound");
     const world = createWorld(seed);
     let stepIndex = -1;
     try {
         const run = scenario.start(world);
-        run.check();
+        await run.check();
         for (stepIndex = 0; stepIndex < scenario.stepsMax; stepIndex++) {
-            run.step(stepIndex);
-            run.check();
+            await run.step(stepIndex);
+            await run.check();
         }
         return null;
     } catch (error) {
@@ -46,11 +46,15 @@ export function runScenario(scenario: Scenario, seed: number): Failure | null {
     }
 }
 
-export function runSeeds(scenario: Scenario, firstSeed: number, seedCount: number): Failure[] {
+export async function runSeeds(
+    scenario: Scenario,
+    firstSeed: number,
+    seedCount: number,
+): Promise<Failure[]> {
     assert(seedCount >= 1 && seedCount <= SIM_SEEDS_MAX, "seed count within bound");
     const failures: Failure[] = [];
     for (let seed = firstSeed; seed < firstSeed + seedCount; seed++) {
-        const failure = runScenario(scenario, seed);
+        const failure = await runScenario(scenario, seed);
         if (failure !== null) failures.push(failure);
     }
     return failures;

@@ -47,3 +47,15 @@ truncation with an anchor, and a rewritten hash.
 ## Revisit trigger
 More than about 200 audit events per second (serialized inserts), or the need for per-tenant
 retention.
+
+## Amendment (slice 2a): how the role is applied, and its limit
+`withRequestContext` now takes a role and runs `set_config('role', <role>, true)` last in the
+transaction, after checking it against the two allowed names (and binding it as a parameter). It
+lasts for that transaction only. A test confirms the work runs as the requested role and that
+nothing lingers on the pooled connection afterwards, including after a failure.
+
+Known limit: `SET ROLE` is allowed to any role the login user belongs to, so an attacker who could
+run arbitrary SQL inside a request could switch from `aura_app` to `aura_auth`. We prevent arbitrary
+SQL by construction (tagged templates only, enforced by tigerlint and Semgrep), but the stronger
+design is two login roles and two connection pools, one per group, so the database itself refuses
+the switch. That is recorded as a hardening item for the security review before the first customer.

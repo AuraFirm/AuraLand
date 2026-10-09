@@ -8,6 +8,15 @@ export interface Rng {
     nextFloat(): number;
     // Uniform integer in [0, boundExclusive).
     nextInt(boundExclusive: number): number;
+    // `count` random bytes, 1 to BYTES_COUNT_MAX. Used for tokens and identifiers.
+    nextBytes(count: number): Uint8Array;
+}
+
+export const BYTES_COUNT_MAX = 1024;
+
+export function assertBytesCount(count: number): void {
+    assert(Number.isSafeInteger(count), "byte count must be an integer");
+    assert(count >= 1 && count <= BYTES_COUNT_MAX, `byte count must be 1 to ${BYTES_COUNT_MAX}`);
 }
 
 // node:crypto.randomInt accepts a maximum of 2^48 - 1.
@@ -28,5 +37,9 @@ export const systemRng: Rng = {
         assert(boundExclusive > 0, "bound must be positive");
         assert(boundExclusive <= BOUND_EXCLUSIVE_MAX, "bound must not exceed 2^48 - 1");
         return randomInt(boundExclusive);
+    },
+    nextBytes(count: number): Uint8Array {
+        assertBytesCount(count);
+        return randomBytes(count);
     },
 };

@@ -226,3 +226,17 @@ database valid. Each slice merges only with green CI, and the stage report recor
   with its single-connection pool, because the runner held the one connection for its lock and then
   waited for another. The runner now does the migration transaction on the locked connection, with a
   regression test.
+- **Slice 2a (2026-10-10), as built.** Session core, database side. The plan's slice 2 was split into
+  2a (this) and 2b (HTTP: cookie, CSRF, the `authenticate`, `csrf`, `dbContext` middleware, the
+  `/me` and logout routes). In 2a: `withRequestContext` now switches to the requested database
+  role (ADR 0012 amendment); migration 0005 `sessions` (token hash only, revoke-once trigger,
+  column-level grants that hide the hash from `aura_app`); `Rng.nextBytes` and a pure `makeUuidV7`;
+  the pure session rules; the service over a `SessionStore` port with an in-memory implementation
+  and a PostgreSQL one; and a test that runs identical random operations against both and requires
+  identical results. The session store records a coarse network and user agent instead of the
+  planned IP hash. The deterministic simulation (now asynchronous) drives the service against an
+  independent model and found a real bug: rotating a session while at the 20-session cap evicted an
+  unrelated session, because the new session was created before the old one was revoked. Fixed
+  (revoke first) with a regression test; the simulation also exposed three blind spots in itself,
+  which the mutation checks (idle boundary, eviction off by one, touch every time, rotation order)
+  now catch.

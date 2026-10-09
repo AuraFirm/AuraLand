@@ -24,7 +24,7 @@ if (selected.length === 0) {
 
 let failed = false;
 for (const scenario of selected) {
-    const failures = runSeeds(scenario, firstSeed, seedCount);
+    const failures = await runSeeds(scenario, firstSeed, seedCount);
     process.stdout.write(
         `${scenario.name}: ${seedCount - failures.length}/${seedCount} seeds ok\n`,
     );
