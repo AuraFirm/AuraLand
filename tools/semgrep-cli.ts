@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
+import { pullFirstAvailable, realPullDeps } from "./docker-pull.ts";
 
 // Runs the Semgrep rules in tools/semgrep: first the rules' own annotated tests, then a scan of the
-// code. The image is pinned by digest (Semgrep 1.179.0, published 2026-10-02) so local runs and CI
-// use the identical scanner. It is pulled through Google's Docker Hub mirror because Docker Hub
-// rate-limits GitHub's shared runners (ADR 0010); the digest is the same as on Docker Hub. Needs Docker. The repository is mounted read-only.
-const IMAGE =
-    "mirror.gcr.io/semgrep/semgrep@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b";
+// code. The image is pinned by digest (Semgrep 1.179.0, published 2026-10-02), so local runs and CI
+// use the identical scanner. Docker Hub rate-limits GitHub's shared runners (ADR 0010), so the image
+// is pulled through Google's mirror first, with Docker Hub as the fallback; the digest is the same.
+// Needs Docker. The repository is mounted read-only.
+const DIGEST = "sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b";
+const SOURCES = [`mirror.gcr.io/semgrep/semgrep@${DIGEST}`, `semgrep/semgrep@${DIGEST}`];
 
 const COMMON = ["--metrics=off", "--disable-version-check"];
 const STEPS: ReadonlyArray<readonly string[]> = [
@@ -25,6 +27,7 @@ const STEPS: ReadonlyArray<readonly string[]> = [
     ],
 ];
 
+const IMAGE = pullFirstAvailable(SOURCES, realPullDeps);
 for (const step of STEPS) {
     const args = [
         "run",

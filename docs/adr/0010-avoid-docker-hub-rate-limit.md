@@ -35,3 +35,14 @@ base, ran Semgrep (9 rules, 0 findings), Trivy (0 findings) and the compose Post
 
 ## Revisit trigger
 Any `toomanyrequests` or mirror failure in CI.
+
+## Amendment (2026-10-10): retries and fallback sources
+Google's mirror failed once with `error pulling image configuration: unknown blob` on a docs-only
+pull request, even though it had worked on the two previous ones. The fallback named above was
+needed sooner than expected. `tools/docker-pull.ts` now pulls each pinned scanner image with up to
+3 attempts per source (2 s, then 4 s between attempts) and falls through an ordered list of
+registries that serve the same digest: Semgrep from Google's mirror then Docker Hub; Trivy from
+GitHub's registry, then Amazon's, then Docker Hub. A digest mismatch is impossible because Docker
+verifies the pinned digest. The Node and Postgres base images in Dockerfiles and the Postgres
+service container are pulled by Docker itself and keep a single Amazon source for now; if they
+show the same flakiness we will add a Docker Hub login with a repository secret.
