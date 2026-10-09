@@ -1,4 +1,4 @@
-# NOT YET RUN: Stage 0 was developed locally and this file has not executed on GitHub.
+# First run (2026-10-10) analyzed all files but failed to upload results without `actions: read`.
 name: codeql
 on:
   push:
@@ -15,6 +15,8 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      # Private repositories need this for the action to read its own workflow run.
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
