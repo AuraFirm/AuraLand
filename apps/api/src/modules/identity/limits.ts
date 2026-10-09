@@ -21,3 +21,11 @@ export const STEP_UP_FRESH_S = 15 * 60;
 
 // A browser sends at most 4 KiB of cookies; a token is 43 characters, so anything longer is junk.
 export const SESSION_TOKEN_TEXT_LENGTH = 43;
+
+// Browsers send at most about 4 KiB of cookies per site; a longer Cookie header is not from a browser.
+export const COOKIE_HEADER_BYTES_MAX = 4096;
+
+// Unsafe requests must carry this header. A cross-site page cannot add a custom header without a
+// CORS preflight, and we answer none, so its presence proves the request came from our own script.
+export const CSRF_HEADER_NAME = "x-aura-request";
+export const CSRF_HEADER_VALUE = "1";

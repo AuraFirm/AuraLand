@@ -19,6 +19,7 @@ const baseEnv = {
     AURA_DATABASE_URL: "postgres://localhost/none",
     AURA_LOG_LEVEL: "error",
     AURA_TRUST_EDGE_REQUEST_ID: "false",
+    AURA_PUBLIC_ORIGIN: "http://localhost:3000",
 };
 
 function makeApp(overrides: Partial<AppDeps> = {}, env: Record<string, string> = {}) {
