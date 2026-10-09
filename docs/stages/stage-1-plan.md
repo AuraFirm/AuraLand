@@ -1,0 +1,211 @@
+# Stage 1 plan — Identity, tenancy, audit
+
+Status: **draft for founder review. No code is written until this plan is approved.**
+Kit reference: `docs/kit/12` Stage 1, `docs/kit/05` sections 5–7, `docs/kit/06`, `docs/kit/08` sections 3–5.
+
+## 1. Goal
+After this stage a person can sign in (passkey, email link, email code, GitHub, Google), hold safe
+sessions, create and join organizations with roles, create API keys, and see their own security
+settings. Every action that matters is audited in a tamper-evident log, and tenant isolation is
+enforced both in code and by PostgreSQL row-level security (RLS), proven by generated tests.
+
+## 2. Decisions already made (your answers, 2026-10-10)
+| Topic | Decision |
+|---|---|
+| Auth approach | Thin in-house identity module on SimpleWebAuthn and Arctic, not Better Auth (ADR 0011) |
+| Sign-in methods | Passkeys, email sign-in link, email one-time code, GitHub, Google |
+| Organization creation | Open to everyone; new organizations are **unverified** with limited powers until a platform admin approves them. Everyone also gets a personal space |
+| Email | `MailPort` plus a local mail catcher (Mailpit). The real provider is wired at deploy time |
+
+## 3. Assumptions (tell me if any is wrong)
+1. **No Drizzle yet.** Queries use `postgres.js` tagged templates in each module's `queries.ts`, with
+   row results parsed by Zod at the boundary. SQL migrations stay the source of truth, and RLS is SQL
+   anyway. Drizzle's typed builder adds a dependency and a second schema definition for little gain
+   today; revisit at Stage 3 (ADR 0004 left this open).
+2. **Two database roles for the API**: `aura_app` (tenant data, subject to RLS) and `aura_auth`
+   (identity tables only, used for pre-login steps such as "find the user for this token"). Plus
+   `aura_migrator` for migrations. Identity data is not tenant data, so a separate narrow role is
+   easier to reason about than security-definer functions.
+3. **Passkeys count as the second factor for privileged accounts** (user verification required, phishing
+   resistant). TOTP is not built. Platform admins and organization owners and admins must have a passkey
+   before privileged actions are allowed.
+4. **Passkey settings**: attestation `none`, user verification `required`, resident keys preferred,
+   challenges stored server-side, single-use, 5-minute lifetime.
+5. **Account linking is never silent.** A GitHub or Google login that matches an existing email
+   requires proving control of that account first (an existing session, or the email link/code).
+   This closes the "pre-account takeover" class.
+6. **Export and deletion** are limited: `GET /me/export` returns a bounded JSON document
+   synchronously, and deletion marks the account (`deletion_requested_at`) and revokes sessions. The
+   actual purge job needs the worker role (Stage 3) and is explicitly deferred.
+7. **Rate limiting** uses an in-memory token bucket per instance for general classes and a PostgreSQL
+   counter for the strict `auth` class. No Redis (kit trigger not met).
+8. **Cloudflare Turnstile** is a `BotCheck` port with a no-op development implementation and a real
+   verifier that stays off until keys exist; there is no Cloudflare account yet.
+9. **A fake OAuth server in tests** stands in for GitHub and Google. Real sign-in with them needs
+   OAuth apps that **you** create (section 12); the code path is identical.
+10. **A minimal outbound HTTP client** (`platform/egress.ts`, host allowlist) is added because our own
+    OAuth profile calls and Turnstile must not call `fetch` directly (Semgrep rule).
+
+## 3b. New dependencies (each gets an ADR and a `deps.json` entry)
+| Package | Where | Why | Notes |
+|---|---|---|---|
+| `@simplewebauthn/server` 14.x | api | WebAuthn verification | 3 advisories in 2026, fixed in 14.0.2; attestation `none` avoids the affected path |
+| `@simplewebauthn/browser` | web | Browser side of passkeys | no dependencies |
+| `arctic` 3.x | api | GitHub and Google OAuth flows | small, depends on `@oslojs/*` |
+| `nodemailer` | api | SMTP to Mailpit now, a provider later | mature, no runtime dependencies |
+| `@playwright/test` | dev | End-to-end tests with a virtual passkey authenticator and the first real-browser CSP check | |
+
+Versions must satisfy the 3-day release-age rule at install time; any that do not are pinned one release lower.
+
+## 4. Scope
+**In:** identity tables, sessions, the five sign-in methods, organizations and memberships with roles,
+platform admin role, API keys, `authorize()`, RLS on all tenant tables, audit log with hash chain,
+rate limits for `auth`, `read`, `write`, the middleware slots `rateLimit`, `authenticate`, `csrf`,
+`dbContext`, account and organization screens, Playwright end-to-end tests, threat model v1, ASVS
+mapping, ADRs.
+
+**Out:** SSO/SAML/SCIM, ID verification, TOTP, billing, the worker role and background jobs (so no
+audit WORM shipping, export job or purge), self-hosted fonts and the full design system (plain
+accessible markup only), tasks, judging, anything from later stages.
+
+## 5. Data model (new migrations, expand-only, hand-written SQL)
+All primary keys `uuid DEFAULT uuidv7()`; times `timestamptz`; every constraint is an assertion.
+
+| Table | Purpose | RLS |
+|---|---|---|
+| `users` | id, email (citext, unique), `email_verified_at`, `status` (active, suspended), `platform_role` (none, admin), `deletion_requested_at` | by `app.user_id` |
+| `profiles` | handle (citext unique), display name, visibility, locale | owner write; public columns readable by rule |
+| `sessions` | token hash (sha256, unique), user, created, last_seen, idle and absolute expiry, ip hash, user-agent, `auth_method`, `revoked_at` | by `app.user_id` |
+| `passkeys` | credential id (unique), public key, counter, transports, backup flags, name, last_used | by `app.user_id` |
+| `oauth_identities` | provider, provider_user_id (unique together), user, email at link time | by `app.user_id` |
+| `login_tokens` | purpose (`email_link`, `email_code`, `link_account`), token or code hash, email, expiry, `consumed_at`, attempts | `aura_auth` only |
+| `webauthn_challenges` | challenge, purpose, user (nullable), expiry, `consumed_at` | `aura_auth` only |
+| `orgs` | kind, slug, name, `verification_state` (unverified, verified), data_region | members only |
+| `memberships` | (org, user) primary key, role | org members |
+| `api_keys` | prefix, secret hash (sha256 of a 256-bit secret), scopes, expiry, revoked | org members with a role check |
+| `audit_log` | append-only, hash chain (`prev_hash`, `hash`) | insert by app roles, no update, delete or truncate for anyone |
+| `rate_limit_counters` | key hash, window start, count | `aura_auth` and `aura_app` |
+
+Chain mechanics: a `BEFORE INSERT` trigger takes a transaction-level advisory lock, reads the previous
+hash, and computes `sha256(prev_hash || canonical row text)`. Serialized inserts are fine at our
+volume (auth and admin events, well under 50 per second). `UPDATE`, `DELETE` and `TRUNCATE` raise.
+`pnpm audit:verify` recomputes the chain and fails on any difference.
+
+Table ownership goes into ADR 0003 in the same pull request as each table.
+
+## 6. API and contracts
+New schemas in `@aura/contracts` (Zod `.strict()`, with limits): ids with prefixes (`usr_`, `org_`,
+`ses_`, `key_`), sign-in requests and responses, organization and membership objects, API key objects.
+Routes under `/api/v1`:
+- `auth/email/start`, `auth/email/verify` (link and code), `auth/passkey/register/options|verify`,
+  `auth/passkey/login/options|verify`, `auth/oauth/{github,google}/start|callback`,
+  `auth/link/confirm`, `auth/logout`, `auth/logout-all`.
+- `me`, `me/sessions` (list, revoke), `me/passkeys` (list, rename, delete), `me/export`, `me/delete-request`.
+- `orgs` (create, list, get), `orgs/{id}/members` (invite, change role, remove), `orgs/{id}/api-keys`
+  (create, list, revoke), platform-admin `admin/orgs/{id}:verify`.
+Every route declares auth, permission, rate-limit class, idempotency decision, body limit and error
+codes. Responses are explicit allowlists. A startup test asserts the middleware order.
+
+## 7. Security design (key rules)
+- **Sessions:** opaque 256-bit random token, only its SHA-256 stored; cookie `__Host-aura_session`
+  (`Secure; HttpOnly; SameSite=Lax; Path=/`); idle timeout 30 min for admin and org owners/admins and 7
+  days for others; absolute 30 days; rotation on sign-in and on privilege change; "log out everywhere".
+- **Login tokens:** purpose-bound (a token for one purpose is rejected for another; the OAuth state
+  can never be used as an email link), single-use through one atomic `UPDATE … WHERE consumed_at IS NULL
+  AND expires_at > now() RETURNING`, link lifetime 15 minutes, code 8 digits for 10 minutes with at most
+  5 attempts, constant-time comparison, and the link or code is bound to the browser that requested it by a
+  short-lived cookie. Responses and timing do not reveal whether an email exists.
+- **OAuth:** `state` plus PKCE, exact redirect-URI allowlist, provider-verified email required,
+  linking rules as in assumption 5. GitHub's primary verified email is read through the egress client.
+- **CSRF:** `Origin` and `Sec-Fetch-Site` checks plus a custom header on unsafe methods.
+- **Authorization:** `authorize(actor, action, resource)` is deny-by-default and also enforced in the
+  database: `withRequestContext` sets the actor, user and organization list per transaction. A route
+  without an authorization-matrix row fails CI.
+- **Pre-auth data access** uses the `aura_auth` role, which cannot read tenant tables.
+- **Secrets and logs:** no tokens, codes or emails in logs (email is hashed for log correlation).
+  The redaction list gains `code`, `token` and `otp`. Rate limits as in kit file 06 section 8.
+- **Assertions vs. input validation:** externally reachable input is validated and returns a typed
+  error; invariants (impossible internal states) assert. Attackers must not be able to trigger an
+  assertion and thereby restart the process (a risk recorded in the Stage 0 report).
+
+## 8. Invariants (each asserted in code and covered by a test)
+1. A session token is shown once and only its hash is stored.
+2. A login token is consumed at most once and only for its own purpose and email.
+3. A user has at most one verified email; `email_verified_at` is set only through a consumed login
+   token or a provider-verified email.
+4. An organization always has at least one owner.
+5. A user can never read or write a row of an organization they are not a member of, at either layer.
+6. The audit chain is append-only and recomputes exactly; any change is detected.
+7. A privileged action (admin, owner or admin role changes, API key creation, org verification) requires
+   a session created with a passkey in the last 15 minutes, or a fresh passkey step-up.
+8. An unverified organization cannot have capabilities that need verification (flag checked by
+   `authorize`; the capabilities themselves arrive in later stages).
+
+## 9. Limits (named constants with units and reasons, in `limits.ts`)
+Email 254 bytes; handle 3 to 24; display name 80; org name 120; passkeys per user 20; active sessions
+per user 20 (the oldest is revoked); organizations per user 20; members per org 5,000; API keys per org
+20; login tokens per email per hour 5; OTP attempts 5; OAuth callbacks per IP per minute 10; request
+body 256 KiB; pagination default 25, maximum 100.
+
+## 10. Back-of-envelope
+Session lookup is one indexed read per request: about 0.3 ms, so 1,000 requests per second is 1,000
+queries per second on a small instance, trivial. The bottleneck at this stage is not a resource; we
+therefore add **no session cache** (a cache would delay revocation). The audit chain serializes
+inserts at roughly 1 to 2 ms each, a ceiling of a few hundred events per second, far above need.
+Revisit triggers: session reads above 5,000 per second, or audit events above 200 per second.
+
+## 11. Work breakdown (small vertical slices, tests first, one PR each)
+| # | Slice | Verify |
+|---|---|---|
+| 0 | ADRs for dependencies; install and pin packages; `limits.ts`; contracts for ids and auth | `pnpm check`, depcheck |
+| 1 | Migration: roles, users, profiles, audit log with hash chain and tamper test; `pnpm audit:verify` | chain tamper test fails when a row is edited |
+| 2 | Sessions: create, validate, rotate, revoke; cookie; pipeline slots `authenticate`, `csrf`, `dbContext`; session DST scenario | DST (100k seeds nightly), fixation and rotation tests |
+| 3 | `MailPort` + Mailpit; email link and code login; enumeration-safe responses; `auth` rate limit | timing and enumeration tests, token purpose and replay tests, DST for token state |
+| 4 | Passkeys: register and login, challenge table, device list | Playwright with a virtual authenticator |
+| 5 | OAuth: GitHub and Google through a fake provider; safe linking; egress client | pre-account-takeover tests, state and PKCE tests |
+| 6 | Orgs, memberships, roles, `authorize()`, API keys, org verification by platform admin | generated RLS matrix and authorization matrix |
+| 7 | Account and organization screens (plain accessible markup), `me/export`, delete request | Playwright journeys, axe, first browser CSP check |
+| 8 | Hardening: threat model v1, ASVS mapping, runbook for session revocation, stage report | security gate checklist |
+
+## 12. Things only you can provide, and when
+- **Before slice 5 can run for real (not for tests):** a GitHub OAuth App and a Google Cloud OAuth
+  client, with the redirect URI `http://localhost:3000/api/v1/auth/oauth/<provider>/callback` for
+  development. Client IDs and secrets go in your local `.env`, never in the repository.
+- **Before the first deploy:** the staging decisions (D1, D3, D8) and a real email provider.
+- **At the end of the stage:** your sign-off. The kit also wants a human read of identity, database
+  and RLS diffs; the pull request for each slice is where that happens.
+
+## 13. Failure modes and tests (summary)
+Database down during login (typed 503, nothing half-created); expired, reused, wrong-purpose and
+wrong-browser tokens; code brute force (lock after 5); passkey replay and counter regression;
+passkey challenge reuse; OAuth state tampering, redirect mismatch, unverified provider email,
+existing-email collision; session theft indicators (IP change is recorded, not an auto-block);
+concurrent logins past the session limit; two simultaneous org-owner removals (last-owner rule);
+audit log insert under concurrency; RLS bypass attempts through every tenant table and operation;
+API key shown once and unusable after revocation; rate limits at the boundary (limit minus one,
+limit, limit plus one).
+
+## 14. Threat model additions (STRIDE highlights)
+Spoofing: account takeover via email link, OAuth linking, passkey enrollment. Tampering: audit log,
+session cookie. Repudiation: audit chain. Information disclosure: enumeration, tenant data, tokens
+in logs. Denial of service: login flooding and lockout abuse (soft lockout through step-up, not hard
+lock). Elevation: org role changes, platform admin, API key scopes. The full table lands in
+`docs/threat-model.md` v1 with slice 8.
+
+## 15. Observability
+Structured auth events (no personal data: hashed email, user id, method, result, request id) in
+logs and in the audit log for security-relevant actions. OpenTelemetry stays deferred to the first
+multi-service flow. Alert-ready counters (failed logins, token reuse, RLS denials) are logged now
+and become metrics when the metrics stack exists.
+
+## 16. Rollout and rollback
+No production exists. Migrations are expand-only and additive, so a revert of any slice leaves the
+database valid. Each slice merges only with green CI, and the stage report records evidence.
+
+## 17. Open questions for you (answer or accept the default)
+1. Is **8-digit numeric** the right email code format (default), or would you prefer a longer
+   alphanumeric code?
+2. Should **every** organization owner need a passkey, or only platform admins and owners of
+   *verified* organizations? (Default: all owners and admins, per assumption 3.)
+3. Should organization creation be **rate-limited per user** (default: 5 per day while unverified)?
+4. OK to defer the account **purge** job (deletion request only) to Stage 3 with the worker?
