@@ -43,7 +43,7 @@ harness with seeded world; CI workflows, Dockerfiles, compose file; six ADRs; th
 db 10); simulation scenario run over 500 seeds.
 
 ## Key decisions and deviations
-ADRs 0001–0009. Notable: kit corrections (pnpm settings location, root entry limit 14, no
+ADRs 0001–0010. Notable: kit corrections (pnpm settings location, root entry limit 14, no
 Testcontainers, access-log position), TypeScript 7 forcing oxc-parser and `ignoreBuildErrors`.
 
 ## Security gate (docs/kit/08 section 14)
@@ -56,7 +56,7 @@ Testcontainers, access-log position), TypeScript 7 forcing oxc-parser and `ignor
 - [ ] Human read of `packages/db` and `infra` diffs: pending sign-off (the one item that cannot be delegated)
 
 ## Risks and follow-ups (ranked)
-1. Trivy in CI is unproven until this PR's run; the base image digest needs periodic refreshing (ADR 0009).
+1. CI pulled images anonymously from Docker Hub and was rate-limited on shared runners; images now come from registries without that limit, digests unchanged (ADR 0010). The base image digest needs periodic refreshing (ADR 0009).
 2. Node 26 becomes LTS on 2026-10-28; decide by ADR whether to move from 24.
 3. Next.js advisory cadence remains high (ADR 0005); patch within 72 hours.
 4. `tigerlint` depends on `oxc-parser`; watch for a stable TypeScript JS API.

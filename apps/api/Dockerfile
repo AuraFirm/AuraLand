@@ -1,8 +1,10 @@
 # Build from the repository root:  docker build -f apps/api/Dockerfile .
+# Base images come from public registries without Docker Hub's anonymous pull limit, which
+# GitHub's shared runners exhaust (ADR 0010). Digests are identical to the Docker Hub ones.
 # Built, scanned (Trivy: 0 findings) and smoke-tested on 2026-10-10 under Colima (arm64): ran
 # read-only, non-root, all capabilities dropped. CI builds and scans it on amd64 for every push.
 
-FROM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS build
+FROM public.ecr.aws/docker/library/node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS build
 WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
