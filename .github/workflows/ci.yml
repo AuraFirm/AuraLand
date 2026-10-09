@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+        image: public.ecr.aws/docker/library/postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
         env:
           POSTGRES_USER: aura
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -50,6 +50,11 @@ jobs:
           persist-credentials: false
       - run: docker build --file apps/api/Dockerfile --tag aura-api:ci .
       - run: docker build --file apps/web/Dockerfile --tag aura-web:ci .
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Node strips types itself, so the runner script needs no dependencies installed.
+      - run: node tools/trivy-cli.ts aura-api:ci aura-web:ci
   semgrep:
     runs-on: ubuntu-24.04
     timeout-minutes: 10

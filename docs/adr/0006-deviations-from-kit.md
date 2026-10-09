@@ -11,7 +11,7 @@ Date: 2026-10-10
 | 5 | OpenTelemetry skeleton | Deferred | Logs carry `request_id`; add the SDK with the first multi-hop flow |
 | 6 | `.npmrc` holds `ignore-scripts` and build allowlist | `pnpm-workspace.yaml` holds all supply-chain settings | pnpm reads only auth and registry settings from `.npmrc` |
 | 7 | `AURA_ROLE` is `http` or `worker` | Only `http` | The worker has no jobs until Stage 3 |
-| 8 | Staging deploys a hello endpoint (Stage 0 acceptance) | **Not done** | Needs an AWS account, region and domain decisions (D1, D3, D8) and credentials; see the stage report |
+| 8 | Staging deploys a hello endpoint (Stage 0 acceptance) | **Deferred** (ADR 0008) | Needs an AWS account, region and domain decisions (D1, D3, D8) and credentials |
 | 9 | Testcontainers for integration tests | A PostgreSQL URL from the environment | ADR 0004 |
 | 10 | `tasks/` top-level folder | Omitted until Stage 2 | No golden tasks exist yet |
 

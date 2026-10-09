@@ -13,13 +13,11 @@ harness with seeded world; CI workflows, Dockerfiles, compose file; six ADRs; th
 ## Deferred or not done (with reasons)
 | Item | Status | Why |
 |---|---|---|
-| Staging deploy of a hello endpoint | **Not done** | No AWS account, region, domain or credentials; decisions D1, D3, D8 open |
+| Staging deploy of a hello endpoint | **Deferred** (ADR 0008) | No AWS account, region, domain or credentials; D1, D3, D8 open. Stage 1 does not depend on it |
 | CodeQL | Re-enabled | Was manual-only while the repo was private; the repo is now public, so it runs beside Semgrep (ADR 0007 amendment) |
 | SBOM, signing, provenance | Not done | Needs a registry and a deploy target; add with the first deploy |
-| Branch protection, CODEOWNERS entries | Not done | Needs the GitHub repo and decision D9 (security reviewer) |
 | OpenTelemetry, extra ports, worker role | Deferred | No consumer yet; ADR 0004 and 0006 |
-| CSP exercised in a real browser | Not done | Playwright arrives with Stage 1 end-to-end tests |
-| Claude Code listing the repo copy of the `craft` skill | Not confirmed | Needs a new session in this repo |
+| CSP exercised in a real browser | Moved to Stage 1 | Playwright arrives with the Stage 1 end-to-end tests (new dependency, needs its own ADR) |
 
 ## Acceptance evidence
 | Criterion | Evidence |
@@ -31,7 +29,12 @@ harness with seeded world; CI workflows, Dockerfiles, compose file; six ADRs; th
 | RLS context isolates tenants and does not leak | `context.test.ts` on PostgreSQL 18.6; mutation check: with session-wide `set_config` the leak test failed, restored afterwards |
 | API runs and shuts down cleanly | Built bundle served health, readiness (real database), 404 and 413 problem responses; SIGTERM exited 0 |
 | Web headers and nonce | Standalone server: all static headers, unique nonce per request, nonce on 5 script tags, no `X-Powered-By` |
-| Docker (added after first report) | Colima VM, Docker 29.5. `infra/compose.yml` starts healthy on PostgreSQL 18.6 (digest-pinned image); `pnpm test` passes 71/71 against it; both Dockerfiles build (API 352 MB, web 403 MB); containers run `--read-only --cap-drop ALL`, non-root (uid 1000); API `/api/readyz` is ready against the compose database; web serves the nonce CSP |
+| Repository protection | Ruleset on `main` is active with an empty bypass list: pull request, four required checks (strict), signed commits, linear history, squash or rebase only, no deletion or force-push. Two PRs merged through it; the unsigned one was blocked until commit signing was set up |
+| GitHub security settings | Dependency graph, Dependabot alerts and security updates, private vulnerability reporting, secret scanning and push protection are enabled (verified with the API). Generic-secret patterns and validity checks cannot be enabled through the API (optional) |
+| CodeQL | Re-enabled after the repo became public; its one finding (biased `nextInt`) was fixed in PR #2 and GitHub marked alert #1 fixed |
+| `craft` skill and `CLAUDE.md` | A fresh headless Claude session in the repo listed `craft` and quoted the `CLAUDE.md` title. (`craft` also exists in the home folder, so this does not isolate the repo copy.) |
+| Container scan | Trivy on both images and the Dockerfiles: 0 findings after switching to a distroless runtime (ADR 0009); it first found 4 npm and 7 Debian HIGH advisories in the old base |
+| Docker (added after first report) | Colima VM, Docker 29.5. `infra/compose.yml` starts healthy on PostgreSQL 18.6 (digest-pinned image); `pnpm test` passes 71/71 against it; both Dockerfiles build (distroless runtime: API 225 MB, web 275 MB); containers run `--read-only --cap-drop ALL`, non-root (uid 65532), no shell; API `/api/readyz` is ready against the compose database; web serves the nonce CSP |
 | CI on GitHub (first run, 2026-10-10) | `verify`, `images` (amd64) and `secrets` jobs succeeded. CodeQL analyzed everything but could not upload results (needs paid GitHub Code Security); replaced by Semgrep, ADR 0007 |
 | Supply chain | `pnpm audit`: no known vulnerabilities; `pnpm audit signatures`: 234 packages verified; 3-day rule rejected two fresh versions; esbuild script denied explicitly |
 
@@ -40,7 +43,7 @@ harness with seeded world; CI workflows, Dockerfiles, compose file; six ADRs; th
 db 10); simulation scenario run over 500 seeds.
 
 ## Key decisions and deviations
-ADRs 0001–0006. Notable: kit corrections (pnpm settings location, root entry limit 14, no
+ADRs 0001–0010. Notable: kit corrections (pnpm settings location, root entry limit 14, no
 Testcontainers, access-log position), TypeScript 7 forcing oxc-parser and `ignoreBuildErrors`.
 
 ## Security gate (docs/kit/08 section 14)
@@ -49,19 +52,22 @@ Testcontainers, access-log position), TypeScript 7 forcing oxc-parser and `ignor
 - [x] Logging redaction configured; no PII exists yet
 - [x] Supply-chain controls active
 - [ ] Authz and RLS matrix tests: not applicable until Stage 1 tables exist
-- [x] Secret scan (TruffleHog) passes in CI; SAST (Semgrep) passes locally and in CI (run 37982366630); container scan (Trivy) not added yet
-- [ ] Human read of `packages/db` and `infra` diffs: pending sign-off
+- [x] Secret scan (TruffleHog), SAST (Semgrep) and CodeQL pass in CI; container scan (Trivy) passes locally, CI run pending in this PR
+- [ ] Human read of `packages/db` and `infra` diffs: pending sign-off (the one item that cannot be delegated)
 
 ## Risks and follow-ups (ranked)
-1. CI and images are unproven until the first GitHub run; expect small fixes.
+1. CI pulled images anonymously from Docker Hub and was rate-limited on shared runners; images now come from registries without that limit, digests unchanged (ADR 0010). The base image digest needs periodic refreshing (ADR 0009).
 2. Node 26 becomes LTS on 2026-10-28; decide by ADR whether to move from 24.
 3. Next.js advisory cadence remains high (ADR 0005); patch within 72 hours.
 4. `tigerlint` depends on `oxc-parser`; watch for a stable TypeScript JS API.
 5. Assertion failure stops the API process by design; Stage 1 must keep externally reachable input
    validation separate from invariants so attackers cannot trigger restarts.
 
-## Questions for the humans
-1. Create the GitHub repository and decide D9 (security reviewer) so CI, branch protection and
-   CODEOWNERS can be switched on.
-2. Choose cloud region, domain and legal entity (D1, D3, D8) to unblock the staging deploy.
-3. Approve Stage 1, or ask for changes.
+## Decisions recorded on the founder's behalf (2026-10-10)
+- D9: the security reviewer is the repository owner, `@ShifatHasanGNS` (CODEOWNERS).
+- The staging deploy is deferred (ADR 0008). D1, D3 and D8 stay open.
+
+## Sign-off
+Stage 0 is not approved until a human says so. Reviewer checklist: read the acceptance evidence
+and the "Deferred or not done" table above, `docs/adr/0006-deviations-from-kit.md`, and the
+security gate. Then reply "Stage 0 approved". Stage 1 starts with a plan for review, not code.
