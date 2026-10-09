@@ -21,7 +21,8 @@
         "build": "pnpm --recursive run build",
         "db:migrate": "node --env-file=.env packages/db/src/migrate-cli.ts",
         "audit": "pnpm audit --audit-level high && pnpm audit signatures",
-        "check:semgrep": "node tools/semgrep-cli.ts"
+        "check:semgrep": "node tools/semgrep-cli.ts",
+        "check:trivy": "node tools/trivy-cli.ts aura-api:local aura-web:local"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.15",

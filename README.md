@@ -14,6 +14,8 @@ cp .env.example .env
 pnpm db:migrate                                   # needs AURA_DATABASE_URL in the environment
 pnpm check && pnpm test && pnpm test:sim
 pnpm check:semgrep                                # security rules; needs Docker
+# after building the images (docker build --file apps/<app>/Dockerfile --tag aura-<app>:local .):
+pnpm check:trivy                                  # image and Dockerfile scan; needs Docker
 pnpm dev                                          # api :3001, web :3000
 ```
 

@@ -10,7 +10,7 @@ Full context: `docs/kit/` (start with 00_START_HERE.md, 01, 02). Stage plan: `do
 State assumptions, simplest thing that works, SURGICAL changes (every changed line traces to the task; report unrelated issues, don't fix them), verifiable success criteria, fail fast/loud, explain WHY in comments and commits. Build only the current stage's scope: no speculative ports, options or modules. Security rules and domain invariants override everything.
 
 ## Commands
-- `pnpm i` · `pnpm dev` · `pnpm check` (biome + tsc + tigerlint + depcheck) · `pnpm test` · `pnpm test:sim [--scenario=<name> --seed=<n> --seeds=<count>]` · `pnpm build` · `pnpm db:migrate` · `pnpm audit` · `pnpm check:semgrep` (needs Docker; runs in CI too)
+- `pnpm i` · `pnpm dev` · `pnpm check` (biome + tsc + tigerlint + depcheck) · `pnpm test` · `pnpm test:sim [--scenario=<name> --seed=<n> --seeds=<count>]` · `pnpm build` · `pnpm db:migrate` · `pnpm audit` · `pnpm check:semgrep` · `pnpm check:trivy` (both need Docker and run in CI too)
 - Database tests need PostgreSQL 18 at `AURA_TEST_DATABASE_URL` (see README). They fail, not skip, without it.
 - Definition of done: `pnpm check && pnpm test && pnpm test:sim` green, plus the stage gates in `docs/kit/12`.
 - Format fixes: `pnpm format`. Tools run with Node's type stripping: `node tools/<file>.ts`.
@@ -51,7 +51,7 @@ Versions are pinned in `docs/adr/0001-stack-and-pins.md`. Deviations from the ki
 4. Migrations: expand → migrate → contract; reviewed SQL; RLS + matrix updated in the same PR.
 5. Ask the human when requirements are ambiguous in a design-changing way, for human-owned decisions (docs/kit/15 §3), or before anything destructive. Otherwise follow the kit, state the assumption, and record an ADR.
 6. Do not edit `docs/kit/`; propose changes through an ADR + patch.
-7. Never run destructive commands against shared/prod infra, never force-push, never commit secrets.
+7. Never run destructive commands against shared/prod infra, never force-push a shared branch such as `main` (re-signing or amending your own unmerged PR branch with `--force-with-lease` is allowed), never commit secrets. Merge only with the normal `gh pr merge`; never use admin override or a raw merge API call to get past a block, stop and report it instead.
 
 ## When unsure
 Choose the simpler, more explicit, easier-to-verify design. Delete before you add. Make it fail loudly rather than silently.

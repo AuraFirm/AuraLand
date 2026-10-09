@@ -1,10 +1,11 @@
-# Intentionally has no active entries yet. Decision D9 (docs/kit/15) is open: who is the human
-# security reviewer? A CODEOWNERS line naming a user or team that does not exist is ignored, so a
-# placeholder would silently give false assurance. When D9 is decided, add lines like:
-#
-#   /packages/db/                 @<security-reviewer>
-#   /apps/api/src/modules/identity/   @<security-reviewer>
-#   /apps/api/src/modules/passport/   @<security-reviewer>
-#   /judge/                       @<security-reviewer>
-#   /infra/                       @<security-reviewer>
-#   /.github/                     @<security-reviewer>
+# Security-sensitive paths are owned by the security reviewer (decision D9, recorded 2026-10-10).
+# The ruleset does not yet "require review from Code Owners": with a single maintainer that would
+# block every merge. Turn it on when a second reviewer exists.
+/packages/db/                      @ShifatHasanGNS
+/apps/api/src/modules/identity/    @ShifatHasanGNS
+/apps/api/src/modules/passport/    @ShifatHasanGNS
+/judge/                            @ShifatHasanGNS
+/infra/                            @ShifatHasanGNS
+/.github/                          @ShifatHasanGNS
+/tools/semgrep/                    @ShifatHasanGNS
+/docs/adr/                         @ShifatHasanGNS
