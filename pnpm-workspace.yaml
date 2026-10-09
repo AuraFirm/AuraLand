@@ -1,0 +1,26 @@
+# Supply-chain settings are explicit on purpose (craft: never rely on defaults that may change).
+# They live here, not in .npmrc, because pnpm reads only auth/registry settings from .npmrc.
+packages:
+    - apps/*
+    - packages/*
+    - tools
+
+# A release must be at least 3 days old before we install it, so a freshly published malicious
+# version is not adopted automatically. Units are minutes.
+minimumReleaseAge: 4320
+# Only root-level dependencies may come from git or tarball URLs.
+blockExoticSubdeps: true
+# Fail the install when a dependency has an unreviewed build script.
+strictDepBuilds: true
+# Fail when a package's publish provenance got weaker than in earlier releases.
+trustPolicy: no-downgrade
+# Fail rather than silently reinstall when node_modules is out of date.
+verifyDepsBeforeRun: error
+# Save exact versions, never ranges.
+savePrefix: ""
+
+# Install scripts we have reviewed. Everything unlisted fails the install (strictDepBuilds).
+# esbuild: its postinstall only swaps in the native binary as a speed optimization; the binary
+# itself arrives through the @esbuild/* optional dependency, so the script is denied (ADR 0004).
+allowBuilds:
+    esbuild: false

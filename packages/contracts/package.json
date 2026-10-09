@@ -1,0 +1,14 @@
+{
+    "name": "@aura/contracts",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./*": "./src/*.ts"
+    },
+    "scripts": {
+        "check:types": "tsc --project tsconfig.json"
+    },
+    "dependencies": {
+        "zod": "4.6.5"
+    }
+}

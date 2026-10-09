@@ -1,0 +1,33 @@
+{
+    "name": "auraland",
+    "private": true,
+    "type": "module",
+    "packageManager": "pnpm@12.10.1",
+    "engines": {
+        "node": ">=24.0.0 <27",
+        "pnpm": ">=12.10.1"
+    },
+    "scripts": {
+        "dev": "pnpm --parallel --filter @aura/api --filter @aura/web run dev",
+        "check": "pnpm run check:format && pnpm run check:types && pnpm run check:tigerlint && pnpm run check:deps",
+        "check:format": "biome check --error-on-warnings .",
+        "check:types": "pnpm --recursive run check:types",
+        "check:tigerlint": "node tools/tigerlint-cli.ts",
+        "check:deps": "node tools/depcheck-cli.ts",
+        "format": "biome check --write .",
+        "test": "node --env-file-if-exists=.env node_modules/vitest/vitest.mjs run --config vitest.config.ts",
+        "test:sim": "node apps/api/src/sim/cli.ts",
+        "test:e2e": "echo 'No end-to-end tests exist before Stage 1.' && exit 1",
+        "build": "pnpm --recursive run build",
+        "db:migrate": "node --env-file=.env packages/db/src/migrate-cli.ts",
+        "audit": "pnpm audit --audit-level high && pnpm audit signatures"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "2.5.15",
+        "@types/node": "24.19.1",
+        "esbuild": "0.28.2",
+        "oxc-parser": "0.153.0",
+        "typescript": "7.0.2",
+        "vitest": "5.0.3"
+    }
+}

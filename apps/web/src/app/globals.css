@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+@theme inline {
+    --color-bg: var(--bg);
+    --color-panel: var(--panel);
+    --color-line: var(--line);
+    --color-text: var(--text);
+    --color-muted: var(--muted);
+    --color-brand: var(--brand);
+    --color-accent: var(--accent);
+    --font-sans: var(--font-sans);
+    --font-mono: var(--font-mono);
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+}
+
+:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}

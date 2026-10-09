@@ -1,0 +1,52 @@
+/* Design tokens (docs/kit/09 section 4). Dark is the default; light is first-class. */
+:root,
+:root[data-theme="dark"] {
+    --bg: #0b0f1a;
+    --panel: #121a2b;
+    --panel-2: #1a2438;
+    --line: #2a3652;
+    --text: #e5e9f2;
+    --muted: #8d99b3;
+    --brand: #6366f1;
+    --accent: #22d3ee;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --info: #a855f7;
+    --focus: #22d3ee;
+}
+
+:root[data-theme="light"] {
+    --bg: #f8fafc;
+    --panel: #ffffff;
+    --panel-2: #eef2ff;
+    --line: #cbd5e1;
+    --text: #0f172a;
+    --muted: #475569;
+    --brand: #4f46e5;
+    --accent: #0891b2;
+    --ok: #15803d;
+    --warn: #b45309;
+    --danger: #b91c1c;
+    --info: #7e22ce;
+    --focus: #0e7490;
+}
+
+:root {
+    --radius-s: 4px;
+    --radius-m: 8px;
+    --radius-l: 12px;
+    /* System fonts until the first real UI stage self-hosts Inter and JetBrains Mono. */
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --dur-fast: 120ms;
+    --dur-base: 200ms;
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --dur-fast: 0ms;
+        --dur-base: 0ms;
+    }
+}

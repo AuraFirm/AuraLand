@@ -1,0 +1,92 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+    "vcs": {
+        "enabled": true,
+        "clientKind": "git",
+        "useIgnoreFile": true
+    },
+    "files": {
+        "includes": ["**", "!**/dist", "!**/.next", "!**/generated", "!docs/kit", "!pnpm-lock.yaml"]
+    },
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 100,
+        "lineEnding": "lf"
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "double",
+            "semicolons": "always",
+            "trailingCommas": "all",
+            "arrowParentheses": "always"
+        }
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "preset": "recommended",
+            "style": {
+                "noDefaultExport": "error",
+                "noNonNullAssertion": "error",
+                "useConst": "error",
+                "useImportType": "error"
+            },
+            "suspicious": {
+                "noExplicitAny": "error",
+                "noEmptyBlockStatements": "error",
+                "noConsole": "error"
+            },
+            "complexity": {
+                "noUselessCatch": "error",
+                "useLiteralKeys": "off"
+            }
+        }
+    },
+    "assist": {
+        "enabled": true,
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
+        }
+    },
+    "overrides": [
+        {
+            "includes": [
+                "**/*.config.ts",
+                "**/*.config.mjs",
+                "apps/web/src/app/**/page.tsx",
+                "apps/web/src/app/**/layout.tsx",
+                "apps/web/src/app/**/error.tsx",
+                "apps/web/src/app/**/loading.tsx",
+                "apps/web/src/app/**/not-found.tsx",
+                "apps/web/src/app/**/global-error.tsx",
+                "apps/web/src/app/**/template.tsx"
+            ],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "noDefaultExport": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": ["tools/tigerlint*.ts"],
+            "linter": {
+                "rules": {
+                    "suspicious": {
+                        "noTemplateCurlyInString": "off"
+                    }
+                }
+            }
+        }
+    ],
+    "css": {
+        "parser": {
+            "tailwindDirectives": true
+        }
+    }
+}

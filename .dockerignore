@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.next
+.git
+.pgdata
+docs
+.env
+.env.*

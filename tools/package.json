@@ -1,0 +1,8 @@
+{
+    "name": "@aura/tools",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "check:types": "tsc --project tsconfig.json"
+    }
+}

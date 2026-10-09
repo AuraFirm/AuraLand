@@ -1,0 +1,42 @@
+{
+    "budgets": {
+        "root": 0,
+        "tools": 0,
+        "apps/api": 25,
+        "apps/web": 30,
+        "packages/contracts": 3,
+        "packages/db": 4
+    },
+    "allowed": {
+        "root": {
+            "@biomejs/biome": "0004",
+            "@types/node": "0001",
+            "esbuild": "0004",
+            "oxc-parser": "0004",
+            "typescript": "0001",
+            "vitest": "0001"
+        },
+        "tools": {},
+        "apps/api": {
+            "@hono/node-server": "0001",
+            "hono": "0001",
+            "pino": "0001",
+            "zod": "0001"
+        },
+        "apps/web": {
+            "next": "0005",
+            "react": "0001",
+            "react-dom": "0001",
+            "tailwindcss": "0001",
+            "@tailwindcss/postcss": "0001",
+            "@types/react": "0001",
+            "@types/react-dom": "0001"
+        },
+        "packages/contracts": {
+            "zod": "0001"
+        },
+        "packages/db": {
+            "postgres": "0001"
+        }
+    }
+}
