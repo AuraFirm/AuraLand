@@ -40,7 +40,8 @@ Clients other than our own pages must send the custom header. A user whose brows
 ## Verification
 `transport.test.ts` covers the cookie attributes, parsing edge cases (duplicates, wrong name, junk,
 size limit at the exact byte) and a full CSRF decision table; mutation checks confirm each rule is
-needed. API-level tests arrive with slice 2b-ii.
+needed. `http-sessions.test.ts` and `authz-matrix.test.ts` check the same rules end to end through the
+real HTTP app and PostgreSQL (slice 2b-ii).
 
 ## Revisit trigger
 A need for cross-origin API access (then CORS and token-based CSRF are designed together), or the

@@ -1,6 +1,7 @@
+import { AUTH_METHODS } from "@aura/contracts/identity";
 import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
-import { AUTH_METHODS, REVOKE_REASONS, type SessionRecord } from "./rules.ts";
+import { REVOKE_REASONS, type RevokeReason, type SessionRecord } from "./rules.ts";
 import type { SessionStore } from "./service.ts";
 
 // PostgreSQL implementation of SessionStore. It must run in a transaction acting as `aura_auth`
@@ -107,4 +108,89 @@ export function createPgSessionStore(tx: Transaction): SessionStore {
             return rows.map((row) => toRecord(rowSchema.parse(row)));
         },
     };
+}
+
+// ---- reads and revocations for a logged-in person (run as `aura_app`) ----
+// These touch only columns that role may see, never the token hash.
+
+const meRowSchema = z.object({
+    id: z.string(),
+    email: z.string(),
+    email_verified_at: z.date().nullable(),
+    platform_role: z.enum(["none", "admin"]),
+    handle: z.string().nullable(),
+    display_name: z.string().nullable(),
+});
+export type MeRow = z.infer<typeof meRowSchema>;
+
+export async function getMe(tx: Transaction, userId: string): Promise<MeRow | null> {
+    const rows = await tx`
+        select u.id, u.email, u.email_verified_at, u.platform_role, p.handle, p.display_name
+        from users u left join profiles p on p.user_id = u.id
+        where u.id = ${userId}
+    `;
+    const row = rows[0];
+    return row === undefined ? null : meRowSchema.parse(row);
+}
+
+const deviceRowSchema = z.object({
+    id: z.string(),
+    auth_method: z.enum(AUTH_METHODS),
+    created_at: z.date(),
+    last_seen_at: z.date(),
+    idle_expires_at: z.date(),
+    absolute_expires_at: z.date(),
+    ip_network: z.string().nullable(),
+    user_agent: z.string().nullable(),
+});
+export type DeviceRow = z.infer<typeof deviceRowSchema>;
+
+// More than the per-user maximum would be a bug, so the limit is a guard, not a feature.
+const DEVICE_LIST_LIMIT = 50;
+
+export async function listDevices(
+    tx: Transaction,
+    userId: string,
+    nowMs: number,
+): Promise<DeviceRow[]> {
+    const now = new Date(nowMs);
+    const rows = await tx`
+        select id, auth_method, created_at, last_seen_at, idle_expires_at, absolute_expires_at,
+               ip_network, user_agent
+        from sessions
+        where user_id = ${userId} and revoked_at is null
+          and idle_expires_at > ${now} and absolute_expires_at > ${now}
+        order by created_at desc, id desc
+        limit ${DEVICE_LIST_LIMIT}
+    `;
+    return rows.map((row) => deviceRowSchema.parse(row));
+}
+
+// The caller's own session only: the `user_id` condition here and the row-level security policy
+// each refuse another person's session independently.
+export async function revokeOwnSession(
+    tx: Transaction,
+    userId: string,
+    sessionId: string,
+    atMs: number,
+    reason: RevokeReason,
+): Promise<boolean> {
+    const result = await tx`
+        update sessions set revoked_at = ${new Date(atMs)}, revoked_reason = ${reason}
+        where id = ${sessionId} and user_id = ${userId} and revoked_at is null
+    `;
+    return result.count === 1;
+}
+
+export async function revokeAllOwnSessions(
+    tx: Transaction,
+    userId: string,
+    atMs: number,
+    reason: RevokeReason,
+): Promise<number> {
+    const result = await tx`
+        update sessions set revoked_at = ${new Date(atMs)}, revoked_reason = ${reason}
+        where user_id = ${userId} and revoked_at is null
+    `;
+    return result.count;
 }

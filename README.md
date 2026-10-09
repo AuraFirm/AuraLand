@@ -30,7 +30,7 @@ brew install postgresql@18
 /opt/homebrew/opt/postgresql@18/bin/pg_ctl -D .pgdata -o "-p 54329 -k /tmp -c listen_addresses=127.0.0.1" start
 ```
 
-Database tests read `AURA_TEST_DATABASE_URL` and fail without it. They create and drop throwaway
+`.env` also needs `AURA_PUBLIC_ORIGIN` (the origin browsers use, `http://localhost:3000` locally), which the cross-site request check compares against. Database tests read `AURA_TEST_DATABASE_URL` and fail without it. They create and drop throwaway
 databases on that server.
 
 ## Layout

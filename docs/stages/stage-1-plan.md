@@ -245,3 +245,15 @@ database valid. Each slice merges only with green CI, and the stage report recor
   (required, bare origin, https outside local and test); the session cookie format and strict
   parsing (duplicates and oversized headers refused); and the CSRF decision table (ADR 0013). The
   CSRF check applies to every state-changing request, not only cookie-authenticated ones.
+- **Slice 2b-ii (2026-10-10), as built.** The HTTP side of sessions. The `authenticate`, `csrf` and
+  `dbContext` middleware run, in the order `pipeline.ts` asserts, for everything under `/api/v1`;
+  `dbContext` gives each request one transaction as `aura_app` and rolls it back for any response
+  with status 400 or above. Routes: `GET /me`, `GET /me/sessions`, `DELETE /me/sessions/{id}`,
+  `POST /auth/logout` (idempotent, clears a stale cookie) and `POST /auth/logout-all`. Responses go
+  through strict allowlist schemas in `@aura/contracts/api/identity`; the device list reads only the
+  columns `aura_app` may see, so token hashes never leave the database. Each action writes one audit
+  entry in the same transaction. An id from the outside is parsed with a safe parser, never an
+  assertion, so malformed input answers 400 and cannot ask the process to stop. The authorization
+  matrix is generated from the app's real route table: a route without a declared row, or a row for
+  a missing route, fails CI. Two Semgrep false positives (typed and call-expression SQL tags)
+  surfaced and were fixed with tests.

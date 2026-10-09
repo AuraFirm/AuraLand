@@ -1,45 +1,35 @@
 import { randomUUID } from "node:crypto";
 import { assert, InvariantError } from "@aura/contracts/assert";
-import { ERROR_STATUS, type ErrorCode } from "@aura/contracts/errors";
 import { REQUEST_BODY_BYTES_MAX, REQUEST_ID_LENGTH_MAX } from "@aura/contracts/limits";
+import type { Database } from "@aura/db/client";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
-import type { Config } from "./config.ts";
+import type { AppEnv } from "./app-env.ts";
+import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
+import { type Config, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
+import { identityRoutes } from "./modules/identity/routes.ts";
 import { assertPipelineOrder, type PipelineName } from "./pipeline.ts";
 import type { Clock } from "./platform/clock.ts";
 import type { Logger } from "./platform/log.ts";
-import { buildProblem } from "./platform/problem.ts";
+import { problemResponse } from "./platform/problem-response.ts";
+import type { Rng } from "./platform/rng.ts";
 
 export interface AppDeps {
     readonly config: Config;
     readonly logger: Logger;
     readonly clock: Clock;
+    readonly rng: Rng;
+    readonly database: Database;
     // Rejects when the database is unreachable. Must be cheap (a `select 1`).
     readonly pingDatabase: () => Promise<void>;
     // Called after an invariant violation, when state may be corrupt: the process should stop.
     readonly onInvariantViolation: () => void;
 }
 
-export interface AppEnv {
-    Variables: { requestId: string };
-}
-
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
-
-// Accepts any context because Hono's body-limit hook is not typed with our environment.
-function problemResponse(c: Context, code: ErrorCode, title: string, detail?: string) {
-    const requestId = c.get("requestId");
-    const body = buildProblem(
-        code,
-        title,
-        typeof requestId === "string" ? requestId : "unknown",
-        detail,
-    );
-    return c.json(body, ERROR_STATUS[code], { "Content-Type": "application/problem+json" });
-}
 
 function requestIdMiddleware(trustEdge: boolean): MiddlewareHandler<AppEnv> {
     return async (c, next) => {
@@ -118,15 +108,24 @@ async function pingWithTimeout(ping: () => Promise<void>): Promise<boolean> {
 export function createApp(deps: AppDeps): Hono<AppEnv> {
     const app = new Hono<AppEnv>().basePath("/api");
     const registered: PipelineName[] = [];
-    const use = (name: PipelineName, middleware: MiddlewareHandler<AppEnv>) => {
+    const use = (name: PipelineName, middleware: MiddlewareHandler<AppEnv>, path = "*") => {
         registered.push(name);
-        app.use("*", middleware);
+        app.use(path, middleware);
     };
     use("requestId", requestIdMiddleware(deps.config.AURA_TRUST_EDGE_REQUEST_ID));
     use("accessLog", accessLogMiddleware(deps));
     use("securityHeaders", securityHeadersMiddleware());
     use("bodyLimit", bodyLimitMiddleware());
+    // Everything under /v1 is the product API: identify the caller, refuse cross-site writes, and
+    // give the handler its transaction. Health probes above and below it stay dependency-free.
+    use("authenticate", authenticate(deps), "/v1/*");
+    use("csrf", csrf(deps), "/v1/*");
+    use("dbContext", dbContext(deps), "/v1/*");
     assertPipelineOrder(registered);
+    app.route(
+        "/v1",
+        identityRoutes({ clock: deps.clock, secureCookies: usesSecureCookies(deps.config) }),
+    );
 
     // Liveness: the process is up. It must not touch dependencies, or an outage restarts everything.
     app.get("/healthz", (c) => c.json({ status: "ok" }));

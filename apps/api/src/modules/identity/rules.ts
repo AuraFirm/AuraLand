@@ -1,4 +1,5 @@
 import { assert } from "@aura/contracts/assert";
+import type { AuthMethod } from "@aura/contracts/identity";
 import {
     COOKIE_HEADER_BYTES_MAX,
     CSRF_HEADER_VALUE,
@@ -13,8 +14,7 @@ import {
 // Pure session rules: no clock, no database, no randomness. Times are unix milliseconds and are
 // always passed in, which is what lets the simulation and the database tests share one definition.
 
-export const AUTH_METHODS = ["email_link", "email_code", "passkey", "github", "google"] as const;
-export type AuthMethod = (typeof AUTH_METHODS)[number];
+export type { AuthMethod };
 
 export const REVOKE_REASONS = [
     "logout",

@@ -11,6 +11,7 @@ import {
 } from "./limits.ts";
 import { systemClock } from "./platform/clock.ts";
 import { createLogger } from "./platform/log.ts";
+import { systemRng } from "./platform/rng.ts";
 
 // Process entry point: wire real dependencies, serve, and stop cleanly on signals or invariant
 // violations. This is the only place that terminates the process.
@@ -36,6 +37,8 @@ const app = createApp({
     config,
     logger,
     clock: systemClock,
+    rng: systemRng,
+    database,
     pingDatabase: async () => {
         await database.sql`select 1`;
     },

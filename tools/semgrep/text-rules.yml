@@ -7,10 +7,11 @@ rules:
     languages: [generic]
     severity: ERROR
     message: "SQL built with interpolation. Use a tagged template (sql`...${value}`) so values are bound."
-    # An untagged backtick string (no identifier or generic type argument, as in sql<Row[]>`...`,
-    # directly before the opening backtick) that
+    # An untagged backtick string: nothing that could be a tag directly before the opening backtick
+    # (an identifier, a generic type argument as in sql<Row[]>`...`, a call as in c.get("tx")`...`,
+    # or an index as in tags[0]`...`) that
     # contains SQL keywords and a ${} interpolation.
-    pattern-regex: '(?is)(?<![\w$>])`[^`]*\b(select\s[^`]*\sfrom|insert\s+into|delete\s+from|update\s+\w+\s+set)\b[^`]*\$\{'
+    pattern-regex: '(?is)(?<![\w$>)\]])`[^`]*\b(select\s[^`]*\sfrom|insert\s+into|delete\s+from|update\s+\w+\s+set)\b[^`]*\$\{'
     paths:
       include:
         - "*.ts"
