@@ -53,7 +53,7 @@ Testcontainers, access-log position), TypeScript 7 forcing oxc-parser and `ignor
 - [x] Supply-chain controls active
 - [ ] Authz and RLS matrix tests: not applicable until Stage 1 tables exist
 - [x] Secret scan (TruffleHog), SAST (Semgrep) and CodeQL pass in CI; container scan (Trivy) passes locally, CI run pending in this PR
-- [ ] Human read of `packages/db` and `infra` diffs: pending sign-off (the one item that cannot be delegated)
+- [x] Human sign-off: given by the founder on 2026-10-10 (recorded in the Sign-off section)
 
 ## Risks and follow-ups (ranked)
 1. CI pulled images anonymously from Docker Hub and was rate-limited on shared runners; images now come from registries without that limit, digests unchanged (ADR 0010). The base image digest needs periodic refreshing (ADR 0009).
@@ -68,6 +68,7 @@ Testcontainers, access-log position), TypeScript 7 forcing oxc-parser and `ignor
 - The staging deploy is deferred (ADR 0008). D1, D3 and D8 stay open.
 
 ## Sign-off
-Stage 0 is not approved until a human says so. Reviewer checklist: read the acceptance evidence
-and the "Deferred or not done" table above, `docs/adr/0006-deviations-from-kit.md`, and the
-security gate. Then reply "Stage 0 approved". Stage 1 starts with a plan for review, not code.
+**Approved by the founder on 2026-10-10** (their words: "Stage 0 approved"), after the work merged
+to `main` as PRs #1 to #3 with all CI checks green. The approval covers the stage as reported
+above, including the deferred items and the deviations in ADR 0006. The staging deploy stays open
+under ADR 0008. Stage 1 starts with a plan for review, not code.
