@@ -50,3 +50,17 @@ describe("systemRng.nextFloat", () => {
         }
     });
 });
+
+describe("systemRng.nextBytes", () => {
+    it("returns exactly the requested number of bytes, different each time", () => {
+        for (const count of [1, 16, 32, 1024])
+            expect(systemRng.nextBytes(count).length).toBe(count);
+        const first = Buffer.from(systemRng.nextBytes(32)).toString("hex");
+        expect(Buffer.from(systemRng.nextBytes(32)).toString("hex")).not.toBe(first);
+    });
+
+    it("rejects counts outside 1 to 1024 and non-integers", () => {
+        for (const bad of [0, -1, 1025, 1.5, Number.NaN])
+            expect(() => systemRng.nextBytes(bad)).toThrow(/count/);
+    });
+});

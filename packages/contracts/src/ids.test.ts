@@ -1,7 +1,7 @@
 // Goal: public ids must round-trip, reject every malformed or wrong-type form, and never let a
 // string from the outside reach a query unless it is a lowercase UUIDv7 with the right prefix.
 import { describe, expect, it } from "vitest";
-import { decodeId, encodeId, ID_PREFIXES, idSchema } from "./ids.ts";
+import { decodeId, encodeId, ID_PREFIXES, idSchema, isUuidV7, makeUuidV7 } from "./ids.ts";
 
 const UUID = "018f0000-0000-7000-8000-00000000000a";
 
@@ -53,5 +53,30 @@ describe("idSchema", () => {
         for (const value of [null, undefined, 42, {}, [], true]) {
             expect(schema.safeParse(value).success).toBe(false);
         }
+    });
+});
+
+describe("makeUuidV7", () => {
+    const bytes = (fill: number) => new Uint8Array(10).fill(fill);
+
+    it("produces a valid lowercase UUIDv7 that sorts by time", () => {
+        const earlier = makeUuidV7(1_800_000_000_000, bytes(0xab));
+        const later = makeUuidV7(1_800_000_000_001, bytes(0x00));
+        expect(isUuidV7(earlier)).toBe(true);
+        expect(isUuidV7(later)).toBe(true);
+        expect(earlier < later).toBe(true);
+    });
+
+    it("encodes the timestamp in the first 48 bits and uses the random bytes", () => {
+        const id = makeUuidV7(0x0123456789ab, bytes(0xff));
+        expect(id.replaceAll("-", "").slice(0, 12)).toBe("0123456789ab");
+        expect(makeUuidV7(1, bytes(1))).not.toBe(makeUuidV7(1, bytes(2)));
+    });
+
+    it("rejects times that do not fit in 48 bits and the wrong number of random bytes", () => {
+        expect(() => makeUuidV7(-1, bytes(0))).toThrow(/time/);
+        expect(() => makeUuidV7(2 ** 48, bytes(0))).toThrow(/time/);
+        expect(() => makeUuidV7(1.5, bytes(0))).toThrow(/time/);
+        expect(() => makeUuidV7(1, new Uint8Array(9))).toThrow(/10 random bytes/);
     });
 });

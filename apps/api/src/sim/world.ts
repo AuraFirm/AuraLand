@@ -1,6 +1,6 @@
 import { assert } from "@aura/contracts/assert";
 import type { Clock } from "../platform/clock.ts";
-import type { Rng } from "../platform/rng.ts";
+import { assertBytesCount, type Rng } from "../platform/rng.ts";
 
 // The simulated world: a controllable clock and a seeded random source. Everything a scenario
 // does must flow through these two, so a failing seed replays the exact same run.
@@ -58,6 +58,12 @@ export function createSeededRng(seed: number): Rng {
     };
     return {
         nextFloat: () => nextUint32() / 2 ** 32,
+        nextBytes(count: number): Uint8Array {
+            assertBytesCount(count);
+            const bytes = new Uint8Array(count);
+            for (let index = 0; index < count; index++) bytes[index] = nextUint32() & 0xff;
+            return bytes;
+        },
         nextInt(boundExclusive: number): number {
             assert(Number.isSafeInteger(boundExclusive) && boundExclusive > 0, "bound is positive");
             return Math.floor((nextUint32() / 2 ** 32) * boundExclusive);

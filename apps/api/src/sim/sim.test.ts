@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { runScenario, runSeeds } from "./runner.ts";
 import { boundedQueueScenario } from "./selftest.sim.ts";
+import { sessionScenario } from "./sessions.sim.ts";
 import { createFakeClock, createSeededRng } from "./world.ts";
 
 describe("seeded rng", () => {
@@ -28,6 +29,17 @@ describe("seeded rng", () => {
     });
 });
 
+describe("seeded rng bytes", () => {
+    it("is reproducible per seed, differs across seeds and fills the requested length", () => {
+        const bytes = (seed: number) =>
+            Buffer.from(createSeededRng(seed).nextBytes(32)).toString("hex");
+        expect(bytes(5)).toBe(bytes(5));
+        expect(bytes(5)).not.toBe(bytes(6));
+        expect(createSeededRng(1).nextBytes(7).length).toBe(7);
+        expect(() => createSeededRng(1).nextBytes(0)).toThrow(/count/);
+    });
+});
+
 describe("fake clock", () => {
     it("only moves forward", () => {
         const clock = createFakeClock(1000);
@@ -38,17 +50,30 @@ describe("fake clock", () => {
 });
 
 describe("runner", () => {
-    it("passes the correct queue on 500 seeds", () => {
-        expect(runSeeds(boundedQueueScenario(false), 0, 500)).toEqual([]);
+    it("passes the correct queue on 500 seeds", async () => {
+        expect(await runSeeds(boundedQueueScenario(false), 0, 500)).toEqual([]);
     });
 
-    it("finds the seeded bug and reproduces the identical failure from the seed", () => {
+    it("finds the seeded bug and reproduces the identical failure from the seed", async () => {
         const buggy = boundedQueueScenario(true);
-        const failures = runSeeds(buggy, 0, 500);
+        const failures = await runSeeds(buggy, 0, 500);
         expect(failures.length).toBeGreaterThan(0);
         const first = failures[0];
         expect(first?.message).toMatch(/capacity/);
-        const replay = runScenario(buggy, first?.seed ?? -1);
+        const replay = await runScenario(buggy, first?.seed ?? -1);
         expect(replay).toEqual(first);
+    });
+});
+
+describe("sessions scenario", () => {
+    it("passes on 150 seeds with the real service", async () => {
+        const failures = await runSeeds(sessionScenario("none"), 0, 150);
+        expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
+    });
+
+    it("catches a service that forgets to revoke the old token on rotation", async () => {
+        const failures = await runSeeds(sessionScenario("rotation_keeps_old_token"), 0, 150);
+        expect(failures.length).toBeGreaterThan(0);
+        expect(failures[0]?.message).toMatch(/model|stops working/);
     });
 });
