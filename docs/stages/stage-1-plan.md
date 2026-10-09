@@ -219,3 +219,10 @@ database valid. Each slice merges only with green CI, and the stage report recor
   new `tigerlint` rule (`no-hidden-characters`, the "Trojan Source" class) now fails the build if
   any TypeScript file contains raw zero-width, direction-control or byte-order-mark characters, and
   the name check uses explicit code point ranges instead of a regular expression.
+- **Slice 1 (2026-10-10), as built.** Migrations 0002 to 0004: the two group roles, `users`,
+  `profiles`, and the hash-chained `audit_log` with verification (`pnpm audit:verify`), plus the
+  generated RLS coverage test and ADR 0012. `withRequestContext` does not yet switch role; slice 2
+  does that with the sessions work. Writing the tests exposed a Stage 0 bug: `pnpm db:migrate` hung
+  with its single-connection pool, because the runner held the one connection for its lock and then
+  waited for another. The runner now does the migration transaction on the locked connection, with a
+  regression test.

@@ -9,6 +9,8 @@ const bad2 = `delete from users where id = ${id}`;
 // ok: aura-no-string-built-sql
 const good = sql`select * from users where id = ${id}`;
 // ok: aura-no-string-built-sql
+const typed = sql<{ n: number }[]>`select n from users where id = ${id}`;
+// ok: aura-no-string-built-sql
 const plain = `select * from users`;
 // ok: aura-no-string-built-sql
 const prose = `Selected ${id} items from the list`;
