@@ -1,6 +1,9 @@
 import { randomBytes } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { assert } from "@aura/contracts/assert";
 import { createDatabase, type Database } from "./client.ts";
+import { type RequestContext, type Transaction, withRequestContext } from "./context.ts";
+import { loadMigrations, migrate } from "./migrate.ts";
 
 // Each test file gets its own throwaway database so files cannot interfere with each other.
 // The admin URL comes from the environment; there is deliberately no silent default, so a missing
@@ -39,4 +42,30 @@ export async function createTestDatabase(connectionsMax = 4): Promise<TestDataba
             await cleanup.close(5);
         },
     };
+}
+
+const MIGRATIONS_DIRECTORY = fileURLToPath(new URL("../migrations", import.meta.url));
+
+// A throwaway database with every migration applied, as the application would see it.
+export async function createMigratedTestDatabase(connectionsMax = 6): Promise<TestDatabase> {
+    const testDatabase = await createTestDatabase(connectionsMax);
+    await migrate(testDatabase.database.sql, loadMigrations(MIGRATIONS_DIRECTORY));
+    return testDatabase;
+}
+
+export type DatabaseRole = "aura_app" | "aura_auth";
+
+// Runs work inside a transaction as one of the application roles, with the request context set the
+// way a real request would. A superuser bypasses row-level security, so tests must always switch to
+// an application role to see what the application would see.
+export function inRole<T>(
+    database: Database,
+    role: DatabaseRole,
+    context: RequestContext,
+    work: (transaction: Transaction) => Promise<T>,
+): Promise<T> {
+    return withRequestContext(database.sql, context, async (transaction) => {
+        await transaction`select set_config('role', ${role}, true)`;
+        return work(transaction);
+    });
 }

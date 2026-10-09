@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createDatabase } from "./client.ts";
 import { assertSupportedVersion, loadMigrations, migrate } from "./migrate.ts";
 import { createTestDatabase, type TestDatabase } from "./test-helpers.ts";
 
@@ -40,6 +41,19 @@ describe("migrate", () => {
         expect(extension).toBeDefined();
         const [uuid] = await db.database.sql<{ v: string }[]>`select uuidv7()::text as v`;
         expect(uuid?.v).toMatch(/^[0-9a-f-]{36}$/);
+    });
+
+    it("works with a single-connection pool, as the command line tool uses", async () => {
+        // Regression: the runner once held the only connection for its lock and then waited for a
+        // second one for the migration transaction, which never came.
+        const single = createDatabase(db.url, 1);
+        try {
+            const applied = await migrate(single.sql, loadMigrations(realDirectory));
+            expect(applied.length).toBeGreaterThan(0);
+            expect(await migrate(single.sql, loadMigrations(realDirectory))).toEqual([]);
+        } finally {
+            await single.close(5);
+        }
     });
 
     it("rejects a migration that was edited after it was applied", async () => {

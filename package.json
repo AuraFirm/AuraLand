@@ -22,7 +22,8 @@
         "db:migrate": "node --env-file=.env packages/db/src/migrate-cli.ts",
         "audit": "pnpm audit --audit-level high && pnpm audit signatures",
         "check:semgrep": "node tools/semgrep-cli.ts",
-        "check:trivy": "node tools/trivy-cli.ts aura-api:local aura-web:local"
+        "check:trivy": "node tools/trivy-cli.ts aura-api:local aura-web:local",
+        "audit:verify": "node --env-file=.env packages/db/src/audit-verify-cli.ts"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.15",

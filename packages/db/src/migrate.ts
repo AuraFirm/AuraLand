@@ -65,7 +65,7 @@ export async function migrate(sql: Sql, migrations: readonly Migration[]): Promi
         assertRecordedMatchesFiles(recorded, migrations);
         for (const migration of migrations) {
             if (recorded.has(migration.id)) continue;
-            await applyOne(sql, migration);
+            await applyOne(reserved, migration);
             applied.push(migration.id);
         }
     } finally {
@@ -87,12 +87,21 @@ function assertRecordedMatchesFiles(
     }
 }
 
-async function applyOne(sql: Sql, migration: Migration): Promise<void> {
-    await sql.begin(async (transaction) => {
+type ReservedConnection = Awaited<ReturnType<Sql["reserve"]>>;
+
+// Runs on the connection that already holds the advisory lock, so the runner needs exactly one
+// connection no matter how small the pool is.
+async function applyOne(connection: ReservedConnection, migration: Migration): Promise<void> {
+    await connection`begin`;
+    try {
         // tigerlint-allow: no-unsafe-sql -- migration text is a reviewed repository file, not input
-        await transaction.unsafe(migration.sql);
-        await transaction`
+        await connection.unsafe(migration.sql);
+        await connection`
             insert into schema_migrations (id, sha256) values (${migration.id}, ${migration.sha256})
         `;
-    });
+        await connection`commit`;
+    } catch (error) {
+        await connection`rollback`;
+        throw error;
+    }
 }
