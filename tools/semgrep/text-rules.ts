@@ -1,6 +1,8 @@
 // Test cases for text-rules.yml (see typescript-rules.ts for the annotation format).
 declare const id: string;
 declare const sql: any;
+declare const tags: any[];
+declare function getTx(): any;
 
 // ruleid: aura-no-string-built-sql
 const bad = `select * from users where id = ${id}`;
@@ -10,6 +12,10 @@ const bad2 = `delete from users where id = ${id}`;
 const good = sql`select * from users where id = ${id}`;
 // ok: aura-no-string-built-sql
 const typed = sql<{ n: number }[]>`select n from users where id = ${id}`;
+// ok: aura-no-string-built-sql
+const viaCall = getTx()`select n from users where id = ${id}`;
+// ok: aura-no-string-built-sql
+const viaIndex = tags[0]`select n from users where id = ${id}`;
 // ok: aura-no-string-built-sql
 const plain = `select * from users`;
 // ok: aura-no-string-built-sql

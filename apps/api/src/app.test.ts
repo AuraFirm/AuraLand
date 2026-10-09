@@ -4,12 +4,13 @@
 import { InvariantError } from "@aura/contracts/assert";
 import { problemSchema } from "@aura/contracts/errors";
 import { REQUEST_BODY_BYTES_MAX } from "@aura/contracts/limits";
+import { createTestDatabase, type TestDatabase } from "@aura/db/test-helpers";
 import { pino } from "pino";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { type AppDeps, createApp } from "./app.ts";
 import { parseConfig } from "./config.ts";
 import { assertPipelineOrder, PIPELINE_ORDER } from "./pipeline.ts";
-import { createFakeClock } from "./sim/world.ts";
+import { createFakeClock, createSeededRng } from "./sim/world.ts";
 
 const baseEnv = {
     AURA_ENV: "test",
@@ -22,12 +23,24 @@ const baseEnv = {
     AURA_PUBLIC_ORIGIN: "http://localhost:3000",
 };
 
+// These tests exercise the shell (probes, headers, errors), not /v1, but the app needs a database
+// object to be built at all, so they get a real throwaway one.
+let db: TestDatabase;
+beforeAll(async () => {
+    db = await createTestDatabase(1);
+});
+afterAll(async () => {
+    await db.drop();
+});
+
 function makeApp(overrides: Partial<AppDeps> = {}, env: Record<string, string> = {}) {
     const deps: AppDeps = {
         config: parseConfig({ ...baseEnv, ...env }),
         // Expected errors are asserted on responses; the log output would only be noise here.
         logger: pino({ level: "silent" }),
         clock: createFakeClock(0),
+        rng: createSeededRng(1),
+        database: db.database,
         pingDatabase: async () => undefined,
         onInvariantViolation: () => undefined,
         ...overrides,
