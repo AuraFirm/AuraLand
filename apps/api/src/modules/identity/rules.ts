@@ -1,8 +1,11 @@
 import { assert } from "@aura/contracts/assert";
 import {
+    COOKIE_HEADER_BYTES_MAX,
+    CSRF_HEADER_VALUE,
     SESSION_ABSOLUTE_TIMEOUT_S,
     SESSION_IDLE_TIMEOUT_S_PRIVILEGED,
     SESSION_IDLE_TIMEOUT_S_STANDARD,
+    SESSION_TOKEN_TEXT_LENGTH,
     SESSION_TOUCH_INTERVAL_S,
     STEP_UP_FRESH_S,
 } from "./limits.ts";
@@ -108,4 +111,88 @@ export function sessionsToEvict(
     assert(maximum >= 1, "maximum sessions must be at least 1");
     const surplus = activeOldestFirst.length - maximum;
     return surplus > 0 ? activeOldestFirst.slice(0, surplus).map((session) => session.id) : [];
+}
+
+// ---- session cookie ----
+
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+// A token is exactly 43 url-safe characters. Anything else never reaches the database, and never
+// reaches a Set-Cookie header, where a stray ";" or line break could inject attributes.
+export function isWellFormedToken(token: string): boolean {
+    return token.length === SESSION_TOKEN_TEXT_LENGTH && TOKEN_PATTERN.test(token);
+}
+
+// The __Host- prefix makes browsers refuse the cookie unless it is Secure, set from this host, with
+// Path=/ and no Domain, so a sibling subdomain cannot plant or overwrite it. It needs Secure, so it
+// is used wherever Secure is.
+export function sessionCookieName(secure: boolean): string {
+    return secure ? "__Host-aura_session" : "aura_session";
+}
+
+function cookieAttributes(secure: boolean, maxAgeS: number): string {
+    return `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeS}${secure ? "; Secure" : ""}`;
+}
+
+export function serializeSessionCookie(token: string, secure: boolean): string {
+    assert(isWellFormedToken(token), "token must be 43 url-safe characters");
+    return `${sessionCookieName(secure)}=${token}; ${cookieAttributes(secure, SESSION_ABSOLUTE_TIMEOUT_S)}`;
+}
+
+export function serializeClearedCookie(secure: boolean): string {
+    return `${sessionCookieName(secure)}=; ${cookieAttributes(secure, 0)}`;
+}
+
+// Returns the token, or null when there is no usable session cookie. A header with the cookie
+// twice is refused rather than guessed at: that is the signature of cookie tossing, where another
+// origin plants a second cookie of the same name.
+export function parseSessionCookie(header: string | undefined, secure: boolean): string | null {
+    if (header === undefined || header.length > COOKIE_HEADER_BYTES_MAX) return null;
+    const wanted = sessionCookieName(secure);
+    const values: string[] = [];
+    for (const part of header.split(";")) {
+        const separator = part.indexOf("=");
+        if (separator === -1) continue;
+        if (part.slice(0, separator).trim() === wanted)
+            values.push(part.slice(separator + 1).trim());
+    }
+    const [value] = values;
+    return values.length === 1 && value !== undefined && isWellFormedToken(value) ? value : null;
+}
+
+// ---- cross-site request check ----
+
+export interface CsrfInput {
+    readonly method: string;
+    readonly origin: string | null;
+    readonly secFetchSite: string | null;
+    readonly requestHeader: string | null;
+    readonly allowedOrigin: string;
+}
+
+export type CsrfVerdict =
+    | { readonly ok: true }
+    | {
+          readonly ok: false;
+          readonly reason: "missing_header" | "origin_mismatch" | "no_origin" | "cross_site";
+      };
+
+const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);
+
+// Decides whether a state-changing request really came from our own pages. SameSite=Lax cookies
+// already stay off most cross-site POSTs; this closes the rest (same-site siblings, old browsers,
+// top-level navigations) with three independent signals, all of which must hold.
+export function evaluateCsrf(input: CsrfInput): CsrfVerdict {
+    if (SAFE_METHODS.has(input.method.toUpperCase())) return { ok: true };
+    if (input.requestHeader !== CSRF_HEADER_VALUE) return { ok: false, reason: "missing_header" };
+    if (input.origin !== null && input.origin !== input.allowedOrigin) {
+        return { ok: false, reason: "origin_mismatch" };
+    }
+    if (input.secFetchSite !== null && input.secFetchSite !== "same-origin") {
+        return { ok: false, reason: "cross_site" };
+    }
+    // Without an Origin header the browser must vouch for same-origin itself.
+    if (input.origin === null && input.secFetchSite === null)
+        return { ok: false, reason: "no_origin" };
+    return { ok: true };
 }

@@ -240,3 +240,8 @@ database valid. Each slice merges only with green CI, and the stage report recor
   (revoke first) with a regression test; the simulation also exposed three blind spots in itself,
   which the mutation checks (idle boundary, eviction off by one, touch every time, rotation order)
   now catch.
+- **Slice 2b-i (2026-10-10), as built.** The plan's slice 2 was split a second time: 2b-i is the pure
+  transport rules, 2b-ii the middleware, routes and API-level tests. 2b-i adds: `AURA_PUBLIC_ORIGIN`
+  (required, bare origin, https outside local and test); the session cookie format and strict
+  parsing (duplicates and oversized headers refused); and the CSRF decision table (ADR 0013). The
+  CSRF check applies to every state-changing request, not only cookie-authenticated ones.

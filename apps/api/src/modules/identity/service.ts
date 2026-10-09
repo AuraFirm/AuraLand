@@ -8,6 +8,7 @@ import {
     type AuthMethod,
     evaluateSession,
     type InvalidReason,
+    isWellFormedToken,
     newSessionTimes,
     type RevokeReason,
     type SessionRecord,
@@ -59,7 +60,6 @@ export type RotateResult =
     | ({ readonly ok: true } & CreatedSession)
     | { readonly ok: false; readonly reason: InvalidReason | "malformed" | "unknown" };
 
-const TOKEN_PATTERN = /^[A-Za-z0-9_-]+$/;
 const UUID_V7_RANDOM_BYTES = 10;
 
 export function hashToken(token: string): string {
@@ -136,7 +136,7 @@ async function evictSurplus(
 }
 
 export async function validateSession(deps: SessionDeps, token: string): Promise<ValidateResult> {
-    if (token.length !== SESSION_TOKEN_TEXT_LENGTH || !TOKEN_PATTERN.test(token)) {
+    if (!isWellFormedToken(token)) {
         return { ok: false, reason: "malformed" };
     }
     const found = await deps.store.findByTokenHash(hashToken(token));
