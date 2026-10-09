@@ -49,7 +49,7 @@ Testcontainers, access-log position), TypeScript 7 forcing oxc-parser and `ignor
 - [x] Logging redaction configured; no PII exists yet
 - [x] Supply-chain controls active
 - [ ] Authz and RLS matrix tests: not applicable until Stage 1 tables exist
-- [x] Secret scan (TruffleHog) passes in CI; SAST (Semgrep) passes locally, CI run pending; container scan (Trivy) not added yet
+- [x] Secret scan (TruffleHog) passes in CI; SAST (Semgrep) passes locally and in CI (run 37982366630); container scan (Trivy) not added yet
 - [ ] Human read of `packages/db` and `infra` diffs: pending sign-off
 
 ## Risks and follow-ups (ranked)
