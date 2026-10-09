@@ -1,6 +1,7 @@
 # Stage 1 plan — Identity, tenancy, audit
 
-Status: **draft for founder review. No code is written until this plan is approved.**
+Status: **approved by the founder on 2026-10-10**, with the defaults in sections 3 and 17 accepted
+(their words: "use your defaults, Stage 1 plan approved"). Implementation may start with slice 0.
 Kit reference: `docs/kit/12` Stage 1, `docs/kit/05` sections 5–7, `docs/kit/06`, `docs/kit/08` sections 3–5.
 
 ## 1. Goal
@@ -202,10 +203,8 @@ and become metrics when the metrics stack exists.
 No production exists. Migrations are expand-only and additive, so a revert of any slice leaves the
 database valid. Each slice merges only with green CI, and the stage report records evidence.
 
-## 17. Open questions for you (answer or accept the default)
-1. Is **8-digit numeric** the right email code format (default), or would you prefer a longer
-   alphanumeric code?
-2. Should **every** organization owner need a passkey, or only platform admins and owners of
-   *verified* organizations? (Default: all owners and admins, per assumption 3.)
-3. Should organization creation be **rate-limited per user** (default: 5 per day while unverified)?
-4. OK to defer the account **purge** job (deletion request only) to Stage 3 with the worker?
+## 17. Open questions, answered on 2026-10-10 (defaults accepted)
+1. Email code format: **8-digit numeric**, 10-minute lifetime, 5 attempts.
+2. Passkey requirement: **all organization owners and admins**, and platform admins, as in assumption 3.
+3. Organization creation: **rate-limited to 5 per day per user** while the organization is unverified.
+4. Account purge job: **deferred to Stage 3** with the worker role; Stage 1 records the deletion request only.
