@@ -2,7 +2,7 @@ import { AUTH_METHODS } from "@aura/contracts/identity";
 import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
 import type { ChallengeRecord, ChallengeStore, CodeAttempt } from "./login.ts";
-import { REVOKE_REASONS, type RevokeReason, type SessionRecord } from "./rules.ts";
+import { REVOKE_REASONS, type RevokeReason, type SessionRecord, type UserStatus } from "./rules.ts";
 import type { SessionStore } from "./service.ts";
 
 // PostgreSQL implementation of SessionStore. It must run in a transaction acting as `aura_auth`
@@ -286,4 +286,45 @@ export async function readChallenges(tx: Transaction): Promise<ChallengeRecord[]
             consumedBy: row.consumed_by,
         };
     });
+}
+
+// ---- accounts ----
+
+export interface AccountRow {
+    readonly id: string;
+    readonly status: UserStatus;
+    // True only for the call that created the account.
+    readonly created: boolean;
+}
+
+const accountSchema = z.object({ id: z.string(), status: z.enum(["active", "suspended"]) });
+
+// Finds the person behind a verified email, creating the account and a default profile on first
+// use. Runs as `aura_auth`. The insert is conflict-safe, so two first sign-ins racing for the same
+// address produce one account. Proving control of the mailbox is what marks the email verified.
+export async function findOrCreateAccount(
+    tx: Transaction,
+    email: string,
+    handle: string,
+    nowMs: number,
+): Promise<AccountRow> {
+    const at = new Date(nowMs);
+    const inserted = await tx`
+        insert into users (email, email_verified_at) values (${email}, ${at})
+        on conflict (email) do nothing
+        returning id, status
+    `;
+    const fresh = inserted[0];
+    if (fresh !== undefined) {
+        const account = accountSchema.parse(fresh);
+        await tx`insert into profiles (user_id, handle, display_name)
+            values (${account.id}, ${handle}, ${handle})`;
+        return { ...account, created: true };
+    }
+    const found = await tx`
+        update users set email_verified_at = coalesce(email_verified_at, ${at})
+        where email = ${email}
+        returning id, status
+    `;
+    return { ...accountSchema.parse(found[0]), created: false };
 }

@@ -267,3 +267,12 @@ database valid. Each slice merges only with green CI, and the stage report recor
   immortal code, uncounted guesses, ignored binding) are all caught. Differences from the plan: the
   token-hash timing test became a structural-equality check (wall-clock timing is flaky in CI), and
   the mail port is HTTP only (ADR 0014).
+- **Slice 3b (2026-10-10), as built.** Email sign-in works end to end: `POST /auth/email/start` and
+  `POST /auth/email/verify` (link token or typed code), account and default profile created on first
+  sign-in (handle `user_` plus 10 hex digits, never derived from the email), session started with a
+  coarse network and user agent, previous session of that browser ended, audit entries
+  (`auth.signup`, `auth.login_succeeded`, `auth.login_refused`, `auth.code_locked`). The `rateLimit`
+  middleware slot is now used. Mutation checks on the HTTP tests (stale-cookie handling, old session
+  kept, both rate limits, lock audit, suspended people, new-account flag, binding cookie clearing)
+  were all caught. Not done here and deliberately so: the web pages that call these endpoints
+  (slice 7), and a production mail provider (ADR 0014 revisit trigger).

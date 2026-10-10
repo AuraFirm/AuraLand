@@ -31,6 +31,19 @@ used to enumerate accounts or to flood a person's inbox, and an outbound call to
 - **Database roles.** The sign-in tables are reachable only by `aura_auth`; `aura_app` has no
   privileges on them (ADR 0012). Column grants allow only the updates the flow needs.
 
+- **Endpoints (slice 3b).** `POST /auth/email/start` always answers 202 `{"status":"sent"}` and never
+  looks the address up, so it cannot reveal who has an account. `POST /auth/email/verify` takes a
+  `token` or a `code` and answers every failure (wrong, used, expired, locked, wrong browser) with the
+  same 400. The link carries the token in the URL fragment, which browsers never send onward.
+  Both run their own `aura_auth` transactions, outside the request transaction that rolls back on
+  errors, so a counted guess or a rate-limit hit is never undone by the refusal it caused. A
+  successful sign-in ends the session the browser already had.
+- **Client address.** The socket address, or the last `X-Forwarded-For` entry when
+  `AURA_TRUST_EDGE_REQUEST_ID` says a trusted edge sets it (earlier entries come from the client and
+  are ignored). Limits: 10 starts and 30 verifications per address per minute, 5 starts per email
+  per hour. With no usable address, callers share one strict bucket. Sessions record only a /24
+  (IPv4) or /48 (IPv6) network.
+
 ## Alternatives considered
 Storing the plain code with a short expiry: a leak would be directly usable. A signed stateless
 token: cannot be made single-use or attempt-limited without storage anyway. nodemailer: a large

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { authMethodSchema } from "../identity.ts";
+import { authMethodSchema, emailSchema } from "../identity.ts";
 import { idSchema } from "../ids.ts";
 
 // Response shapes for the identity routes. `.strict()` makes them allowlists: a field that is not
@@ -35,3 +35,24 @@ export const deviceSchema = z
 
 export const sessionsResponseSchema = z.object({ items: z.array(deviceSchema) }).strict();
 export type SessionsResponse = z.infer<typeof sessionsResponseSchema>;
+
+// ---- email sign-in ----
+
+export const emailStartRequestSchema = z.object({ email: emailSchema }).strict();
+
+const LOGIN_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+// Generous cap: people paste codes with spaces or dashes. The server normalizes and checks digits.
+const CODE_INPUT_LENGTH_MAX = 32;
+
+// Exactly one proof: the token from the emailed link, or the typed code.
+export const emailVerifyRequestSchema = z.union([
+    z.object({ token: z.string().regex(LOGIN_TOKEN_PATTERN) }).strict(),
+    z.object({ code: z.string().max(CODE_INPUT_LENGTH_MAX) }).strict(),
+]);
+export type EmailVerifyRequest = z.infer<typeof emailVerifyRequestSchema>;
+
+export const emailStartResponseSchema = z.object({ status: z.literal("sent") }).strict();
+
+export const emailVerifyResponseSchema = z
+    .object({ status: z.literal("signed_in"), new_account: z.boolean() })
+    .strict();

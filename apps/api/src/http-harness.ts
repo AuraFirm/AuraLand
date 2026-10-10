@@ -6,6 +6,7 @@ import { createApp } from "./app.ts";
 import { parseConfig } from "./config.ts";
 import { createPgSessionStore } from "./modules/identity/queries.ts";
 import { createSession, type SessionDeps } from "./modules/identity/service.ts";
+import { createMemoryMail, type MailPort } from "./platform/mail.ts";
 import { createFakeClock, createSeededRng } from "./sim/world.ts";
 
 // Shared fixtures for tests that drive the real HTTP app against a real PostgreSQL: two users, a
@@ -42,7 +43,9 @@ export interface Harness {
     readonly db: TestDatabase;
     readonly clock: ReturnType<typeof createFakeClock>;
     readonly onInvariantViolation: ReturnType<typeof vi.fn>;
-    app(env?: Record<string, string>): ReturnType<typeof createApp>;
+    // Every email the app "sent" in this harness.
+    readonly mail: ReturnType<typeof createMemoryMail>;
+    app(env?: Record<string, string>, mail?: MailPort): ReturnType<typeof createApp>;
     asIdentity<T>(work: (deps: SessionDeps) => Promise<T>): Promise<T>;
     login(userId: string, privileged?: boolean): ReturnType<typeof createSession>;
     request(
@@ -78,13 +81,15 @@ export async function createHarness(): Promise<Harness> {
     const clock = createFakeClock(START);
     const rng = createSeededRng(2026);
     const onInvariantViolation = vi.fn();
-    const app = (env: Record<string, string> = {}) =>
+    const mail = createMemoryMail();
+    const app = (env: Record<string, string> = {}, sender: MailPort = mail) =>
         createApp({
             config: parseConfig({ ...BASE_ENV, ...env }),
             logger: pino({ level: "silent" }),
             clock,
             rng,
             database: db.database,
+            mail: sender,
             pingDatabase: async () => undefined,
             onInvariantViolation,
         });
@@ -96,6 +101,7 @@ export async function createHarness(): Promise<Harness> {
         db,
         clock,
         onInvariantViolation,
+        mail,
         app,
         asIdentity,
         login: (userId, privileged = false) =>
