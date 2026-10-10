@@ -47,6 +47,7 @@ function makeApp(overrides: Partial<AppDeps> = {}, env: Record<string, string> =
         rng: createSeededRng(1),
         database: db.database,
         mail: createMemoryMail(),
+        oauthProviders: new Map(),
         pingDatabase: async () => undefined,
         onInvariantViolation: () => undefined,
         ...overrides,

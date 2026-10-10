@@ -80,7 +80,11 @@ export function csrf(deps: AppDeps): MiddlewareHandler<AppEnv> {
     };
 }
 
-const OWN_TRANSACTION_PREFIXES = ["/api/v1/auth/email/", "/api/v1/auth/passkey/"];
+const OWN_TRANSACTION_PREFIXES = [
+    "/api/v1/auth/email/",
+    "/api/v1/auth/passkey/",
+    "/api/v1/auth/oauth/",
+];
 
 // Thrown after the handler has produced an error response, to roll the transaction back without
 // turning that response into an exception.

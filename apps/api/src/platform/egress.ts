@@ -14,8 +14,20 @@ export interface EgressOptions {
     readonly responseBytesMax?: number;
 }
 
+export interface EgressReply {
+    readonly status: number;
+    readonly text: string;
+}
+
 export interface FixedOriginClient {
-    postJson(path: string, body: unknown): Promise<{ status: number; text: string }>;
+    postJson(path: string, body: unknown): Promise<EgressReply>;
+    // A form-encoded POST, which OAuth token endpoints require. `headers` come from our own code.
+    postForm(
+        path: string,
+        fields: Readonly<Record<string, string>>,
+        headers?: Readonly<Record<string, string>>,
+    ): Promise<EgressReply>;
+    getJson(path: string, headers?: Readonly<Record<string, string>>): Promise<EgressReply>;
 }
 
 const TIMEOUT_MS_DEFAULT = 5_000; // A mail API that takes longer is effectively down.
@@ -60,6 +72,13 @@ async function readCapped(response: Response, bytesMax: number): Promise<string>
     return Buffer.concat(chunks).toString("utf8");
 }
 
+function assertSafeHeaders(headers: Readonly<Record<string, string>>): void {
+    for (const [name, value] of Object.entries(headers)) {
+        assert(/^[A-Za-z][A-Za-z0-9-]*$/.test(name), "egress header name is a token");
+        assert(!/[\r\n]/.test(value), "egress header value has no line break");
+    }
+}
+
 export function createFixedOriginClient(
     origin: string,
     options: EgressOptions = {},
@@ -67,27 +86,45 @@ export function createFixedOriginClient(
     assertOrigin(origin);
     const timeoutMs = options.timeoutMs ?? TIMEOUT_MS_DEFAULT;
     const bytesMax = options.responseBytesMax ?? RESPONSE_BYTES_DEFAULT;
-    return {
-        async postJson(path, body) {
-            assertSafePath(path);
-            try {
-                const response = await fetch(new URL(path, origin), {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify(body),
-                    redirect: "error",
-                    signal: AbortSignal.timeout(timeoutMs),
-                });
-                return { status: response.status, text: await readCapped(response, bytesMax) };
-            } catch (error) {
-                if (error instanceof EgressError) throw error;
-                if (error instanceof Error && error.name === "TimeoutError") {
-                    throw new EgressError("request timed out");
-                }
-                // The cause can contain the address, so it is dropped here and logged by the caller
-                // with its own context.
-                throw new EgressError("request failed");
+
+    async function send(path: string, init: RequestInit): Promise<EgressReply> {
+        assertSafePath(path);
+        try {
+            const response = await fetch(new URL(path, origin), {
+                ...init,
+                redirect: "error",
+                signal: AbortSignal.timeout(timeoutMs),
+            });
+            return { status: response.status, text: await readCapped(response, bytesMax) };
+        } catch (error) {
+            if (error instanceof EgressError) throw error;
+            if (error instanceof Error && error.name === "TimeoutError") {
+                throw new EgressError("request timed out");
             }
+            // The cause can contain the address, so it is dropped here and logged by the caller
+            // with its own context.
+            throw new EgressError("request failed");
+        }
+    }
+
+    return {
+        postJson: (path, body) =>
+            send(path, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(body),
+            }),
+        postForm(path, fields, headers = {}) {
+            assertSafeHeaders(headers);
+            return send(path, {
+                method: "POST",
+                headers: { ...headers, "content-type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams(fields).toString(),
+            });
+        },
+        getJson(path, headers = {}) {
+            assertSafeHeaders(headers);
+            return send(path, { method: "GET", headers });
         },
     };
 }

@@ -2,13 +2,14 @@ import { createServer } from "node:http";
 import { createDatabase } from "@aura/db/client";
 import { getRequestListener } from "@hono/node-server";
 import { createApp } from "./app.ts";
-import { loadConfigFromProcess } from "./config.ts";
+import { loadConfigFromProcess, oauthClientSettings } from "./config.ts";
 import {
     SERVER_HEADERS_TIMEOUT_MS,
     SERVER_KEEP_ALIVE_TIMEOUT_MS,
     SERVER_REQUEST_TIMEOUT_MS,
     SHUTDOWN_TIMEOUT_MS_MAX,
 } from "./limits.ts";
+import { createOAuthProviders } from "./modules/identity/oauth-providers.ts";
 import { systemClock } from "./platform/clock.ts";
 import { createLogger } from "./platform/log.ts";
 import { createMailFromConfig } from "./platform/mail.ts";
@@ -41,6 +42,7 @@ const app = createApp({
     rng: systemRng,
     database,
     mail: createMailFromConfig(config),
+    oauthProviders: createOAuthProviders(oauthClientSettings(config)),
     pingDatabase: async () => {
         await database.sql`select 1`;
     },

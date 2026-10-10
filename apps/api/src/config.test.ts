@@ -1,6 +1,6 @@
 // Goal: configuration is validated once, completely, and fails closed.
 import { describe, expect, it } from "vitest";
-import { parseConfig } from "./config.ts";
+import { oauthClientSettings, parseConfig } from "./config.ts";
 
 const valid = {
     AURA_ENV: "local",
@@ -153,5 +153,35 @@ describe("AURA_LOGIN_TOKEN_SECRET", () => {
         } catch (error) {
             expect(String(error)).not.toContain(secret);
         }
+    });
+});
+
+describe("OAuth provider settings", () => {
+    it("is off by default and on only when both values of a provider are set", () => {
+        expect(oauthClientSettings(parseConfig(valid))).toEqual({});
+        const config = parseConfig({
+            ...valid,
+            AURA_OAUTH_GITHUB_CLIENT_ID: "id",
+            AURA_OAUTH_GITHUB_CLIENT_SECRET: "secret",
+        });
+        expect(oauthClientSettings(config)).toEqual({
+            github: { clientId: "id", clientSecret: "secret" },
+        });
+    });
+
+    it("refuses half-configured providers and empty values", () => {
+        expect(() => parseConfig({ ...valid, AURA_OAUTH_GOOGLE_CLIENT_ID: "id" })).toThrow(
+            /both or neither/,
+        );
+        expect(() => parseConfig({ ...valid, AURA_OAUTH_GOOGLE_CLIENT_SECRET: "s" })).toThrow(
+            /both or neither/,
+        );
+        expect(() =>
+            parseConfig({
+                ...valid,
+                AURA_OAUTH_GITHUB_CLIENT_ID: "",
+                AURA_OAUTH_GITHUB_CLIENT_SECRET: "s",
+            }),
+        ).toThrow();
     });
 });
