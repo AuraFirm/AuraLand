@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { apiSend, messageOf } from "../lib/api.ts";
+import { ApiError, apiSend, messageOf } from "../lib/api.ts";
 
 const result = z.object({ status: z.string() }).passthrough();
 
@@ -13,11 +13,13 @@ interface Props {
     readonly next: string;
     readonly title: string;
     readonly working: string;
+    // Shown instead of the error when the person is not signed in.
+    readonly signInHint?: string;
 }
 
 // Reads a one-time token from the address fragment (`#t=...`), sends it to the API and moves on.
 // The fragment is removed from the address bar first, so the secret does not stay in history.
-export function FragmentToken({ path, next, title, working }: Props) {
+export function FragmentToken({ path, next, title, working, signInHint }: Props) {
     const [message, setMessage] = useState(working);
     const [failed, setFailed] = useState(false);
 
@@ -33,10 +35,11 @@ export function FragmentToken({ path, next, title, working }: Props) {
             () => window.location.replace(next),
             (error) => {
                 setFailed(true);
-                setMessage(messageOf(error));
+                const signedOut = error instanceof ApiError && error.status === 401;
+                setMessage(signedOut && signInHint !== undefined ? signInHint : messageOf(error));
             },
         );
-    }, [path, next]);
+    }, [path, next, signInHint]);
 
     return (
         <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-12">

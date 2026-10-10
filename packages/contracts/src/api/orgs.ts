@@ -47,6 +47,8 @@ export const memberSchema = z
     })
     .strict();
 
+export type MemberItem = z.infer<typeof memberSchema>;
+
 export const membersResponseSchema = z.object({ items: z.array(memberSchema) }).strict();
 
 export const memberRoleRequestSchema = z.object({ role: orgRoleSchema }).strict();
