@@ -1,6 +1,7 @@
 // Goal: the HTTP shell must answer health probes, map every failure to problem+json without
 // leaking internals, apply security headers and limits, and ask the process to stop on an
 // invariant violation. Tests drive the real Hono app in memory.
+
 import { InvariantError } from "@aura/contracts/assert";
 import { problemSchema } from "@aura/contracts/errors";
 import { REQUEST_BODY_BYTES_MAX } from "@aura/contracts/limits";
@@ -11,6 +12,7 @@ import { type AppDeps, createApp } from "./app.ts";
 import { parseConfig } from "./config.ts";
 import { assertPipelineOrder, PIPELINE_ORDER } from "./pipeline.ts";
 import { createMemoryMail } from "./platform/mail.ts";
+import { createMemoryStorage } from "./platform/storage-memory.ts";
 import { createFakeClock, createSeededRng } from "./sim/world.ts";
 
 const baseEnv = {
@@ -26,6 +28,7 @@ const baseEnv = {
     AURA_MAIL_API_URL: "http://127.0.0.1:8025",
     AURA_MAIL_FROM: "no-reply@auraland.test",
     AURA_LOGIN_TOKEN_SECRET: Buffer.alloc(32, 7).toString("base64"),
+    AURA_STORAGE_DRIVER: "memory",
 };
 
 // These tests exercise the shell (probes, headers, errors), not /v1, but the app needs a database
@@ -47,6 +50,7 @@ function makeApp(overrides: Partial<AppDeps> = {}, env: Record<string, string> =
         rng: createSeededRng(1),
         database: db.database,
         mail: createMemoryMail(),
+        storage: createMemoryStorage(createFakeClock(0)),
         oauthProviders: new Map(),
         pingDatabase: async () => undefined,
         onInvariantViolation: () => undefined,

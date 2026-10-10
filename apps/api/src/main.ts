@@ -14,6 +14,7 @@ import { systemClock } from "./platform/clock.ts";
 import { createLogger } from "./platform/log.ts";
 import { createMailFromConfig } from "./platform/mail.ts";
 import { systemRng } from "./platform/rng.ts";
+import { createStorageFromConfig } from "./platform/storage.ts";
 
 // Process entry point: wire real dependencies, serve, and stop cleanly on signals or invariant
 // violations. This is the only place that terminates the process.
@@ -42,6 +43,7 @@ const app = createApp({
     rng: systemRng,
     database,
     mail: createMailFromConfig(config),
+    storage: createStorageFromConfig(config, systemClock),
     oauthProviders: createOAuthProviders(oauthClientSettings(config)),
     pingDatabase: async () => {
         await database.sql`select 1`;

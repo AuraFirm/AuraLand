@@ -19,6 +19,7 @@
         "test:sim": "node apps/api/src/sim/cli.ts",
         "test:e2e": "node --env-file-if-exists=.env apps/e2e/src/run-cli.ts",
         "build": "pnpm --recursive run build",
+        "storage:init": "node --env-file=.env apps/api/src/storage-init-cli.ts",
         "db:migrate": "node --env-file=.env packages/db/src/migrate-cli.ts",
         "audit": "pnpm audit --audit-level high && pnpm audit signatures",
         "check:semgrep": "node tools/semgrep-cli.ts",

@@ -50,6 +50,23 @@ const configSchema = z
         AURA_LOGIN_TOKEN_SECRET: z
             .string()
             .refine(isBase64Secret, "must be base64 of at least 32 bytes"),
+        // Where task bundles are stored. "s3" is any S3-compatible server (AWS in production,
+        // SeaweedFS locally); "memory" keeps objects in the process and exists for tests only.
+        AURA_STORAGE_DRIVER: z.enum(["s3", "memory"]),
+        // The server the API talks to, and the address browsers use for presigned URLs; they differ
+        // when the API reaches storage over an internal network.
+        AURA_S3_ENDPOINT: z.string().refine(isOrigin, "must be a bare origin").optional(),
+        AURA_S3_PUBLIC_ENDPOINT: z.string().refine(isOrigin, "must be a bare origin").optional(),
+        AURA_S3_BUCKET: z
+            .string()
+            .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, "must be a valid bucket name")
+            .optional(),
+        AURA_S3_REGION: z
+            .string()
+            .regex(/^[a-z0-9-]{2,30}$/)
+            .optional(),
+        AURA_S3_ACCESS_KEY_ID: z.string().min(1).max(200).optional(),
+        AURA_S3_SECRET_ACCESS_KEY: z.string().min(1).max(400).optional(),
         // Sign-in with GitHub or Google. Each provider is on only when both of its values are set.
         AURA_OAUTH_GITHUB_CLIENT_ID: z.string().min(1).max(200).optional(),
         AURA_OAUTH_GITHUB_CLIENT_SECRET: z.string().min(1).max(400).optional(),
@@ -63,7 +80,8 @@ export type Config = Readonly<z.infer<typeof configSchema>>;
 export function parseConfig(environment: Readonly<Record<string, string | undefined>>): Config {
     const aura: Record<string, string | undefined> = {};
     for (const [key, value] of Object.entries(environment)) {
-        if (key.startsWith("AURA_")) aura[key] = value;
+        // AURA_TEST_* values belong to the test suites and share the same .env file.
+        if (key.startsWith("AURA_") && !key.startsWith("AURA_TEST_")) aura[key] = value;
     }
     const config = Object.freeze(configSchema.parse(aura));
     // In production the edge is always present, and debug logs could expose personal data.
@@ -87,6 +105,7 @@ export function parseConfig(environment: Readonly<Record<string, string | undefi
             "the mailpit driver is for local development and tests only",
         );
     }
+    assertStorageSettings(config);
     for (const provider of ["GITHUB", "GOOGLE"]) {
         const id = aura[`AURA_OAUTH_${provider}_CLIENT_ID`];
         const secret = aura[`AURA_OAUTH_${provider}_CLIENT_SECRET`];
@@ -96,6 +115,54 @@ export function parseConfig(environment: Readonly<Record<string, string | undefi
         );
     }
     return config;
+}
+
+const S3_SETTING_NAMES = [
+    "AURA_S3_ENDPOINT",
+    "AURA_S3_PUBLIC_ENDPOINT",
+    "AURA_S3_BUCKET",
+    "AURA_S3_REGION",
+    "AURA_S3_ACCESS_KEY_ID",
+    "AURA_S3_SECRET_ACCESS_KEY",
+] as const;
+
+// The S3 driver needs all of its settings; the in-memory driver is for tests and nothing else.
+function assertStorageSettings(config: Config): void {
+    if (config.AURA_STORAGE_DRIVER === "memory") {
+        assert(config.AURA_ENV === "test", "the memory storage driver is for tests only");
+        return;
+    }
+    for (const name of S3_SETTING_NAMES) {
+        assert(config[name] !== undefined, `${name} is required for the s3 storage driver`);
+    }
+}
+
+export interface S3ClientSettings {
+    readonly region: string;
+    readonly bucket: string;
+    readonly endpoint: string;
+    readonly publicEndpoint: string;
+    readonly accessKeyId: string;
+    readonly secretAccessKey: string;
+}
+
+// The S3 settings, checked complete at startup by parseConfig; null when the driver is "memory".
+export function s3ClientSettings(config: Config): S3ClientSettings | null {
+    const { AURA_S3_ENDPOINT: endpoint, AURA_S3_PUBLIC_ENDPOINT: publicEndpoint } = config;
+    const { AURA_S3_BUCKET: bucket, AURA_S3_REGION: region } = config;
+    const { AURA_S3_ACCESS_KEY_ID: accessKeyId, AURA_S3_SECRET_ACCESS_KEY: secretAccessKey } =
+        config;
+    if (config.AURA_STORAGE_DRIVER === "memory") return null;
+    assert(
+        endpoint !== undefined &&
+            publicEndpoint !== undefined &&
+            bucket !== undefined &&
+            region !== undefined &&
+            accessKeyId !== undefined &&
+            secretAccessKey !== undefined,
+        "S3 settings are complete",
+    );
+    return { region, bucket, endpoint, publicEndpoint, accessKeyId, secretAccessKey };
 }
 
 export interface OAuthClientSettings {

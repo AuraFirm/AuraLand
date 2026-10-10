@@ -22,8 +22,9 @@ import {
     type RateLimitDeps,
     refuseRateLimited,
 } from "../../rate-limit-middleware.ts";
-import { type Access, type Membership, taskAccess } from "./access.ts";
+import { taskAccess } from "./access.ts";
 import { TASKS_CREATED_PER_USER_PER_DAY_MAX } from "./limits.ts";
+import { caller, invalid, notFound, readJson, refuse, unauthenticated } from "./route-support.ts";
 import { getTask, insertTask, listTasks, type TaskRow, updateTask } from "./task-queries.ts";
 
 export type TaskRouteDeps = Pick<RateLimitDeps, "sql" | "clock" | "key">;
@@ -45,34 +46,6 @@ export function taskRoutes(deps: TaskRouteDeps): Hono<AppEnv> {
     routes.get("/tasks/:id", handleGet);
     routes.patch("/tasks/:id", handleUpdate);
     return routes;
-}
-
-interface Caller {
-    readonly userId: string;
-    readonly orgs: readonly Membership[];
-}
-
-function caller(c: Context<AppEnv>): Caller | null {
-    const actor = c.get("actor");
-    return actor.kind === "user" ? { userId: actor.userId, orgs: actor.orgs } : null;
-}
-
-const unauthenticated = (c: Context<AppEnv>) =>
-    problemResponse(c, "unauthenticated", "Authentication required");
-const invalid = (c: Context<AppEnv>) => problemResponse(c, "invalid_request", "Invalid request");
-const notFound = (c: Context<AppEnv>) => problemResponse(c, "not_found", "Not found");
-
-const readJson = (c: Context<AppEnv>): Promise<unknown> =>
-    c.req.json().then(
-        (body: unknown) => body,
-        () => null,
-    );
-
-function refuse(c: Context<AppEnv>, decision: Access): Response | null {
-    if (decision.allowed) return null;
-    return decision.reason === "not_member"
-        ? notFound(c)
-        : problemResponse(c, "forbidden", "Forbidden");
 }
 
 export function taskBody(row: TaskRow) {

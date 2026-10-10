@@ -22,10 +22,12 @@ import { passkeyRoutes } from "./modules/identity/passkey-routes.ts";
 import { identityRoutes } from "./modules/identity/routes.ts";
 import { signInRoutes } from "./modules/identity/sign-in-routes.ts";
 import { taskRoutes } from "./modules/tasks/task-routes.ts";
+import { versionRoutes } from "./modules/tasks/version-routes.ts";
 import { assertPipelineOrder, type PipelineName } from "./pipeline.ts";
 import type { Clock } from "./platform/clock.ts";
 import type { Logger } from "./platform/log.ts";
 import type { MailPort } from "./platform/mail.ts";
+import { type ObjectStorage, StorageUnavailableError } from "./platform/object-storage.ts";
 import { problemResponse } from "./platform/problem-response.ts";
 import type { Rng } from "./platform/rng.ts";
 import { rateLimit } from "./rate-limit-middleware.ts";
@@ -37,6 +39,8 @@ export interface AppDeps {
     readonly rng: Rng;
     readonly database: Database;
     readonly mail: MailPort;
+    // Where task bundles live; the in-memory adapter is for tests only.
+    readonly storage: ObjectStorage;
     // The OAuth providers that are switched on; empty when none is configured.
     readonly oauthProviders: ReadonlyMap<ProviderName, OAuthProvider>;
     // Rejects when the database is unreachable. Must be cheap (a `select 1`).
@@ -199,6 +203,7 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
         "/v1",
         taskRoutes({ sql: deps.database.sql, clock: deps.clock, key: loginTokenKey(deps.config) }),
     );
+    app.route("/v1", versionRoutes({ clock: deps.clock, rng: deps.rng, storage: deps.storage }));
     mountSignInRoutes(app, deps, secureCookies);
 }
 
@@ -256,6 +261,11 @@ function mapError(error: Error, c: Context<AppEnv>, deps: AppDeps) {
             error.status === 413 ? "payload_too_large" : "invalid_request",
             "Bad request",
         );
+    }
+    if (error instanceof StorageUnavailableError) {
+        // The request transaction rolls back, so nothing is half-recorded; the caller can retry.
+        deps.logger.error({ request_id: requestId, err: error }, "object storage unavailable");
+        return problemResponse(c, "unavailable", "Storage is unavailable, try again");
     }
     if (error instanceof InvariantError) {
         // State may be corrupt: answer this request safely, then ask the process to stop.

@@ -84,6 +84,14 @@ function apiEnvironment(
         AURA_MAIL_API_URL: mailpit,
         AURA_MAIL_FROM: "no-reply@auraland.test",
         AURA_LOGIN_TOKEN_SECRET: randomBytes(32).toString("base64"),
+        AURA_STORAGE_DRIVER: "s3",
+        AURA_S3_ENDPOINT: process.env["AURA_TEST_S3_ENDPOINT"] ?? "http://127.0.0.1:8333",
+        AURA_S3_PUBLIC_ENDPOINT: process.env["AURA_TEST_S3_ENDPOINT"] ?? "http://127.0.0.1:8333",
+        AURA_S3_BUCKET: "aura-e2e",
+        AURA_S3_REGION: "us-east-1",
+        AURA_S3_ACCESS_KEY_ID: process.env["AURA_TEST_S3_ACCESS_KEY"] ?? "aura-dev-access-key",
+        AURA_S3_SECRET_ACCESS_KEY:
+            process.env["AURA_TEST_S3_SECRET_KEY"] ?? "aura-dev-secret-key-local-only",
     };
 }
 

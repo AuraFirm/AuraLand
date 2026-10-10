@@ -19,10 +19,12 @@ interface Row {
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
-    readonly object?: "pky" | "org" | "usr" | "tsk";
+    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv";
     // A valid request body for rows that need one, so the check reaches authorization.
-    readonly body?: Record<string, string>;
+    readonly body?: Record<string, string | number>;
 }
+
+const SAMPLE_UUID = "018f0000-0000-7000-8000-0000000000ee";
 
 // Add a row in the same pull request that adds a route. This list is the written access policy.
 const MATRIX: readonly Row[] = [
@@ -152,6 +154,52 @@ const MATRIX: readonly Row[] = [
     { method: "GET", path: "/api/v1/tasks", access: "user" },
     { method: "GET", path: "/api/v1/tasks/:id", access: "user", owned: true, object: "tsk" },
     {
+        method: "POST",
+        path: "/api/v1/tasks/:id/versions",
+        access: "user",
+        owned: true,
+        object: "tsk",
+        body: {},
+    },
+    {
+        method: "GET",
+        path: "/api/v1/tasks/:id/versions",
+        access: "user",
+        owned: true,
+        object: "tsk",
+    },
+    {
+        method: "GET",
+        path: "/api/v1/task-versions/:id",
+        access: "user",
+        owned: true,
+        object: "tsv",
+    },
+    {
+        method: "PATCH",
+        path: "/api/v1/task-versions/:id",
+        access: "user",
+        owned: true,
+        object: "tsv",
+        body: { statement: "Changed" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/task-versions/:id/uploads",
+        access: "user",
+        owned: true,
+        object: "tsv",
+        body: { bytes: 10, sha256: "a".repeat(64) },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/task-versions/:id/finalize",
+        access: "user",
+        owned: true,
+        object: "tsv",
+        body: { upload_id: `bup_${SAMPLE_UUID}` },
+    },
+    {
         method: "PATCH",
         path: "/api/v1/tasks/:id",
         access: "user",
@@ -162,7 +210,6 @@ const MATRIX: readonly Row[] = [
 ];
 
 const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-const SAMPLE_UUID = "018f0000-0000-7000-8000-0000000000ee";
 
 let h: Harness;
 beforeAll(async () => {
@@ -182,7 +229,7 @@ const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
 
 // A private task in an organization only the victim belongs to.
-async function victimTask(): Promise<string> {
+async function victimTask(): Promise<{ task: string; version: string }> {
     const [org] = await h.db.database.sql<{ id: string }[]>`
         insert into orgs (kind, slug, name) values ('company', ${`tasks-${randomBytes(4).toString("hex")}`}, 'Victim tasks')
         returning id`;
@@ -192,7 +239,10 @@ async function victimTask(): Promise<string> {
         insert into tasks (org_id, slug, kind, title, created_by)
         values (${org?.id ?? ""}, ${`t-${randomBytes(4).toString("hex")}`}, 'algorithmic', 'Secret', ${ALICE})
         returning id`;
-    return task?.id ?? "";
+    const [version] = await h.db.database.sql<{ id: string }[]>`
+        insert into task_versions (org_id, task_id, seq, created_by)
+        values (${org?.id ?? ""}, ${task?.id ?? ""}, 1, ${ALICE}) returning id`;
+    return { task: task?.id ?? "", version: version?.id ?? "" };
 }
 
 // An object owned by the victim that the row's path can name.
@@ -205,7 +255,8 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
             .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${ALICE}, 'owner')`;
         return encodeId("org", org?.id ?? "");
     }
-    if (row.object === "tsk") return encodeId("tsk", await victimTask());
+    if (row.object === "tsk") return encodeId("tsk", (await victimTask()).task);
+    if (row.object === "tsv") return encodeId("tsv", (await victimTask()).version);
     if (row.object !== "pky") return encodeId("ses", sessionId);
     const [created] = await h.db.database.sql<{ id: string }[]>`
         insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)
@@ -264,7 +315,8 @@ describe("generated checks", () => {
                     .replace(":userId", encodeId("usr", ALICE))
                     .replace(":keyId", encodeId("key", SAMPLE_UUID))
                     .replace(":invitationId", encodeId("inv", SAMPLE_UUID));
-                const hasBody = row.method === "PATCH" || row.method === "PUT";
+                const hasBody =
+                    row.method === "PATCH" || row.method === "PUT" || row.body !== undefined;
                 const response = await h.app().request(path, {
                     method: row.method,
                     headers: browser(

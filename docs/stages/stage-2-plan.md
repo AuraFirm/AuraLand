@@ -234,3 +234,10 @@ hash definition and cap: slices 4 and 5; roles: slice 1; waiver: slices 2 and 5;
   invitations screens), and task routes: create, list (cursor paging), read, update, with authorization
   matrix rows, audit entries, a daily creation limit and 404 for anyone who may not know a task exists.
   Versions, upload, review and release follow in 5b.
+- **Slice 5b-i:** versions and uploads: create, list, read, edit (statement, spec), start upload (presigned
+  part URLs), finalize (size and SHA-256 verified before anything is recorded). Storage configuration
+  (`AURA_STORAGE_DRIVER`, memory driver refused outside tests), `pnpm storage:init`, storage failures
+  as 503 with nothing half-recorded, migration 0014. The step-up window moved to `platform/step-up.ts`
+  so the tasks module can use it without depending on identity. Found while testing: spec JSON was
+  stored as a JSON string (fixed with `tx.json`). `.env` files with `AURA_TEST_*` values now start the
+  API (the test variables are ignored by the config loader).
