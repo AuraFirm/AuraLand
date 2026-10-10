@@ -19,7 +19,7 @@ route that is not declared, so an undocumented way in cannot ship unnoticed.
 decision. Anything that hands out or uses power needs a passkey check in the last 15 minutes
 (`STEP_UP_FRESH_S`): changing roles, removing owners or admins, inviting admins, creating or revoking
 API keys, verifying organizations, ending someone's sessions, removing a passkey, disconnecting a
-sign-in provider (when the person holds a passkey). A person with no passkey cannot do these until
+sign-in provider, and ending other devices or all sessions (the last three when the person holds a passkey). A person with no passkey cannot do these until
 they add one. Recovery from a lost passkey is the email route, which therefore never reaches the
 powerful actions on its own (V6.4.3).
 
@@ -55,7 +55,7 @@ production (`Secure; HttpOnly; SameSite=Lax; Path=/`).
 | Concurrent sessions per person | 20; the 21st sign-in ends the oldest, never the new one |
 | Activity write | at most once a minute |
 | New token | on every sign-in (the browser's previous session is ended) and on promotion (the promoted person's other sessions end) |
-| Ended by | logout, logout everywhere, revoking a device, deletion request, suspension, platform admin ending a person's sessions |
+| Ended by | logout, logout everywhere, "sign out my other devices", revoking a device, deletion request, suspension, platform admin ending a person's sessions |
 | Cross-site writes | refused unless the custom header, a matching Origin and `Sec-Fetch-Site` agree; API-key requests are exempt because they carry no ambient credential |
 
 Justification: the 7-day idle limit balances sign-in friction against exposure for ordinary people,

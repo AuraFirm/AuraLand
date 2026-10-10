@@ -5,6 +5,7 @@ import {
     freshEmail,
     linkIn,
     signInByEmail,
+    signInWithEmailCode,
     waitForMail,
     watchForCspProblems,
 } from "../test-helpers.ts";
@@ -60,4 +61,20 @@ test("people who are not signed in are sent to the sign-in page", async ({ page 
 test("an incomplete link says so", async ({ page }) => {
     await page.goto("/auth/verify");
     await expect(page.getByRole("alert").filter({ hasText: /incomplete/i })).toBeVisible();
+});
+
+test("after signing in, a safe next address is followed and an unsafe one is ignored", async ({
+    page,
+}) => {
+    await page.goto("/sign-in?next=/orgs");
+    await signInWithEmailCode(page, freshEmail());
+    await expect(page).toHaveURL(/\/orgs$/);
+
+    const other = await page.context().browser()?.newContext();
+    const stranger = await other?.newPage();
+    if (stranger === undefined) throw new Error("no second browser context");
+    await stranger.goto("/sign-in?next=//evil.example/steal");
+    await signInWithEmailCode(stranger, freshEmail());
+    await expect(stranger).toHaveURL(/localhost:3000\/account$/);
+    await other?.close();
 });

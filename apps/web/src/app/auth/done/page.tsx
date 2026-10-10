@@ -1,3 +1,4 @@
+import { ContinueLink } from "../../../components/continue-link.tsx";
 import { page } from "../../../lib/styles.ts";
 
 export const metadata = { title: "Sign-in result · AuraLand" };
@@ -35,9 +36,13 @@ export default async function DonePage({
             <p role={failed ? "alert" : "status"}>
                 {failed ? (REASONS[reason] ?? REASONS["invalid"]) : "All done."}
             </p>
-            <a className="text-accent underline" href={failed ? "/sign-in" : "/account"}>
-                {failed ? "Back to sign in" : "Go to your account"}
-            </a>
+            {failed ? (
+                <a className="text-accent underline" href="/sign-in">
+                    Back to sign in
+                </a>
+            ) : (
+                <ContinueLink fallback="/account" label="Continue" />
+            )}
         </main>
     );
 }

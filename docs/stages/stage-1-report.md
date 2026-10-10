@@ -54,9 +54,9 @@ Deviations, all recorded where they happened:
 | Check | Result |
 |---|---|
 | `pnpm check` (Biome, tsc, tigerlint, depcheck) | clean; 189 files, 0 violations |
-| `pnpm test` | 627 tests in 52 files: api 441, database 108, contracts 32, tools 41, web 5 |
+| `pnpm test` | 633 tests in 53 files: api 443, database 108, contracts 32, tools 41, web 7 |
 | `pnpm test:sim` | 500/500 seeds for each of 3 scenarios in CI; 100,000 seeds of each run locally on 2026-10-10 (result below); nightly workflow runs a new block of 100,000 |
-| `pnpm test:e2e` | 19 tests in real Chromium: email code, email link, wrong code, signed-out redirect, passkey add/sign-in/rename/remove, devices, export, deletion and cancel, organizations, invitations, API keys; axe-clean on every page; zero CSP violations; the browser blocks an injected handler |
+| `pnpm test:e2e` | 20 tests in real Chromium: email code, email link, wrong code, signed-out redirect, passkey add/sign-in/rename/remove, devices, export, deletion and cancel, organizations, invitations, API keys; axe-clean on every page; zero CSP violations; the browser blocks an injected handler |
 | CI on `main` | six required checks (verify including build, audit and end-to-end; images; semgrep; secrets; analyze; CodeQL) green on every merged pull request |
 | Semgrep, Trivy, `pnpm audit` | 0 findings; no known vulnerabilities |
 | Mutation checks | Every slice injected faults into its own logic (about 100 in all) and the tests caught each one or the fault was covered by a second layer; the exceptions found were turned into new tests |
@@ -74,7 +74,7 @@ Deviations, all recorded where they happened:
 - [x] **Privacy review.** In `docs/threat-model.md`: what is collected, export, deletion, retention gap (F9).
 - [x] **Rollback and feature-flag plan.** Additive migrations; sign-in methods switched by configuration; runbook section 11.
 - [ ] **A human has read the diffs of `identity`, `db/rls` and `infra` changes.** Not something I can tick. Suggested reading order below.
-- [ ] **ASVS V6, V7, V8 checklist signed off by a human.** The mapping is `docs/security/asvs-matrix.md`: 47 met, 5 partial, 4 not met, 23 not applicable of 79. The four not met are L3 items or accepted by product decision; each has a follow-up.
+- [ ] **ASVS V6, V7, V8 checklist signed off by a human.** The mapping is `docs/security/asvs-matrix.md`: 49 met, 3 partial, 4 not met, 23 not applicable of 79. The four not met are L3 items or accepted by product decision; each has a follow-up.
 
 ## Known issues, risks and follow-ups (ranked)
 1. **Email sign-in is single-factor** (ASVS V6.3.3 partial, V6.3.6 not met). Product decision; powerful actions need a passkey. Worth revisiting before enterprise customers.
@@ -106,7 +106,7 @@ after slice 8 (#21).
 
 ### To close Stage 1 (required)
 - [ ] **Read the security-sensitive diffs** (gate item). Order: `docs/security/authentication.md`, then `docs/security/asvs-matrix.md`, then migrations `0002`, `0004`, `0005`, `0009`, `0010`, then `authorize.ts`, `rules.ts`, `sign-in.ts`, `oauth.ts`, `passkey.ts`, then `auth-middleware.ts` and `app.ts`, then the red-team and log-hygiene tests.
-- [ ] **Sign off the ASVS table** (`docs/security/asvs-matrix.md`: 47 met, 5 partial, 4 not met, 23 not applicable). Accept or reject each partial and not-met row; follow-ups are in `docs/cutlist.md`.
+- [ ] **Sign off the ASVS table** (`docs/security/asvs-matrix.md`: 49 met, 3 partial, 4 not met, 23 not applicable). Accept or reject each partial and not-met row; follow-ups are in `docs/cutlist.md`.
 - [ ] **Decide on single-factor email sign-in** (V6.3.3, V6.3.6): keep it for ordinary people as built, or require a passkey for everyone after their first sign-in.
 - [ ] **Approve Stage 1 in writing** (a pull request comment is enough), or list what to change. Then I update `docs/stages/CURRENT.md` and start Stage 2.
 
@@ -125,8 +125,7 @@ after slice 8 (#21).
 - [ ] **Look at the nightly simulation** (GitHub Actions, workflow `nightly`) now and then. A failure prints a seed that reproduces it exactly.
 
 ### Optional decisions I can act on whenever you say
-Offer "sign out everywhere" after removing a passkey (F4); platform-administrator screens (F13); return to
-the page you were on after signing in (F14); ASVS mapping for the other chapters (F15). Details and owners:
+Platform-administrator screens (F13); ASVS mapping for the other chapters (F15). (F4, offering "sign out my other devices" after removing a passkey, and F14, returning to the page you were on after signing in, were done on 2026-10-10.) Details and owners:
 `docs/cutlist.md`.
 
 ## Suggested reading order for the human review

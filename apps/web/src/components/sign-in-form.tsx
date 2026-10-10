@@ -5,6 +5,7 @@ import { oauthStartResponseSchema } from "@aura/contracts/api/oauth";
 import { type FormEvent, useEffect, useState } from "react";
 import { z } from "zod";
 import { apiGet, apiSend, messageOf } from "../lib/api.ts";
+import { rememberNext, takeNext } from "../lib/next-path.ts";
 import { signInWithPasskey, usePasskeysSupported } from "../lib/passkeys.ts";
 import { button, buttonQuiet, input, panel } from "../lib/styles.ts";
 
@@ -20,6 +21,7 @@ export function SignInForm() {
     const supported = usePasskeysSupported();
 
     useEffect(() => {
+        rememberNext(new URLSearchParams(window.location.search).get("next"));
         apiGet("/auth/methods", authMethodsResponseSchema).then(setMethods, () => {
             setFailed(true);
             setMessage("Could not load the sign-in options. Reload the page.");
@@ -30,7 +32,7 @@ export function SignInForm() {
         setFailed(true);
         setMessage(messageOf(error));
     };
-    const finish = () => window.location.assign("/account");
+    const finish = () => window.location.assign(takeNext("/account"));
 
     return (
         <div className="flex flex-col gap-6">

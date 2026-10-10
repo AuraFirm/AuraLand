@@ -192,10 +192,11 @@ export async function revokeAllOwnSessions(
     userId: string,
     atMs: number,
     reason: RevokeReason,
+    exceptId: string | null = null,
 ): Promise<number> {
     const result = await tx`
         update sessions set revoked_at = ${new Date(atMs)}, revoked_reason = ${reason}
-        where user_id = ${userId} and revoked_at is null
+        where user_id = ${userId} and revoked_at is null and id is distinct from ${exceptId}
     `;
     return result.count;
 }

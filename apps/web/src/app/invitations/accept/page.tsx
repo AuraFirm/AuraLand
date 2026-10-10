@@ -9,7 +9,7 @@ export default function AcceptInvitationPage() {
             next="/orgs"
             title="Joining the organization"
             working="Checking your invitation…"
-            signInHint="Sign in with the email address this invitation was sent to, then open the link from your email again."
+            resume={{ returnTo: "/invitations/accept" }}
         />
     );
 }
