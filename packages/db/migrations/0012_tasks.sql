@@ -185,7 +185,7 @@ declare
     allowed text[] := array[
         'draft>uploaded', 'uploaded>in_review', 'in_review>uploaded', 'in_review>rejected',
         'in_review>validating', 'in_review>released', 'validating>validated', 'validating>uploaded',
-        'validated>released', 'validated>uploaded', 'released>retired', 'uploaded>rejected',
+        'validated>released', 'released>retired', 'uploaded>rejected',
         'draft>rejected'];
 begin
     if tg_op = 'INSERT' then
