@@ -45,4 +45,5 @@ rules:
       exclude:
         - "**/apps/web/src/lib/api.ts"
         - "**/apps/api/src/platform/egress.ts"
+        - "**/apps/e2e/**"
         - "**/*.test.ts"

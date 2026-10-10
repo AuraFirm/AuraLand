@@ -63,6 +63,7 @@ function handleMe(): Handler {
             handle: row.handle,
             display_name: row.display_name,
             platform_role: row.platform_role,
+            deletion_requested_at: row.deletion_requested_at?.toISOString() ?? null,
         });
         return c.json(body);
     };

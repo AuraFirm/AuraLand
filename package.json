@@ -17,7 +17,7 @@
         "format": "biome check --write .",
         "test": "node --env-file-if-exists=.env node_modules/vitest/vitest.mjs run --config vitest.config.ts",
         "test:sim": "node apps/api/src/sim/cli.ts",
-        "test:e2e": "echo 'No end-to-end tests exist before Stage 1.' && exit 1",
+        "test:e2e": "node --env-file-if-exists=.env apps/e2e/src/run-cli.ts",
         "build": "pnpm --recursive run build",
         "db:migrate": "node --env-file=.env packages/db/src/migrate-cli.ts",
         "audit": "pnpm audit --audit-level high && pnpm audit signatures",

@@ -8,6 +8,7 @@
     --color-text: var(--text);
     --color-muted: var(--muted);
     --color-brand: var(--brand);
+    --color-brand-strong: var(--brand-strong);
     --color-accent: var(--accent);
     --font-sans: var(--font-sans);
     --font-mono: var(--font-mono);

@@ -12,6 +12,7 @@ const me = {
     handle: "alice",
     display_name: "Alice",
     platform_role: "none",
+    deletion_requested_at: null,
 };
 const device = {
     id: encodeId("ses", UUID),

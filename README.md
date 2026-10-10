@@ -14,6 +14,8 @@ cp .env.example .env
 pnpm db:migrate                                   # needs AURA_DATABASE_URL in the environment
 pnpm check && pnpm test && pnpm test:sim
 pnpm check:semgrep                                # security rules; needs Docker
+pnpm build && pnpm --filter @aura/e2e exec playwright install chromium   # once
+pnpm test:e2e                                     # real browser, API, web and Mailpit (see ADR 0020)
 # after building the images (docker build --file apps/<app>/Dockerfile --tag aura-<app>:local .):
 pnpm check:trivy                                  # image and Dockerfile scan; needs Docker
 pnpm dev                                          # api :3001, web :3000

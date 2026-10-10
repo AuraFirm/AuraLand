@@ -10,6 +10,7 @@ import type { AppEnv } from "./app-env.ts";
 import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
+import { accountRoutes } from "./modules/identity/account-routes.ts";
 import { adminRoutes } from "./modules/identity/admin-routes.ts";
 import { apiKeyRoutes } from "./modules/identity/api-key-routes.ts";
 import { invitationRoutes } from "./modules/identity/invitation-routes.ts";
@@ -167,6 +168,15 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     const secureCookies = usesSecureCookies(deps.config);
     app.route("/v1", identityRoutes({ clock: deps.clock, secureCookies }));
+    app.route(
+        "/v1",
+        accountRoutes({
+            clock: deps.clock,
+            emailEnabled: deps.config.AURA_MAIL_DRIVER !== "disabled",
+            oauthProviders: [...deps.oauthProviders.keys()],
+            secureCookies,
+        }),
+    );
     app.route("/v1", apiKeyRoutes({ clock: deps.clock, rng: deps.rng }));
     app.route("/v1", adminRoutes({ clock: deps.clock }));
     app.route(
@@ -184,6 +194,11 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
         "/v1",
         orgRoutes({ sql: deps.database.sql, clock: deps.clock, key: loginTokenKey(deps.config) }),
     );
+    mountSignInRoutes(app, deps, secureCookies);
+}
+
+// The ways in: email, OAuth providers and passkeys.
+function mountSignInRoutes(app: Hono<AppEnv>, deps: AppDeps, secureCookies: boolean): void {
     app.route(
         "/v1",
         signInRoutes({

@@ -9,3 +9,7 @@ coverage/
 .DS_Store
 # Local throwaway Postgres clusters used by developers without Docker.
 .pgdata/
+
+# End-to-end test output
+apps/e2e/test-results/
+apps/e2e/playwright-report/

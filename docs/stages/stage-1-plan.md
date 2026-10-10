@@ -323,3 +323,13 @@ database valid. Each slice merges only with green CI, and the stage report recor
   API keys, passkey step-up, privileged sessions, platform-admin verification and invitations.
   Not done, deliberately: capabilities that need a verified organization do not exist yet, so the
   `authorize` hook for them (Stage 1 invariant 8) has nothing to guard; the flag is stored and shown.
+- **Slice 7a (2026-10-10), as built.** Slice 7 was split: 7a (this) the foundation, the account screens
+  and the end-to-end setup; 7b the organization screens. 7a adds API routes `GET /auth/methods`,
+  `GET /me/export` (bounded JSON download, audited), `POST|DELETE /me/delete-request` (marks the
+  account, ends every session, can be cancelled by signing in again; the purge is Stage 3), and
+  `deletion_requested_at` in `/me`. Web: sign-in (passkey, email code and link, OAuth buttons for
+  configured providers), link landing page, OAuth result page, and the account page (profile,
+  passkeys, connected accounts, devices, export, deletion). New `apps/e2e` workspace with Playwright
+  and axe, a runner that starts everything (`pnpm test:e2e`), and a CI step. ADR 0020 records the
+  dependencies and the real problems the browser found: low button contrast, Zod's `eval` probe
+  blocked by the CSP, and a hydration mismatch on passkey support; all fixed.

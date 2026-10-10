@@ -23,7 +23,7 @@ export const config = {
     // Static assets and the health probe carry no nonce and may be cached.
     matcher: [
         {
-            source: "/((?!_next/static|_next/image|favicon.ico|healthz).*)",
+            source: "/((?!_next/static|_next/image|favicon.ico|healthz|api/).*)",
             missing: [{ type: "header", key: "next-router-prefetch" }],
         },
     ],

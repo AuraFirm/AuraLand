@@ -10,7 +10,7 @@ Full context: `docs/kit/` (start with 00_START_HERE.md, 01, 02). Stage plan: `do
 State assumptions, simplest thing that works, SURGICAL changes (every changed line traces to the task; report unrelated issues, don't fix them), verifiable success criteria, fail fast/loud, explain WHY in comments and commits. Build only the current stage's scope: no speculative ports, options or modules. Security rules and domain invariants override everything.
 
 ## Commands
-- `pnpm i` · `pnpm dev` · `pnpm check` (biome + tsc + tigerlint + depcheck) · `pnpm test` · `pnpm test:sim [--scenario=<name> --seed=<n> --seeds=<count>]` · `pnpm build` · `pnpm db:migrate` · `pnpm audit` · `pnpm check:semgrep` · `pnpm check:trivy` (both need Docker and run in CI too)
+- `pnpm i` · `pnpm dev` · `pnpm check` (biome + tsc + tigerlint + depcheck) · `pnpm test` · `pnpm test:sim [--scenario=<name> --seed=<n> --seeds=<count>]` · `pnpm build` · `pnpm test:e2e` (needs `pnpm build`, Mailpit, Chromium) · `pnpm db:migrate` · `pnpm audit` · `pnpm check:semgrep` · `pnpm check:trivy` (both need Docker and run in CI too)
 - Database tests need PostgreSQL 18 at `AURA_TEST_DATABASE_URL` (see README). They fail, not skip, without it.
 - Definition of done: `pnpm check && pnpm test && pnpm test:sim` green, plus the stage gates in `docs/kit/12`.
 - Format fixes: `pnpm format`. Tools run with Node's type stripping: `node tools/<file>.ts`.

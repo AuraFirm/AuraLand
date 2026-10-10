@@ -29,8 +29,31 @@ export function adminUrl(): string {
     return url;
 }
 
+// Roles belong to the whole server, not to one database, so test files that migrate at the same time
+// would race to create them (migration 0002 checks, then creates). Making sure they exist first, under
+// a lock that all test files share, removes the race for tests; real deployments migrate once.
+const ROLES_LOCK_KEY = 7281990003;
+
+async function ensureApplicationRoles(admin: Database): Promise<void> {
+    await admin.sql.begin(async (transaction) => {
+        await transaction`select pg_advisory_xact_lock(${ROLES_LOCK_KEY})`;
+        await transaction`
+            do $$
+            begin
+                if not exists (select 1 from pg_roles where rolname = 'aura_app') then
+                    create role aura_app nologin;
+                end if;
+                if not exists (select 1 from pg_roles where rolname = 'aura_auth') then
+                    create role aura_auth nologin;
+                end if;
+            end
+            $$`;
+    });
+}
+
 export async function createTestDatabase(connectionsMax = 4): Promise<TestDatabase> {
     const admin = createDatabase(adminUrl(), 1);
+    await ensureApplicationRoles(admin);
     const name = `aura_test_${randomBytes(6).toString("hex")}`;
     await admin.sql`create database ${admin.sql(name)}`;
     await admin.close(5);
