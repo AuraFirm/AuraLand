@@ -5,7 +5,7 @@ import { assert } from "./assert.ts";
 // mistaken for an organization id, and the uuid is always a lowercase UUIDv7 (the database
 // generates uuidv7 keys). Text from the outside is validated here before it reaches a query.
 
-export const ID_PREFIXES = ["usr", "org", "ses", "key", "pky", "inv"] as const;
+export const ID_PREFIXES = ["usr", "org", "ses", "key", "pky", "inv", "tsk", "tsv"] as const;
 export type IdPrefix = (typeof ID_PREFIXES)[number];
 
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

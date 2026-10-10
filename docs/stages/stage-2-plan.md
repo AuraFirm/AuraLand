@@ -1,7 +1,6 @@
 # Stage 2 plan: tasks and bundles
 
-Status: **draft for your review. No Stage 2 code starts until you approve this plan and sign off
-Stage 1.** Kit reference: `docs/kit/12` Stage 2, `docs/kit/05` (tasks and bundles), `docs/kit/06`
+Status: **approved on 2026-10-10 with every default (ADR 0022); Stage 1 signed off.** Kit reference: `docs/kit/12` Stage 2, `docs/kit/05` (tasks and bundles), `docs/kit/06`
 (task endpoints), `docs/kit/07` section 7 (bundle format), `docs/kit/08` sections 4 and 5.
 
 ## 1. Goal
