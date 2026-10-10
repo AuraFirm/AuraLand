@@ -11,6 +11,9 @@ concurrency:
 env:
   AURA_TEST_DATABASE_URL: postgres://aura@127.0.0.1:5432/postgres
   AURA_TEST_MAILPIT_URL: http://127.0.0.1:8025
+  AURA_TEST_S3_ENDPOINT: http://127.0.0.1:8333
+  AURA_TEST_S3_ACCESS_KEY: aura-dev-access-key
+  AURA_TEST_S3_SECRET_KEY: aura-dev-secret-key-local-only
 jobs:
   verify:
     runs-on: ubuntu-24.04
@@ -38,6 +41,14 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # A service container cannot take a config file or arguments, so the object storage server
+      # (same pinned image as infra/compose.yml) is started here and waited for.
+      - run: >-
+          docker run -d --name seaweedfs -p 127.0.0.1:8333:8333
+          -v "$PWD/infra/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro"
+          ghcr.io/chrislusf/seaweedfs@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+          server -s3 -s3.config=/etc/seaweedfs/s3.json -dir=/data -ip.bind=0.0.0.0 -volume.max=60
+      - run: timeout 60 sh -c 'until curl -s -o /dev/null http://127.0.0.1:8333/; do sleep 1; done'
       - run: pnpm run check
       - run: pnpm test
       - run: pnpm run test:sim

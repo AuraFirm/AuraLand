@@ -22,5 +22,17 @@ services:
     image: ghcr.io/axllent/mailpit@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
     ports:
       - "127.0.0.1:8025:8025"
+  # Local S3-compatible object storage for task bundles (ADR 0025). SeaweedFS 4.48, Apache 2.0, from
+  # GitHub's registry (ADR 0010). The credentials in seaweedfs-s3.json are for this machine only.
+  # S3 API on http://127.0.0.1:8333.
+  seaweedfs:
+    image: ghcr.io/chrislusf/seaweedfs@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    command: ["server", "-s3", "-s3.config=/etc/seaweedfs/s3.json", "-dir=/data", "-ip.bind=0.0.0.0", "-volume.max=60"]
+    ports:
+      - "127.0.0.1:8333:8333"
+    volumes:
+      - ./seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+      - aura-seaweedfs:/data
 volumes:
   aura-postgres:
+  aura-seaweedfs:

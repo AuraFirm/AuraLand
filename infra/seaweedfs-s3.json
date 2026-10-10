@@ -1,0 +1,14 @@
+{
+    "identities": [
+        {
+            "name": "aura-dev",
+            "credentials": [
+                {
+                    "accessKey": "aura-dev-access-key",
+                    "secretKey": "aura-dev-secret-key-local-only"
+                }
+            ],
+            "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+        }
+    ]
+}
