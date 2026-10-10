@@ -13,8 +13,20 @@ export function generateNonce(): string {
     return btoa(String.fromCharCode(...bytes));
 }
 
-export function buildCsp(nonce: string, isDevelopment: boolean): string {
+// `connectOrigins` are extra origins scripts may talk to. Only the upload page passes one: the object
+// storage origin its presigned part URLs point at. Every other page keeps `connect-src 'self'`.
+export function buildCsp(
+    nonce: string,
+    isDevelopment: boolean,
+    connectOrigins: readonly string[] = [],
+): string {
     assert(/^[A-Za-z0-9+/]{22}==$/.test(nonce), "nonce is 16 random bytes in base64");
+    for (const origin of connectOrigins) {
+        assert(
+            /^https?:\/\/[A-Za-z0-9.-]+(:\d{1,5})?$/.test(origin),
+            "a connect origin is a bare origin",
+        );
+    }
     // The development server needs eval for React refresh; production never does.
     const scriptSources = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'"];
     if (isDevelopment) scriptSources.push("'unsafe-eval'");
@@ -27,7 +39,7 @@ export function buildCsp(nonce: string, isDevelopment: boolean): string {
         `style-src ${styleSources.join(" ")}`,
         "img-src 'self' data: blob:",
         "font-src 'self'",
-        "connect-src 'self'",
+        `connect-src ${["'self'", ...connectOrigins].join(" ")}`,
         "manifest-src 'self'",
         "object-src 'none'",
         "base-uri 'none'",

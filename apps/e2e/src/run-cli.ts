@@ -95,6 +95,20 @@ function apiEnvironment(
     };
 }
 
+const storageOrigin = (): string => process.env["AURA_TEST_S3_ENDPOINT"] ?? "http://127.0.0.1:8333";
+
+// The e2e bucket on the local S3 server, created by the same tool developers use (safe to repeat).
+async function ensureBucket(database: string, mailpit: string, origin: string): Promise<void> {
+    const env = apiEnvironment(database, mailpit, origin);
+    const done = spawn("node", ["apps/api/src/storage-init-cli.ts"], {
+        cwd: ROOT,
+        env: cleanEnvironment(env),
+        stdio: ["ignore", "inherit", "inherit"],
+    });
+    const code = await new Promise<number>((resolve) => done.on("exit", (c) => resolve(c ?? 1)));
+    if (code !== 0) fail("could not create the storage bucket (is the local S3 server running?)");
+}
+
 async function main(): Promise<number> {
     if (!existsSync(`${ROOT}apps/api/dist/main.js`) || !existsSync(`${WEB_STANDALONE}/server.js`)) {
         fail("build first: pnpm run build");
@@ -106,6 +120,7 @@ async function main(): Promise<number> {
     const origin = `http://localhost:${WEB_PORT}`;
     const children: ChildProcess[] = [];
     try {
+        await ensureBucket(database.url, mailpit, origin);
         const api = start(
             "the API",
             ["apps/api/dist/main.js"],
@@ -113,6 +128,7 @@ async function main(): Promise<number> {
         );
         children.push(api);
         const web = start("the web app", [`${WEB_STANDALONE}/server.js`], {
+            AURA_STORAGE_ORIGIN: storageOrigin(),
             PORT: String(WEB_PORT),
             HOSTNAME: "127.0.0.1",
             NODE_ENV: "production",
