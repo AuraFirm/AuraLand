@@ -5,6 +5,7 @@ import type { AppEnv } from "./app-env.ts";
 import {
     LOGIN_START_PER_ADDRESS_PER_MINUTE_MAX,
     LOGIN_VERIFY_PER_ADDRESS_PER_MINUTE_MAX,
+    OAUTH_PER_ADDRESS_PER_MINUTE_MAX,
     PASSKEY_LOGIN_PER_ADDRESS_PER_MINUTE_MAX,
 } from "./modules/identity/limits.ts";
 import type { Clock } from "./platform/clock.ts";
@@ -46,12 +47,30 @@ export const PASSKEY_LOGIN_BY_ADDRESS: RateLimitRule = {
     windowS: MINUTE_S,
 };
 
-const RULES_BY_PATH: ReadonlyMap<string, RateLimitRule> = new Map([
-    ["/api/v1/auth/email/start", START_BY_ADDRESS],
-    ["/api/v1/auth/email/verify", VERIFY_BY_ADDRESS],
-    ["/api/v1/auth/passkey/login/options", PASSKEY_LOGIN_BY_ADDRESS],
-    ["/api/v1/auth/passkey/login/verify", PASSKEY_LOGIN_BY_ADDRESS],
+export const OAUTH_BY_ADDRESS: RateLimitRule = {
+    name: "oauth:address",
+    max: OAUTH_PER_ADDRESS_PER_MINUTE_MAX,
+    windowS: MINUTE_S,
+};
+
+// Keyed by "METHOD path". The provider segment of OAuth paths is folded to ":provider", so one
+// limit covers GitHub and Google together.
+const RULES: ReadonlyMap<string, RateLimitRule> = new Map([
+    ["POST /api/v1/auth/email/start", START_BY_ADDRESS],
+    ["POST /api/v1/auth/email/verify", VERIFY_BY_ADDRESS],
+    ["POST /api/v1/auth/passkey/login/options", PASSKEY_LOGIN_BY_ADDRESS],
+    ["POST /api/v1/auth/passkey/login/verify", PASSKEY_LOGIN_BY_ADDRESS],
+    ["POST /api/v1/auth/oauth/:provider/start", OAUTH_BY_ADDRESS],
+    ["GET /api/v1/auth/oauth/:provider/callback", OAUTH_BY_ADDRESS],
 ]);
+
+function ruleFor(method: string, path: string): RateLimitRule | undefined {
+    const folded = path.replace(
+        /^\/api\/v1\/auth\/oauth\/[a-z]+\//,
+        "/api/v1/auth/oauth/:provider/",
+    );
+    return RULES.get(`${method} ${folded}`);
+}
 
 export function consumeRateLimit(
     deps: Pick<RateLimitDeps, "sql" | "clock" | "key">,
@@ -80,8 +99,8 @@ export function refuseRateLimited(
 
 export function rateLimit(deps: RateLimitDeps): MiddlewareHandler<AppEnv> {
     return async (c, next) => {
-        const rule = RULES_BY_PATH.get(c.req.path);
-        if (rule === undefined || c.req.method !== "POST") return next();
+        const rule = ruleFor(c.req.method, c.req.path);
+        if (rule === undefined) return next();
         // No usable address means we cannot tell callers apart, so they share one strict bucket.
         const address = clientAddress(c, deps.trustEdge) ?? "unknown";
         const verdict = await consumeRateLimit(deps, rule, address);

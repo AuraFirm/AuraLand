@@ -37,6 +37,11 @@ const MATRIX: readonly Row[] = [
     { method: "POST", path: "/api/v1/auth/passkey/register/verify", access: "user" },
     { method: "POST", path: "/api/v1/auth/passkey/login/options", access: "public" },
     { method: "POST", path: "/api/v1/auth/passkey/login/verify", access: "public" },
+    // Anonymous by nature; "link" needs a signed-in person, which the handler checks itself.
+    { method: "POST", path: "/api/v1/auth/oauth/:provider/start", access: "public" },
+    { method: "GET", path: "/api/v1/auth/oauth/:provider/callback", access: "public" },
+    { method: "GET", path: "/api/v1/me/identities", access: "user" },
+    { method: "DELETE", path: "/api/v1/me/identities/:provider", access: "user" },
     { method: "GET", path: "/api/v1/me/passkeys", access: "user" },
     {
         method: "PATCH",

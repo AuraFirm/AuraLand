@@ -10,6 +10,8 @@ import type { AppEnv } from "./app-env.ts";
 import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
+import type { OAuthProvider, ProviderName } from "./modules/identity/oauth-providers.ts";
+import { oauthRoutes } from "./modules/identity/oauth-routes.ts";
 import { relyingPartyId } from "./modules/identity/passkey.ts";
 import { passkeyRoutes } from "./modules/identity/passkey-routes.ts";
 import { identityRoutes } from "./modules/identity/routes.ts";
@@ -29,6 +31,8 @@ export interface AppDeps {
     readonly rng: Rng;
     readonly database: Database;
     readonly mail: MailPort;
+    // The OAuth providers that are switched on; empty when none is configured.
+    readonly oauthProviders: ReadonlyMap<ProviderName, OAuthProvider>;
     // Rejects when the database is unreachable. Must be cheap (a `select 1`).
     readonly pingDatabase: () => Promise<void>;
     // Called after an invariant violation, when state may be corrupt: the process should stop.
@@ -174,6 +178,20 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
         }),
     );
 
+    app.route(
+        "/v1",
+        oauthRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            rng: deps.rng,
+            key: loginTokenKey(deps.config),
+            publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+            logger: deps.logger,
+            providers: deps.oauthProviders,
+            secureCookies,
+            trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+        }),
+    );
     app.route(
         "/v1",
         passkeyRoutes({

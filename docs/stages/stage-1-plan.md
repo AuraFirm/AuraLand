@@ -286,3 +286,14 @@ database valid. Each slice merges only with green CI, and the stage report recor
   (a fresh passkey check for a session that already exists) is built in slice 6 with the first
   privileged action, which is where it is needed. Sessions created by passkey are not yet marked
   privileged for platform admins; that arrives with roles in slice 6, for all methods at once.
+- **Slice 5 (2026-10-10), as built.** Sign-in with GitHub and Google. Migration 0008
+  (`oauth_identities`, `oauth_flows`); routes `POST /auth/oauth/{provider}/start`,
+  `GET /auth/oauth/{provider}/callback`, `GET /me/identities`, `DELETE /me/identities/{provider}`;
+  config for client id and secret per provider (off unless both are set). **Arctic was not used**: it
+  calls `fetch` directly and has fixed endpoints, which conflicts with the egress-only rule and with
+  testing against a fake provider, so the small flow is written on the egress client (ADR 0016); no
+  new dependency. Linking rules as planned: a new identity creates an account only with a
+  provider-verified email nobody uses; otherwise nothing is linked; connecting a provider needs a
+  signed-in session. Not exercised against the real providers: that needs the OAuth apps you create
+  (section 12). The plan's `login_tokens` `link_account` purpose was not needed because linking uses
+  the existing session instead of an email proof.

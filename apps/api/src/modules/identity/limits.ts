@@ -62,3 +62,12 @@ export const PASSKEYS_PER_USER_MAX = 20;
 
 // Passkey login is anonymous and each attempt writes a challenge row, so it is limited per address.
 export const PASSKEY_LOGIN_PER_ADDRESS_PER_MINUTE_MAX = 30;
+
+// ---- OAuth sign-in ----
+
+// A person has ten minutes to approve at the provider and come back; the database caps it too.
+export const OAUTH_FLOW_TTL_S = 10 * 60;
+export const OAUTH_SECRET_BYTES = 32;
+
+// Starting and finishing OAuth are anonymous, so they are limited per address (Stage 1 plan section 9).
+export const OAUTH_PER_ADDRESS_PER_MINUTE_MAX = 10;

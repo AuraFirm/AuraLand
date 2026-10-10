@@ -2,7 +2,7 @@ import { withRequestContext } from "@aura/db/context";
 import { createMigratedTestDatabase, type TestDatabase } from "@aura/db/test-helpers";
 import { pino } from "pino";
 import { vi } from "vitest";
-import { createApp } from "./app.ts";
+import { type AppDeps, createApp } from "./app.ts";
 import { parseConfig } from "./config.ts";
 import { createPgSessionStore } from "./modules/identity/queries.ts";
 import { createSession, type SessionDeps } from "./modules/identity/service.ts";
@@ -45,7 +45,11 @@ export interface Harness {
     readonly onInvariantViolation: ReturnType<typeof vi.fn>;
     // Every email the app "sent" in this harness.
     readonly mail: ReturnType<typeof createMemoryMail>;
-    app(env?: Record<string, string>, mail?: MailPort): ReturnType<typeof createApp>;
+    app(
+        env?: Record<string, string>,
+        mail?: MailPort,
+        oauthProviders?: AppDeps["oauthProviders"],
+    ): ReturnType<typeof createApp>;
     asIdentity<T>(work: (deps: SessionDeps) => Promise<T>): Promise<T>;
     login(userId: string, privileged?: boolean): ReturnType<typeof createSession>;
     request(
@@ -82,7 +86,11 @@ export async function createHarness(): Promise<Harness> {
     const rng = createSeededRng(2026);
     const onInvariantViolation = vi.fn();
     const mail = createMemoryMail();
-    const app = (env: Record<string, string> = {}, sender: MailPort = mail) =>
+    const app = (
+        env: Record<string, string> = {},
+        sender: MailPort = mail,
+        oauthProviders: AppDeps["oauthProviders"] = new Map(),
+    ) =>
         createApp({
             config: parseConfig({ ...BASE_ENV, ...env }),
             logger: pino({ level: "silent" }),
@@ -90,6 +98,7 @@ export async function createHarness(): Promise<Harness> {
             rng,
             database: db.database,
             mail: sender,
+            oauthProviders,
             pingDatabase: async () => undefined,
             onInvariantViolation,
         });

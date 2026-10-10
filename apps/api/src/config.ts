@@ -50,6 +50,11 @@ const configSchema = z
         AURA_LOGIN_TOKEN_SECRET: z
             .string()
             .refine(isBase64Secret, "must be base64 of at least 32 bytes"),
+        // Sign-in with GitHub or Google. Each provider is on only when both of its values are set.
+        AURA_OAUTH_GITHUB_CLIENT_ID: z.string().min(1).max(200).optional(),
+        AURA_OAUTH_GITHUB_CLIENT_SECRET: z.string().min(1).max(400).optional(),
+        AURA_OAUTH_GOOGLE_CLIENT_ID: z.string().min(1).max(200).optional(),
+        AURA_OAUTH_GOOGLE_CLIENT_SECRET: z.string().min(1).max(400).optional(),
     })
     .strict();
 
@@ -82,7 +87,44 @@ export function parseConfig(environment: Readonly<Record<string, string | undefi
             "the mailpit driver is for local development and tests only",
         );
     }
+    for (const provider of ["GITHUB", "GOOGLE"]) {
+        const id = aura[`AURA_OAUTH_${provider}_CLIENT_ID`];
+        const secret = aura[`AURA_OAUTH_${provider}_CLIENT_SECRET`];
+        assert(
+            (id === undefined) === (secret === undefined),
+            `set both or neither of the ${provider} OAuth client id and secret`,
+        );
+    }
     return config;
+}
+
+export interface OAuthClientSettings {
+    readonly github?: { readonly clientId: string; readonly clientSecret: string };
+    readonly google?: { readonly clientId: string; readonly clientSecret: string };
+}
+
+// Which OAuth providers are configured, with their credentials.
+export function oauthClientSettings(config: Config): OAuthClientSettings {
+    const github =
+        config.AURA_OAUTH_GITHUB_CLIENT_ID !== undefined &&
+        config.AURA_OAUTH_GITHUB_CLIENT_SECRET !== undefined
+            ? {
+                  clientId: config.AURA_OAUTH_GITHUB_CLIENT_ID,
+                  clientSecret: config.AURA_OAUTH_GITHUB_CLIENT_SECRET,
+              }
+            : undefined;
+    const google =
+        config.AURA_OAUTH_GOOGLE_CLIENT_ID !== undefined &&
+        config.AURA_OAUTH_GOOGLE_CLIENT_SECRET !== undefined
+            ? {
+                  clientId: config.AURA_OAUTH_GOOGLE_CLIENT_ID,
+                  clientSecret: config.AURA_OAUTH_GOOGLE_CLIENT_SECRET,
+              }
+            : undefined;
+    return {
+        ...(github === undefined ? {} : { github }),
+        ...(google === undefined ? {} : { google }),
+    };
 }
 
 // The key for hashing login codes and links, decoded from the validated base64 setting.

@@ -98,3 +98,32 @@ describe("destination safety", () => {
         expect(String(failure)).not.toContain("127.0.0.1");
     });
 });
+
+describe("postForm and getJson", () => {
+    it("posts form-encoded fields with the given headers", async () => {
+        seen.length = 0;
+        const result = await client().postForm(
+            "/ok",
+            { code: "a b&c", grant_type: "authorization_code" },
+            { accept: "application/json" },
+        );
+        expect(result.status).toBe(200);
+        expect(seen[0]?.contentType).toBe("application/x-www-form-urlencoded");
+        expect(new URLSearchParams(seen[0]?.body).get("code")).toBe("a b&c");
+    });
+
+    it("gets with the given headers and sends no body", async () => {
+        seen.length = 0;
+        const result = await client().getJson("/ok", { authorization: "Bearer t" });
+        expect(result).toEqual({ status: 200, text: '{"fine":true}' });
+        expect(seen[0]).toMatchObject({ method: "GET", body: "" });
+    });
+
+    it("keeps every protection of postJson: redirects, size, path and header injection", async () => {
+        await expect(client().getJson("/redirect")).rejects.toThrow(EgressError);
+        await expect(client().getJson("/huge")).rejects.toThrow(/too large/);
+        await expect(client().getJson("//evil.example/x")).rejects.toThrow(/plain absolute path/);
+        expect(() => client().getJson("/ok", { "x-a": "1\r\nx-b: 2" })).toThrow(/line break/);
+        expect(() => client().postForm("/ok", {}, { "bad name": "1" })).toThrow(/token/);
+    });
+});
