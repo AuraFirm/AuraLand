@@ -3,8 +3,13 @@
 // many guesses a stolen sign-in context allows, how many rows an anonymous flood can create. The
 // numbers come from the documented limits (docs/security/authentication.md).
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { browser, createHarness, type Harness } from "./http-harness.ts";
+
+// The drill sends hundreds of real requests one after another (each touches PostgreSQL several times),
+// which takes a few seconds on a busy CI machine. A test that times out would leave its remaining
+// requests running into the next test and move the shared clock under it, so the timeout is generous.
+vi.setConfig({ testTimeout: 120_000 });
 
 let h: Harness;
 beforeAll(async () => {
