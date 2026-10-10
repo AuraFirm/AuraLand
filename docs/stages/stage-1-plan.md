@@ -316,3 +316,10 @@ database valid. Each slice merges only with green CI, and the stage report recor
   only scope is `org:read` (nothing else exists to guard yet); the stricter idle limit is set at
   sign-in and on promotion, not recomputed every request (recorded in ADR 0018 and left for slice 8);
   invitations are slice 6c.
+- **Slice 6c (2026-10-10), as built.** Invitations. Migration 0011 (`org_invitations`; a personal
+  space never gets a second member; 5,000-member cap). Routes `POST|GET /orgs/{id}/invitations`,
+  `DELETE /orgs/{id}/invitations/{invitationId}`, `POST /invitations/accept`; new id prefix `inv`.
+  ADR 0019. This completes slice 6: organizations, memberships and roles with `authorize()`,
+  API keys, passkey step-up, privileged sessions, platform-admin verification and invitations.
+  Not done, deliberately: capabilities that need a verified organization do not exist yet, so the
+  `authorize` hook for them (Stage 1 invariant 8) has nothing to guard; the flag is stored and shown.

@@ -88,6 +88,29 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "org",
     },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/invitations",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: { email: "someone@example.com" },
+    },
+    {
+        method: "GET",
+        path: "/api/v1/orgs/:id/invitations",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/orgs/:id/invitations/:invitationId",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    { method: "POST", path: "/api/v1/invitations/accept", access: "user" },
     { method: "GET", path: "/api/v1/key", access: "key" },
     {
         method: "POST",
@@ -130,7 +153,8 @@ const concrete = (row: Row) =>
     row.path
         .replace(":id", encodeId(row.object ?? "ses", SAMPLE_UUID))
         .replace(":userId", encodeId("usr", SAMPLE_UUID))
-        .replace(":keyId", encodeId("key", SAMPLE_UUID));
+        .replace(":keyId", encodeId("key", SAMPLE_UUID))
+        .replace(":invitationId", encodeId("inv", SAMPLE_UUID));
 const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
 
@@ -200,7 +224,8 @@ describe("generated checks", () => {
                 const path = row.path
                     .replace(":id", objectId)
                     .replace(":userId", encodeId("usr", ALICE))
-                    .replace(":keyId", encodeId("key", SAMPLE_UUID));
+                    .replace(":keyId", encodeId("key", SAMPLE_UUID))
+                    .replace(":invitationId", encodeId("inv", SAMPLE_UUID));
                 const hasBody = row.method === "PATCH" || row.method === "PUT";
                 const response = await h.app().request(path, {
                     method: row.method,

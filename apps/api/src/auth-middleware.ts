@@ -134,6 +134,7 @@ const OWN_TRANSACTION_PREFIXES = [
     "/api/v1/auth/email/",
     "/api/v1/auth/passkey/",
     "/api/v1/auth/oauth/",
+    "/api/v1/invitations/",
 ];
 
 // Thrown after the handler has produced an error response, to roll the transaction back without

@@ -23,6 +23,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `orgs` | `modules/identity` | Organizations (personal space per person, plus teams); members read, owners and admins rename; created only through `create_org` |
 | `memberships` | `modules/identity` | Who belongs to which organization, with a role; members read, owners change roles, removal per role; always keeps one owner |
 | `api_keys` | `modules/identity` | Organization API keys (SHA-256 of a random secret, never readable by `aura_app`); owners and admins manage; the identity role authenticates with them |
+| `org_invitations` | `modules/identity` | Pending invitations to join an organization (HMAC of the link secret, never readable by `aura_app`); owners and admins manage; the identity role accepts them |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
 | `audit_log` | `packages/db` (`audit.ts`), written through `appendAudit` by any module | Append-only hash chain; readable by org members and by the actor |
 
