@@ -1,5 +1,6 @@
 import type { AuthMethod } from "@aura/contracts/identity";
 import type { Transaction } from "@aura/db/context";
+import type { OrgMembership } from "./modules/identity/authorize.ts";
 
 // Who is making the request. Resolved once by the authenticate middleware and read by everything
 // after it; handlers never look at cookies themselves.
@@ -12,6 +13,8 @@ export type Actor =
           readonly authMethod: AuthMethod;
           readonly privileged: boolean;
           readonly stepUpAtMs: number | null;
+          // The organizations this person belongs to, loaded when the request is identified.
+          readonly orgs: readonly OrgMembership[];
       };
 
 export interface AppEnv {

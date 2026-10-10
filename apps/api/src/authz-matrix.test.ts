@@ -17,7 +17,9 @@ interface Row {
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
-    readonly object?: "pky";
+    readonly object?: "pky" | "org";
+    // A valid request body for rows that need one, so the check reaches authorization.
+    readonly body?: Record<string, string>;
 }
 
 // Add a row in the same pull request that adds a route. This list is the written access policy.
@@ -42,6 +44,26 @@ const MATRIX: readonly Row[] = [
     { method: "GET", path: "/api/v1/auth/oauth/:provider/callback", access: "public" },
     { method: "GET", path: "/api/v1/me/identities", access: "user" },
     { method: "DELETE", path: "/api/v1/me/identities/:provider", access: "user" },
+    { method: "POST", path: "/api/v1/orgs", access: "user" },
+    { method: "GET", path: "/api/v1/orgs", access: "user" },
+    { method: "GET", path: "/api/v1/orgs/:id", access: "user", owned: true, object: "org" },
+    { method: "PATCH", path: "/api/v1/orgs/:id", access: "user", owned: true, object: "org" },
+    { method: "GET", path: "/api/v1/orgs/:id/members", access: "user", owned: true, object: "org" },
+    {
+        method: "PATCH",
+        path: "/api/v1/orgs/:id/members/:userId",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: { role: "member" },
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/orgs/:id/members/:userId",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
     { method: "GET", path: "/api/v1/me/passkeys", access: "user" },
     {
         method: "PATCH",
@@ -70,12 +92,23 @@ afterAll(async () => {
     await h.drop();
 });
 
-const concrete = (row: Row) => row.path.replace(":id", encodeId(row.object ?? "ses", SAMPLE_UUID));
+const concrete = (row: Row) =>
+    row.path
+        .replace(":id", encodeId(row.object ?? "ses", SAMPLE_UUID))
+        .replace(":userId", encodeId("usr", SAMPLE_UUID));
 const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
 
 // An object owned by the victim that the row's path can name.
 async function victimObject(row: Row, sessionId: string): Promise<string> {
+    if (row.object === "org") {
+        const [org] = await h.db.database.sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('company', ${`victim-${randomBytes(4).toString("hex")}`}, 'Victim team')
+            returning id`;
+        await h.db.database
+            .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${ALICE}, 'owner')`;
+        return encodeId("org", org?.id ?? "");
+    }
     if (row.object !== "pky") return encodeId("ses", sessionId);
     const [created] = await h.db.database.sql<{ id: string }[]>`
         insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)
@@ -129,7 +162,9 @@ describe("generated checks", () => {
                 const victim = await h.login(ALICE);
                 const intruder = await h.login(BOB);
                 const objectId = await victimObject(row, victim.session.id);
-                const path = row.path.replace(":id", objectId);
+                const path = row.path
+                    .replace(":id", objectId)
+                    .replace(":userId", encodeId("usr", ALICE));
                 const hasBody = row.method === "PATCH" || row.method === "PUT";
                 const response = await h.app().request(path, {
                     method: row.method,
@@ -137,7 +172,7 @@ describe("generated checks", () => {
                         intruder.token,
                         hasBody ? { "content-type": "application/json" } : {},
                     ),
-                    ...(hasBody ? { body: JSON.stringify({ name: "intruder" }) } : {}),
+                    ...(hasBody ? { body: JSON.stringify(row.body ?? { name: "intruder" }) } : {}),
                 });
                 expect(response.status).toBe(404);
                 expect((await h.request("/me", { headers: browser(victim.token) })).status).toBe(

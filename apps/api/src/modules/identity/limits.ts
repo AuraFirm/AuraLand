@@ -71,3 +71,9 @@ export const OAUTH_SECRET_BYTES = 32;
 
 // Starting and finishing OAuth are anonymous, so they are limited per address (Stage 1 plan section 9).
 export const OAUTH_PER_ADDRESS_PER_MINUTE_MAX = 10;
+
+// ---- organizations ----
+
+// While an organization is unverified, a person can create at most this many per day (Stage 1 plan
+// section 17), so unverified organizations cannot be used to flood the system.
+export const ORGS_CREATED_PER_USER_PER_DAY_MAX = 5;

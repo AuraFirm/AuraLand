@@ -13,6 +13,8 @@ const RLS_EXEMPT: Readonly<Record<string, string>> = {
 // table owner must read every row (the audit hash chain).
 const NOT_FORCED: Readonly<Record<string, string>> = {
     audit_log: "its chain trigger runs as the owner and must see all rows",
+    orgs: "the role helper functions run as the owner and must read memberships",
+    memberships: "the role helper functions run as the owner and must read memberships",
 };
 
 let db: TestDatabase;

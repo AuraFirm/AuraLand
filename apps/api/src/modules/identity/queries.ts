@@ -1,3 +1,4 @@
+import { assert } from "@aura/contracts/assert";
 import { AUTH_METHODS } from "@aura/contracts/identity";
 import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
@@ -319,6 +320,7 @@ export async function findOrCreateAccount(
         const account = accountSchema.parse(fresh);
         await tx`insert into profiles (user_id, handle, display_name)
             values (${account.id}, ${handle}, ${handle})`;
+        await createPersonalSpace(tx, account.id, handle);
         return { ...account, created: true };
     }
     const found = await tx`
@@ -327,6 +329,19 @@ export async function findOrCreateAccount(
         returning id, status
     `;
     return { ...accountSchema.parse(found[0]), created: false };
+}
+
+// Everyone gets a personal organization they own. Its address is derived from the random handle,
+// and the database reserves that shape (`p-` plus ten hex digits) for personal spaces only.
+async function createPersonalSpace(tx: Transaction, userId: string, handle: string): Promise<void> {
+    const suffix = /^user_([0-9a-f]{10})$/.exec(handle)?.[1];
+    assert(suffix !== undefined, "new handles are user_ plus ten hex digits");
+    const rows = await tx`
+        insert into orgs (kind, slug, name) values ('personal', ${`p-${suffix}`}, 'Personal space')
+        returning id
+    `;
+    const orgId = z.object({ id: z.string() }).parse(rows[0]).id;
+    await tx`insert into memberships (org_id, user_id, role) values (${orgId}, ${userId}, 'owner')`;
 }
 
 export async function findAccountLabels(
