@@ -4,10 +4,18 @@ import { buildCsp, generateNonce } from "./lib/csp.ts";
 // Next.js 16 calls this file "proxy" (formerly "middleware"). It does exactly one job: attach a
 // per-request CSP nonce. It must never make authentication decisions (docs/kit/03 section 3):
 // authorization lives in the API and in PostgreSQL, so bypassing this file exposes nothing.
+// Only the bundle upload page may send data to the object storage origin (set at deploy time).
+function connectOriginsFor(request: NextRequest): string[] {
+    // tigerlint-allow: env-only-in-config -- read at request time by the Next.js server
+    const storage = process.env["AURA_STORAGE_ORIGIN"];
+    const onUploadPage = request.nextUrl.pathname.startsWith("/versions/");
+    return onUploadPage && storage !== undefined && storage !== "" ? [storage] : [];
+}
+
 export function proxy(request: NextRequest): NextResponse {
     const nonce = generateNonce();
     // tigerlint-allow: env-only-in-config -- NODE_ENV is inlined by Next.js at build time
-    const csp = buildCsp(nonce, process.env.NODE_ENV === "development");
+    const csp = buildCsp(nonce, process.env.NODE_ENV === "development", connectOriginsFor(request));
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-nonce", nonce);
     // Next.js reads the nonce from the request-side policy and applies it to its own scripts.

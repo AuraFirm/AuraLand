@@ -15,6 +15,22 @@ describe("nonce", () => {
 describe("buildCsp", () => {
     const nonce = generateNonce();
 
+    it("adds extra connect origins only when asked, and only bare origins", () => {
+        expect(buildCsp(nonce, false)).toContain("connect-src 'self';");
+        const upload = buildCsp(nonce, false, ["https://s3.example"]);
+        expect(upload).toContain("connect-src 'self' https://s3.example;");
+        expect(upload).not.toContain("*");
+        for (const bad of [
+            "*",
+            "https://s3.example/path",
+            "https://a b",
+            "javascript:x",
+            "https://x;script-src *",
+        ]) {
+            expect(() => buildCsp(nonce, false, [bad]), bad).toThrow();
+        }
+    });
+
     it("is strict in production", () => {
         const csp = buildCsp(nonce, false);
         expect(csp).toContain(`script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`);

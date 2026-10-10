@@ -8,6 +8,7 @@ import { useLoad } from "../lib/use-load.ts";
 import { OrgApiKeys } from "./org-api-keys.tsx";
 import { OrgInvitations } from "./org-invitations.tsx";
 import { OrgMembers } from "./org-members.tsx";
+import { OrgTasks } from "./org-tasks.tsx";
 import { Notice, Section } from "./section.tsx";
 
 export function OrgDetail({ orgId }: { orgId: string }) {
@@ -30,6 +31,7 @@ export function OrgDetail({ orgId }: { orgId: string }) {
         <>
             <h1 className="text-2xl font-semibold">{data.name}</h1>
             <Overview org={data} onChanged={reload} />
+            <OrgTasks org={data} />
             <OrgMembers org={data} />
             {manages && <OrgInvitations org={data} />}
             {manages && <OrgApiKeys org={data} />}

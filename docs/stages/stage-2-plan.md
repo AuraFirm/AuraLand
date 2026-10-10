@@ -254,3 +254,11 @@ hash definition and cap: slices 4 and 5; roles: slice 1; waiver: slices 2 and 5;
   mutation checks (3 survivors are protected by a second layer; two corpus gaps found and closed).
   Semgrep bans raw HTML sinks outside the future `SafeHtml` component. The browser XSS check arrives
   with the statement page (slice 7).
+- **Slice 7:** screens: tasks on the organization page, task page (details, versions), version page
+  (statement editor with rendered preview, spec editor, bundle upload straight to storage with a
+  browser-side SHA-256, submit, review, release with a recorded waiver and passkey check, retire,
+  abandon). `SafeHtml` is the only place HTML enters a page. The CSP gains the storage origin on
+  `/versions/*` only (`AURA_STORAGE_ORIGIN`). Browser tests (2): a full journey with a hostile statement
+  (no script, no dialog, no CSP violation, MathML shown, unsafe links dropped), a real upload to the
+  local S3 server, release by a second person; and a read-only member. Proven not vacuous: with the
+  storage origin removed from the CSP the upload test fails.

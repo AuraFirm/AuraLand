@@ -134,7 +134,12 @@ export async function signInByEmail(page: Page, email: string): Promise<void> {
 // about signing in do not each spend one of the (deliberately small) sign-in rate-limit allowances.
 // It writes the same rows a real sign-in would, directly into the test database, and gives the
 // browser the cookie.
-export async function loginAs(context: BrowserContext, email: string): Promise<void> {
+// `stepUp` makes the session carry a passkey check from just now, as a passkey sign-in would.
+export async function loginAs(
+    context: BrowserContext,
+    email: string,
+    options: { stepUp?: boolean } = {},
+): Promise<void> {
     const url = process.env["AURA_E2E_DATABASE_URL"];
     if (url === undefined || url === "") throw new Error("AURA_E2E_DATABASE_URL must be set");
     const token = randomBytes(32).toString("base64url");
@@ -155,9 +160,10 @@ export async function loginAs(context: BrowserContext, email: string): Promise<v
             select ${org?.id ?? ""}, ${id}, 'owner'
             where not exists (select 1 from memberships where org_id = ${org?.id ?? ""})`;
         await sql`insert into sessions (user_id, token_hash, auth_method, privileged, created_at, last_seen_at,
-                                        idle_expires_at, absolute_expires_at)
+                                        idle_expires_at, absolute_expires_at, step_up_at)
             values (${id}, ${createHash("sha256").update(token).digest()}, 'email_code', false, now(), now(),
-                    now() + interval '7 days', now() + interval '30 days')`;
+                    now() + interval '7 days', now() + interval '30 days',
+                    ${options.stepUp === true ? new Date() : null})`;
     } finally {
         await database.close(5);
     }
@@ -171,4 +177,31 @@ export async function loginAs(context: BrowserContext, email: string): Promise<v
             sameSite: "Lax",
         },
     ]);
+}
+
+// A team organization with the given people in the given roles. Returns the organization's public id.
+// Anyone who signs in with `loginAs` afterwards is the same person, so they keep these roles.
+export async function seedTeam(
+    name: string,
+    seats: ReadonlyArray<{ email: string; role: string }>,
+): Promise<string> {
+    const url = process.env["AURA_E2E_DATABASE_URL"];
+    if (url === undefined || url === "") throw new Error("AURA_E2E_DATABASE_URL must be set");
+    const database = createDatabase(url, 1);
+    try {
+        const { sql } = database;
+        const slug = `team-${randomBytes(4).toString("hex")}`;
+        const [org] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('company', ${slug}, ${name}) returning id`;
+        const orgId = org?.id ?? "";
+        for (const seat of seats) {
+            const [user] = await sql<{ id: string }[]>`
+                insert into users (email, email_verified_at) values (${seat.email}, now())
+                on conflict (email) do update set email = excluded.email returning id`;
+            await sql`insert into memberships (org_id, user_id, role) values (${orgId}, ${user?.id ?? ""}, ${seat.role})`;
+        }
+        return `org_${orgId}`;
+    } finally {
+        await database.close(5);
+    }
 }

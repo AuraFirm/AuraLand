@@ -44,6 +44,7 @@ rules:
     paths:
       exclude:
         - "**/apps/web/src/lib/api.ts"
+        - "**/apps/web/src/lib/upload.ts"
         - "**/apps/api/src/platform/egress.ts"
         - "**/apps/e2e/**"
         - "**/*.test.ts"
