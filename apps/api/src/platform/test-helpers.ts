@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { assert } from "@aura/contracts/assert";
+import type { S3Settings } from "./storage-s3.ts";
 
 // Helpers for tests that need a real HTTP server or the real Mailpit.
 
@@ -47,4 +48,25 @@ export function mailpitUrl(): string {
         "AURA_TEST_MAILPIT_URL must point to a running Mailpit",
     );
     return url;
+}
+
+// Connection settings for the local S3-compatible server (infra/compose.yml), with a bucket name the
+// caller makes unique. There is no default: a missing value fails the test.
+export function s3TestSettings(bucket: string): S3Settings {
+    const read = (name: string): string => {
+        const value = process.env[name];
+        assert(
+            value !== undefined && value.length > 0,
+            `${name} must be set to run the storage tests`,
+        );
+        return value;
+    };
+    return {
+        region: "us-east-1",
+        bucket,
+        endpoint: read("AURA_TEST_S3_ENDPOINT"),
+        publicEndpoint: read("AURA_TEST_S3_ENDPOINT"),
+        accessKeyId: read("AURA_TEST_S3_ACCESS_KEY"),
+        secretAccessKey: read("AURA_TEST_S3_SECRET_KEY"),
+    };
 }
