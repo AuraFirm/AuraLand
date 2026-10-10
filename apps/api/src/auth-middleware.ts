@@ -1,10 +1,12 @@
-import { withRequestContext } from "@aura/db/context";
-import type { MiddlewareHandler } from "hono";
+import { type ScopedContext, withRequestContext } from "@aura/db/context";
+import type { Context, MiddlewareHandler } from "hono";
 import type { AppDeps } from "./app.ts";
 import type { Actor, AppEnv } from "./app-env.ts";
 import { usesSecureCookies } from "./config.ts";
+import { bearerKeyFrom, parseApiKey, secretMatches } from "./modules/identity/api-key.ts";
+import { findKeyByPrefix, touchKey } from "./modules/identity/api-key-queries.ts";
 import { CSRF_HEADER_NAME } from "./modules/identity/limits.ts";
-import { loadMemberships } from "./modules/identity/org-queries.ts";
+import { loadMemberships, loadPlatformRole } from "./modules/identity/org-queries.ts";
 import { createPgSessionStore } from "./modules/identity/queries.ts";
 import {
     evaluateCsrf,
@@ -20,52 +22,95 @@ import { problemResponse } from "./platform/problem-response.ts";
 // dbContext (open the transaction, as the right database role, for the handler).
 
 const ANONYMOUS: Actor = { kind: "anonymous" };
+const IDENTITY_CONTEXT = {
+    role: "aura_auth",
+    actorKind: "anonymous",
+    userId: null,
+    orgIds: [],
+} as const;
+
+// An API key's last-use time is written at most this often, so a busy integration does not turn
+// every request into a write.
+const KEY_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
+
+// A constant to compare against when no key matches the prefix, so "unknown prefix" and "wrong
+// secret" take the same time.
+const DUMMY_HASH = "0".repeat(64);
 
 export function authenticate(deps: AppDeps): MiddlewareHandler<AppEnv> {
     const secure = usesSecureCookies(deps.config);
     return async (c, next) => {
-        const header = c.req.header("cookie");
-        const token = parseSessionCookie(header, secure);
         c.set("actor", ANONYMOUS);
         c.set("clearSessionCookie", false);
-        if (token !== null) {
-            const result = await withRequestContext(
-                deps.database.sql,
-                { role: "aura_auth", actorKind: "anonymous", userId: null, orgIds: [] },
-                async (tx) => {
-                    const validated = await validateSession(
-                        { store: createPgSessionStore(tx), clock: deps.clock, rng: deps.rng },
-                        token,
-                    );
-                    if (!validated.ok) return { validated, orgs: [] };
-                    return { validated, orgs: await loadMemberships(tx, validated.session.userId) };
-                },
-            );
-            if (result.validated.ok) {
-                const { session } = result.validated;
-                c.set("actor", {
-                    kind: "user",
-                    userId: session.userId,
-                    sessionId: session.id,
-                    authMethod: session.authMethod,
-                    privileged: session.privileged,
-                    stepUpAtMs: session.stepUpAtMs,
-                    orgs: result.orgs,
-                });
-            } else {
-                c.set("clearSessionCookie", true);
-            }
-        } else if (header?.includes(`${sessionCookieName(secure)}=`)) {
-            // A cookie of ours that we refused to read (duplicate, malformed): tell the browser to drop it.
-            c.set("clearSessionCookie", true);
-        }
+        const bearer = bearerKeyFrom(c.req.header("authorization"));
+        // A request that presents a key is judged by the key alone; a cookie sent beside it is ignored.
+        if (bearer !== null) c.set("actor", await authenticateKey(deps, bearer));
+        else await authenticateSession(c, deps, secure);
         await next();
         if (c.get("clearSessionCookie")) c.header("Set-Cookie", serializeClearedCookie(secure));
     };
 }
 
+async function authenticateSession(c: Context<AppEnv>, deps: AppDeps, secure: boolean) {
+    const header = c.req.header("cookie");
+    const token = parseSessionCookie(header, secure);
+    if (token === null) {
+        // A cookie of ours that we refused to read (duplicate, malformed): tell the browser to drop it.
+        if (header?.includes(`${sessionCookieName(secure)}=`)) c.set("clearSessionCookie", true);
+        return;
+    }
+    const result = await withRequestContext(deps.database.sql, IDENTITY_CONTEXT, async (tx) => {
+        const validated = await validateSession(
+            { store: createPgSessionStore(tx), clock: deps.clock, rng: deps.rng },
+            token,
+        );
+        if (!validated.ok) return { validated, orgs: [], platformRole: "none" as const };
+        const { userId } = validated.session;
+        return {
+            validated,
+            orgs: await loadMemberships(tx, userId),
+            platformRole: await loadPlatformRole(tx, userId),
+        };
+    });
+    if (!result.validated.ok) {
+        c.set("clearSessionCookie", true);
+        return;
+    }
+    const { session } = result.validated;
+    c.set("actor", {
+        kind: "user",
+        userId: session.userId,
+        sessionId: session.id,
+        authMethod: session.authMethod,
+        privileged: session.privileged,
+        stepUpAtMs: session.stepUpAtMs,
+        orgs: result.orgs,
+        platformRole: result.platformRole,
+    });
+}
+
+async function authenticateKey(deps: AppDeps, presented: string): Promise<Actor> {
+    const parsed = parseApiKey(presented);
+    if (parsed === null) return ANONYMOUS;
+    const nowMs = deps.clock.nowUnixMs();
+    return withRequestContext(deps.database.sql, IDENTITY_CONTEXT, async (tx) => {
+        const record = await findKeyByPrefix(tx, parsed.prefix);
+        const matches = secretMatches(parsed.secret, record?.secretHash ?? DUMMY_HASH);
+        if (record === null || !matches || record.revoked || record.expiresAtMs <= nowMs) {
+            return ANONYMOUS;
+        }
+        const stale =
+            record.lastUsedAtMs === null || nowMs - record.lastUsedAtMs >= KEY_TOUCH_INTERVAL_MS;
+        if (stale) await touchKey(tx, record.id, nowMs);
+        return { kind: "api_key", keyId: record.id, orgId: record.orgId, scopes: record.scopes };
+    });
+}
+
 export function csrf(deps: AppDeps): MiddlewareHandler<AppEnv> {
     return async (c, next) => {
+        // A key travels in a header the browser never adds by itself, so there is no ambient
+        // credential for another site to ride on (ADR 0013, ADR 0018).
+        if (c.get("actor").kind === "api_key") return next();
         const verdict = evaluateCsrf({
             method: c.req.method,
             origin: c.req.header("origin") ?? null,
@@ -103,15 +148,7 @@ export function dbContext(deps: AppDeps): MiddlewareHandler<AppEnv> {
         // The sign-in and passkey ceremony endpoints run their own transactions as `aura_auth`.
         if (OWN_TRANSACTION_PREFIXES.some((prefix) => c.req.path.startsWith(prefix))) return next();
         const actor = c.get("actor");
-        const context =
-            actor.kind === "user"
-                ? ({
-                      role: "aura_app",
-                      actorKind: "user",
-                      userId: actor.userId,
-                      orgIds: actor.orgs.map((membership) => membership.orgId),
-                  } as const)
-                : ({ role: "aura_app", actorKind: "anonymous", userId: null, orgIds: [] } as const);
+        const context = contextFor(actor);
         try {
             await withRequestContext(deps.database.sql, context, async (tx) => {
                 c.set("tx", tx);
@@ -122,4 +159,15 @@ export function dbContext(deps: AppDeps): MiddlewareHandler<AppEnv> {
             if (!(error instanceof RollbackRequest)) throw error;
         }
     };
+}
+
+function contextFor(actor: Actor): ScopedContext {
+    if (actor.kind === "user") {
+        const orgIds = actor.orgs.map((membership) => membership.orgId);
+        return { role: "aura_app", actorKind: "user", userId: actor.userId, orgIds };
+    }
+    if (actor.kind === "api_key") {
+        return { role: "aura_app", actorKind: "api_key", userId: null, orgIds: [actor.orgId] };
+    }
+    return { role: "aura_app", actorKind: "anonymous", userId: null, orgIds: [] };
 }

@@ -9,6 +9,7 @@ import {
 } from "@aura/contracts/api/orgs";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
 import { appendAudit } from "@aura/db/audit";
+import { withRequestContext } from "@aura/db/context";
 import {
     CHECK_VIOLATION,
     postgresConstraint,
@@ -24,7 +25,7 @@ import {
     type RateLimitDeps,
     refuseRateLimited,
 } from "../../rate-limit-middleware.ts";
-import { authorize, type Decision, type Subject } from "./authorize.ts";
+import { authorize, type Decision, hasFreshStepUp, type Subject } from "./authorize.ts";
 import { ORGS_CREATED_PER_USER_PER_DAY_MAX } from "./limits.ts";
 import {
     createOrg,
@@ -37,6 +38,7 @@ import {
     renameOrg,
     setMemberRole,
 } from "./org-queries.ts";
+import { createPgSessionStore } from "./queries.ts";
 
 export type OrgRouteDeps = Pick<RateLimitDeps, "sql" | "clock" | "key">;
 
@@ -56,19 +58,25 @@ export function orgRoutes(deps: OrgRouteDeps): Hono<AppEnv> {
     routes.get("/orgs/:id", handleGet);
     routes.patch("/orgs/:id", handleRename);
     routes.get("/orgs/:id/members", handleMembers);
-    routes.patch("/orgs/:id/members/:userId", handleChangeRole);
-    routes.delete("/orgs/:id/members/:userId", handleRemove);
+    routes.patch("/orgs/:id/members/:userId", (c) => handleChangeRole(c, deps));
+    routes.delete("/orgs/:id/members/:userId", (c) => handleRemove(c, deps));
     return routes;
 }
 
 interface Caller extends Subject {
     readonly sessionId: string;
+    readonly stepUpAtMs: number | null;
 }
 
 function caller(c: Context<AppEnv>): Caller | null {
     const actor = c.get("actor");
     return actor.kind === "user"
-        ? { userId: actor.userId, orgs: actor.orgs, sessionId: actor.sessionId }
+        ? {
+              userId: actor.userId,
+              orgs: actor.orgs,
+              sessionId: actor.sessionId,
+              stepUpAtMs: actor.stepUpAtMs,
+          }
         : null;
 }
 
@@ -217,7 +225,7 @@ async function handleMembers(c: Context<AppEnv>) {
 
 const LAST_OWNER = "An organization must keep at least one owner";
 
-async function handleChangeRole(c: Context<AppEnv>) {
+async function handleChangeRole(c: Context<AppEnv>, deps: OrgRouteDeps) {
     const who = caller(c);
     if (who === null) return unauthenticated(c);
     const orgId = orgIdParam(c);
@@ -238,6 +246,8 @@ async function handleChangeRole(c: Context<AppEnv>) {
     );
     if (denied !== null) return denied;
     if (targetRole === null) return problemResponse(c, "not_found", "Not found");
+    // Changing who holds power is a privileged action: it needs a fresh passkey check.
+    if (!hasFreshStepUp(who.stepUpAtMs, deps.clock.nowUnixMs())) return stepUpRequired(c);
     try {
         if (!(await setMemberRole(tx, orgId, targetUserId, body.data.role))) {
             return problemResponse(c, "not_found", "Not found");
@@ -258,10 +268,30 @@ async function handleChangeRole(c: Context<AppEnv>) {
             encodeId("usr", targetUserId),
         ),
     );
+    if (body.data.role !== "member") await endSessionsOf(deps, targetUserId, who);
     return c.body(null, 204);
 }
 
-async function handleRemove(c: Context<AppEnv>) {
+// Someone who just gained power signs in again, so their new sessions carry the stricter idle limit.
+// The person making the change keeps their own session.
+async function endSessionsOf(deps: OrgRouteDeps, userId: string, who: Caller): Promise<void> {
+    await withRequestContext(
+        deps.sql,
+        { role: "aura_auth", actorKind: "anonymous", userId: null, orgIds: [] },
+        (tx) =>
+            createPgSessionStore(tx).revokeAllForUser(
+                userId,
+                deps.clock.nowUnixMs(),
+                "privilege_change",
+                userId === who.userId ? who.sessionId : null,
+            ),
+    );
+}
+
+const stepUpRequired = (c: Context<AppEnv>) =>
+    problemResponse(c, "step_up_required", "Confirm with your passkey to continue");
+
+async function handleRemove(c: Context<AppEnv>, deps: OrgRouteDeps) {
     const who = caller(c);
     if (who === null) return unauthenticated(c);
     const orgId = orgIdParam(c);
@@ -280,6 +310,11 @@ async function handleRemove(c: Context<AppEnv>) {
     );
     if (denied !== null) return denied;
     if (targetRole === null) return problemResponse(c, "not_found", "Not found");
+    // Leaving needs nothing extra; removing an owner or admin is privileged.
+    const privileged = targetUserId !== who.userId && targetRole !== "member";
+    if (privileged && !hasFreshStepUp(who.stepUpAtMs, deps.clock.nowUnixMs())) {
+        return stepUpRequired(c);
+    }
     try {
         if (!(await removeMember(tx, orgId, targetUserId)))
             return problemResponse(c, "not_found", "Not found");

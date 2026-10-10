@@ -14,6 +14,7 @@ import {
     newChallenge,
     normalizeCode,
 } from "./login.ts";
+import { isPrivilegedAccount } from "./org-queries.ts";
 import { findOrCreateAccount } from "./queries.ts";
 import type { AuthMethod } from "./rules.ts";
 import { createSession, revokeSession, type SessionDeps } from "./service.ts";
@@ -151,7 +152,7 @@ export async function issueLoginSession(
     const created = await createSession(deps, {
         userId: input.userId,
         authMethod: input.method,
-        privileged: false,
+        privileged: await isPrivilegedAccount(tx, input.userId),
         ipNetwork: input.ipNetwork,
         userAgent: input.userAgent,
     });

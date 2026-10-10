@@ -29,6 +29,7 @@ import {
     insertPasskey,
     knownTransports,
     listCredentialsOf,
+    markStepUp,
     recordPasskeyUse,
 } from "./passkey-queries.ts";
 import { findAccountLabels } from "./queries.ts";
@@ -106,6 +107,8 @@ export interface FinishRegistrationInput {
     readonly credential: z.infer<typeof registrationCredentialSchema>;
     readonly name: string;
     readonly ip: string | null;
+    // Registering a passkey is itself a verified ceremony, so it counts as a fresh step-up.
+    readonly sessionId: string;
 }
 
 export async function finishRegistration(
@@ -139,6 +142,7 @@ export async function finishRegistration(
         name: input.name,
     });
     if (passkeyId === null) return { ok: false };
+    await markStepUp(tx, input.sessionId, deps.clock.nowUnixMs());
     await appendAudit(tx, {
         ...userAudit(input.userId, "auth.passkey_added", input.ip),
         target: encodeId("pky", passkeyId),
@@ -294,4 +298,75 @@ function authenticationJson(
 const jsonObjectSchema = z.record(z.string(), z.json());
 function plainJson(value: object): Record<string, unknown> {
     return jsonObjectSchema.parse(JSON.parse(JSON.stringify(value)));
+}
+
+// ---- step-up: prove again, with a passkey, that the signed-in person is really there ----
+
+export async function beginStepUp(
+    tx: Transaction,
+    deps: PasskeyDeps,
+    userId: string,
+): Promise<IssuedOptions | null> {
+    const credentials = await listCredentialsOf(tx, userId);
+    // Without a passkey there is nothing to prove with; the caller says so.
+    if (credentials.length === 0) return null;
+    const options = await generateAuthenticationOptions({
+        rpID: deps.rpId,
+        challenge: newChallengeBytes(deps.rng),
+        allowCredentials: credentials,
+        userVerification: "required",
+        timeout: WEBAUTHN_CHALLENGE_TTL_S * 1000,
+    });
+    const challengeId = await insertChallenge(tx, {
+        challenge: options.challenge,
+        purpose: "step_up",
+        userId,
+        nowMs: deps.clock.nowUnixMs(),
+        ttlS: WEBAUTHN_CHALLENGE_TTL_S,
+    });
+    return { challengeId, options: plainJson(options) };
+}
+
+export interface FinishStepUpInput {
+    readonly userId: string;
+    readonly sessionId: string;
+    readonly challengeId: string;
+    readonly credential: z.infer<typeof authenticationCredentialSchema>;
+}
+
+export async function finishStepUp(
+    tx: Transaction,
+    deps: PasskeyDeps,
+    input: FinishStepUpInput,
+): Promise<boolean> {
+    const nowMs = deps.clock.nowUnixMs();
+    const spent = await consumeChallenge(tx, input.challengeId, "step_up", nowMs);
+    // The challenge must have been made for this person, and the passkey must be theirs.
+    if (spent === null || spent.userId !== input.userId) return false;
+    const stored = await findPasskey(tx, Buffer.from(input.credential.id, "base64url"));
+    if (stored === null || stored.userId !== input.userId) return false;
+    const verified = await verifyOrNull(() =>
+        verifyAuthenticationResponse({
+            response: authenticationJson(input.credential),
+            expectedChallenge: spent.challenge,
+            expectedOrigin: deps.origin,
+            expectedRPID: deps.rpId,
+            credential: {
+                id: input.credential.id,
+                publicKey: new Uint8Array(stored.publicKey),
+                counter: stored.counter,
+                transports: stored.transports,
+            },
+            requireUserVerification: true,
+        }),
+    );
+    if (verified === null || !verified.verified) return false;
+    await recordPasskeyUse(tx, stored.id, {
+        counter: verified.authenticationInfo.newCounter,
+        backedUp: verified.authenticationInfo.credentialBackedUp,
+        nowMs,
+    });
+    await markStepUp(tx, input.sessionId, nowMs);
+    await appendAudit(tx, userAudit(input.userId, "auth.step_up", null));
+    return true;
 }
