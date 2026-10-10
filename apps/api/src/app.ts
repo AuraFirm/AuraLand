@@ -12,6 +12,7 @@ import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
 import { adminRoutes } from "./modules/identity/admin-routes.ts";
 import { apiKeyRoutes } from "./modules/identity/api-key-routes.ts";
+import { invitationRoutes } from "./modules/identity/invitation-routes.ts";
 import type { OAuthProvider, ProviderName } from "./modules/identity/oauth-providers.ts";
 import { oauthRoutes } from "./modules/identity/oauth-routes.ts";
 import { orgRoutes } from "./modules/identity/org-routes.ts";
@@ -139,7 +140,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
             key: loginTokenKey(deps.config),
             trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
         }),
-        "/v1/auth/*",
+        "/v1/*",
     );
     // Everything under /v1 is the product API: identify the caller, refuse cross-site writes, and
     // give the handler its transaction. Health probes above and below it stay dependency-free.
@@ -168,6 +169,17 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", identityRoutes({ clock: deps.clock, secureCookies }));
     app.route("/v1", apiKeyRoutes({ clock: deps.clock, rng: deps.rng }));
     app.route("/v1", adminRoutes({ clock: deps.clock }));
+    app.route(
+        "/v1",
+        invitationRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            rng: deps.rng,
+            key: loginTokenKey(deps.config),
+            mail: deps.mail,
+            publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+        }),
+    );
     app.route(
         "/v1",
         orgRoutes({ sql: deps.database.sql, clock: deps.clock, key: loginTokenKey(deps.config) }),

@@ -77,3 +77,11 @@ export const OAUTH_PER_ADDRESS_PER_MINUTE_MAX = 10;
 // While an organization is unverified, a person can create at most this many per day (Stage 1 plan
 // section 17), so unverified organizations cannot be used to flood the system.
 export const ORGS_CREATED_PER_USER_PER_DAY_MAX = 5;
+
+// ---- invitations ----
+
+// An invitation link works for a week, then has to be sent again.
+export const INVITATION_TTL_S = 7 * 24 * 60 * 60;
+
+// Sending invitations sends email, so an organization is limited per hour (plus 100 pending at once).
+export const INVITATIONS_PER_ORG_PER_HOUR_MAX = 20;

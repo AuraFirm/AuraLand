@@ -21,6 +21,7 @@ export type OrgAction =
     | { readonly kind: "org.update"; readonly orgId: string }
     | { readonly kind: "members.read"; readonly orgId: string }
     | { readonly kind: "keys.manage"; readonly orgId: string }
+    | { readonly kind: "members.invite"; readonly orgId: string; readonly role: OrgRole }
     | {
           readonly kind: "members.change_role";
           readonly orgId: string;
@@ -64,6 +65,8 @@ export function authorize(subject: Subject, action: OrgAction): Decision {
         case "keys.manage":
         case "org.update":
             return role === "owner" || role === "admin" ? ALLOWED : INSUFFICIENT;
+        case "members.invite":
+            return canInvite(role, action.role);
         case "members.change_role":
             return role === "owner" ? ALLOWED : INSUFFICIENT;
         case "members.remove":
@@ -71,6 +74,12 @@ export function authorize(subject: Subject, action: OrgAction): Decision {
         default:
             return INSUFFICIENT;
     }
+}
+
+// Owners invite admins and members; admins invite members.
+function canInvite(role: OrgRole, invited: OrgRole): Decision {
+    if (role === "owner") return invited === "owner" ? INSUFFICIENT : ALLOWED;
+    return role === "admin" && invited === "member" ? ALLOWED : INSUFFICIENT;
 }
 
 // Anyone may leave; owners remove anyone; admins remove plain members.

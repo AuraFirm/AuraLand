@@ -57,6 +57,7 @@ export const OAUTH_BY_ADDRESS: RateLimitRule = {
 // limit covers GitHub and Google together.
 const RULES: ReadonlyMap<string, RateLimitRule> = new Map([
     ["POST /api/v1/auth/email/start", START_BY_ADDRESS],
+    ["POST /api/v1/invitations/accept", VERIFY_BY_ADDRESS],
     ["POST /api/v1/auth/email/verify", VERIFY_BY_ADDRESS],
     ["POST /api/v1/auth/passkey/login/options", PASSKEY_LOGIN_BY_ADDRESS],
     ["POST /api/v1/auth/passkey/login/verify", PASSKEY_LOGIN_BY_ADDRESS],
