@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 env:
   AURA_TEST_DATABASE_URL: postgres://aura@127.0.0.1:5432/postgres
+  AURA_TEST_MAILPIT_URL: http://127.0.0.1:8025
 jobs:
   verify:
     runs-on: ubuntu-24.04
@@ -25,6 +26,9 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U aura" --health-interval 5s --health-timeout 3s
           --health-retries 10
+      mailpit:
+        image: ghcr.io/axllent/mailpit@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
+        ports: ["8025:8025"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

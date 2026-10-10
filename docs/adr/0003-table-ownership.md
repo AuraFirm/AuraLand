@@ -15,6 +15,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `users` | `modules/identity` | Person accounts; created and updated by the identity role, self-readable by `aura_app` |
 | `profiles` | `modules/identity` | Handle, display name, visibility; owner-editable |
 | `sessions` | `modules/identity` | Login sessions (token hashes only); created by the identity role, listable and revocable by their owner |
+| `login_challenges` | `modules/identity` | Email sign-in challenges (HMAC hashes only); identity role only, invisible to `aura_app` |
+| `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
 | `audit_log` | `packages/db` (`audit.ts`), written through `appendAudit` by any module | Append-only hash chain; readable by org members and by the actor |
 
 The RLS matrix test (`packages/db/src/rls-matrix.test.ts`) fails when a table is missing from this list or lacks row-level security.

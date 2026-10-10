@@ -16,6 +16,13 @@ function isOrigin(text: string): boolean {
     }
 }
 
+const LOGIN_SECRET_BYTES_MIN = 32;
+
+function isBase64Secret(text: string): boolean {
+    if (text.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(text)) return false;
+    return Buffer.from(text, "base64").length >= LOGIN_SECRET_BYTES_MIN;
+}
+
 const booleanText = z.enum(["true", "false"]).transform((value) => value === "true");
 
 const configSchema = z
@@ -32,6 +39,17 @@ const configSchema = z
         AURA_PUBLIC_ORIGIN: z
             .string()
             .refine(isOrigin, "must be a bare origin such as https://app.example"),
+        // How sign-in emails are sent. "mailpit" is the local mail catcher (development and tests
+        // only); "disabled" sends nothing, so email sign-in is unavailable until a real provider
+        // adapter exists. There is deliberately no silent default.
+        AURA_MAIL_DRIVER: z.enum(["mailpit", "disabled"]),
+        AURA_MAIL_API_URL: z.string().refine(isOrigin, "must be a bare origin").optional(),
+        AURA_MAIL_FROM: z.email(),
+        // Secret key for hashing login codes and links (HMAC-SHA-256). A short numeric code would be
+        // trivial to brute-force from a leaked database without it. Base64, at least 32 bytes.
+        AURA_LOGIN_TOKEN_SECRET: z
+            .string()
+            .refine(isBase64Secret, "must be base64 of at least 32 bytes"),
     })
     .strict();
 
@@ -54,7 +72,22 @@ export function parseConfig(environment: Readonly<Record<string, string | undefi
             "AURA_PUBLIC_ORIGIN must use https here",
         );
     }
+    if (config.AURA_MAIL_DRIVER === "mailpit") {
+        assert(
+            config.AURA_MAIL_API_URL !== undefined,
+            "AURA_MAIL_API_URL is required for the mailpit driver",
+        );
+        assert(
+            config.AURA_ENV === "local" || config.AURA_ENV === "test",
+            "the mailpit driver is for local development and tests only",
+        );
+    }
     return config;
+}
+
+// The key for hashing login codes and links, decoded from the validated base64 setting.
+export function loginTokenKey(config: Config): Buffer {
+    return Buffer.from(config.AURA_LOGIN_TOKEN_SECRET, "base64");
 }
 
 // Secure cookies and the __Host- prefix are used everywhere except local development and tests,

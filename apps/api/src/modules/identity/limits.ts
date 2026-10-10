@@ -29,3 +29,23 @@ export const COOKIE_HEADER_BYTES_MAX = 4096;
 // CORS preflight, and we answer none, so its presence proves the request came from our own script.
 export const CSRF_HEADER_NAME = "x-aura-request";
 export const CSRF_HEADER_VALUE = "1";
+
+// ---- email sign-in ----
+
+// The sign-in link is valid for 15 minutes; the typed code for 10, because a short code is the
+// easier thing to guess and so gets the shorter life.
+export const LOGIN_LINK_TTL_S = 15 * 60;
+export const LOGIN_CODE_TTL_S = 10 * 60;
+
+// Eight decimal digits: 10^8 possibilities, with only five guesses allowed per challenge.
+export const LOGIN_CODE_DIGITS = 8;
+export const LOGIN_CODE_ATTEMPTS_MAX = 5;
+
+// 256 bits for the link token and for the value kept in the browser cookie.
+export const LOGIN_SECRET_BYTES = 32;
+
+// Starting a sign-in is limited per address and per email; guessing codes is limited per address.
+// Windows are fixed (see platform/rate-limit.ts). Values follow docs/stages/stage-1-plan.md.
+export const LOGIN_START_PER_EMAIL_PER_HOUR_MAX = 5;
+export const LOGIN_START_PER_ADDRESS_PER_MINUTE_MAX = 10;
+export const LOGIN_VERIFY_PER_ADDRESS_PER_MINUTE_MAX = 30;

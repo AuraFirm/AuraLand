@@ -1,6 +1,7 @@
 import { AUTH_METHODS } from "@aura/contracts/identity";
 import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
+import type { ChallengeRecord, ChallengeStore, CodeAttempt } from "./login.ts";
 import { REVOKE_REASONS, type RevokeReason, type SessionRecord } from "./rules.ts";
 import type { SessionStore } from "./service.ts";
 
@@ -193,4 +194,96 @@ export async function revokeAllOwnSessions(
         where user_id = ${userId} and revoked_at is null
     `;
     return result.count;
+}
+
+// ---- email sign-in challenges (run as `aura_auth`) ----
+
+const challengeRowSchema = z.object({
+    id: z.string(),
+    email: z.string(),
+    binding_hash: z.instanceof(Uint8Array),
+    link_hash: z.instanceof(Uint8Array),
+    code_hash: z.instanceof(Uint8Array),
+    created_at: z.date(),
+    link_expires_at: z.date(),
+    code_expires_at: z.date(),
+    code_attempts: z.number().int(),
+    consumed_at: z.date().nullable(),
+    consumed_by: z.enum(["link", "code"]).nullable(),
+});
+
+const consumedEmailSchema = z.object({ email: z.string() });
+const attemptSchema = z.object({
+    email: z.string(),
+    code_attempts: z.number().int(),
+    consumed: z.boolean(),
+});
+
+const hex = (value: string) => Buffer.from(value, "hex");
+
+// Each method is one SQL statement, so the check and the change cannot be separated by another
+// request: two simultaneous guesses each spend an attempt, and a challenge is consumed once.
+export function createPgChallengeStore(tx: Transaction, maxAttempts: number): ChallengeStore {
+    return {
+        async insert(record: ChallengeRecord) {
+            await tx`
+                insert into login_challenges (id, email, binding_hash, link_hash, code_hash, created_at,
+                    link_expires_at, code_expires_at, code_attempts, consumed_at, consumed_by)
+                values (${record.id}, ${record.email}, ${hex(record.bindingHash)}, ${hex(record.linkHash)},
+                    ${hex(record.codeHash)}, ${new Date(record.createdAtMs)},
+                    ${new Date(record.linkExpiresAtMs)}, ${new Date(record.codeExpiresAtMs)},
+                    ${record.codeAttempts}, ${date(record.consumedAtMs)}, ${record.consumedBy})
+            `;
+        },
+        async consumeWithLink(bindingHash, linkHash, nowMs) {
+            const now = new Date(nowMs);
+            const rows = await tx`
+                update login_challenges set consumed_at = ${now}, consumed_by = 'link'
+                where link_hash = ${hex(linkHash)} and binding_hash = ${hex(bindingHash)}
+                  and consumed_at is null and link_expires_at > ${now}
+                returning email
+            `;
+            const row = rows[0];
+            return row === undefined ? null : consumedEmailSchema.parse(row);
+        },
+        async tryCode(bindingHash, codeHash, nowMs): Promise<CodeAttempt | null> {
+            const now = new Date(nowMs);
+            const rows = await tx`
+                update login_challenges
+                set code_attempts = code_attempts + 1,
+                    consumed_at = case when code_hash = ${hex(codeHash)} then ${now} end,
+                    consumed_by = case when code_hash = ${hex(codeHash)} then 'code' end
+                where binding_hash = ${hex(bindingHash)} and consumed_at is null
+                  and code_expires_at > ${now} and code_attempts < ${maxAttempts}
+                returning email, code_attempts, consumed_at is not null as consumed
+            `;
+            const row = rows[0];
+            if (row === undefined) return null;
+            const parsed = attemptSchema.parse(row);
+            return parsed.consumed
+                ? { consumed: true, email: parsed.email }
+                : { consumed: false, attempts: parsed.code_attempts };
+        },
+    };
+}
+
+// Used by tests to compare stored state with the in-memory store.
+export async function readChallenges(tx: Transaction): Promise<ChallengeRecord[]> {
+    const rows = await tx`select * from login_challenges order by created_at, id`;
+    return rows.map((raw) => {
+        const row = challengeRowSchema.parse(raw);
+        return {
+            id: row.id,
+            email: row.email,
+            bindingHash: Buffer.from(row.binding_hash).toString("hex"),
+            linkHash: Buffer.from(row.link_hash).toString("hex"),
+            codeHash: Buffer.from(row.code_hash).toString("hex"),
+            createdAtMs: row.created_at.getTime(),
+            linkExpiresAtMs: row.link_expires_at.getTime(),
+            codeExpiresAtMs: row.code_expires_at.getTime(),
+            codeAttempts: row.code_attempts,
+            consumedAtMs: row.consumed_at === null ? null : row.consumed_at.getTime(),
+            consumedBy: row.consumed_by,
+        };
+    });
 }

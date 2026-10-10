@@ -21,6 +21,10 @@ const baseEnv = {
     AURA_LOG_LEVEL: "error",
     AURA_TRUST_EDGE_REQUEST_ID: "false",
     AURA_PUBLIC_ORIGIN: "http://localhost:3000",
+    AURA_MAIL_DRIVER: "mailpit",
+    AURA_MAIL_API_URL: "http://127.0.0.1:8025",
+    AURA_MAIL_FROM: "no-reply@auraland.test",
+    AURA_LOGIN_TOKEN_SECRET: Buffer.alloc(32, 7).toString("base64"),
 };
 
 // These tests exercise the shell (probes, headers, errors), not /v1, but the app needs a database

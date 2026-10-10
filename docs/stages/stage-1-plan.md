@@ -257,3 +257,13 @@ database valid. Each slice merges only with green CI, and the stage report recor
   matrix is generated from the app's real route table: a route without a declared row, or a row for
   a missing route, fails CI. Two Semgrep false positives (typed and call-expression SQL tags)
   surfaced and were fixed with tests.
+- **Slice 3a (2026-10-10), as built.** The foundations of email sign-in, with no route yet (3b adds
+  those). Config: `AURA_MAIL_DRIVER`, `AURA_MAIL_API_URL`, `AURA_MAIL_FROM`, `AURA_LOGIN_TOKEN_SECRET`.
+  Platform: a fixed-origin egress client, a mail port (Mailpit, disabled and in-memory drivers) and a
+  fixed-window rate limiter over PostgreSQL. Migration 0006 adds `login_challenges` (plan name
+  adjusted from "email_login_tokens"; one expiry per method instead of one per row) and
+  `rate_limit_counters`. The challenge store has memory and PostgreSQL implementations proven
+  equivalent, and a `login` simulation whose five injected faults (attempt limit, reusable link,
+  immortal code, uncounted guesses, ignored binding) are all caught. Differences from the plan: the
+  token-hash timing test became a structural-equality check (wall-clock timing is flaky in CI), and
+  the mail port is HTTP only (ADR 0014).

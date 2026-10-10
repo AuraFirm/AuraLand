@@ -16,5 +16,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  # Local mail catcher: sign-in emails land here instead of going out. v1.31.4, from GitHub's
+  # registry to avoid Docker Hub's anonymous pull limit (ADR 0010). Open http://127.0.0.1:8025.
+  mailpit:
+    image: ghcr.io/axllent/mailpit@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
+    ports:
+      - "127.0.0.1:8025:8025"
 volumes:
   aura-postgres:
