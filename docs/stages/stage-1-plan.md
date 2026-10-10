@@ -175,6 +175,8 @@ Revisit triggers: session reads above 5,000 per second, or audit events above 20
 - **Before the first deploy:** the staging decisions (D1, D3, D8) and a real email provider.
 - **At the end of the stage:** your sign-off. The kit also wants a human read of identity, database
   and RLS diffs; the pull request for each slice is where that happens.
+- **Kept current in `docs/stages/stage-1-report.md`, section "Your remaining manual tasks"** (a checklist
+  with the exact steps). This section is the original forecast; the report is the live list.
 
 ## 13. Failure modes and tests (summary)
 Database down during login (typed 503, nothing half-created); expired, reused, wrong-purpose and
