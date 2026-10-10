@@ -48,6 +48,7 @@ const VERSION_KEYS = [
     "spec",
     "state",
     "statement",
+    "statement_html",
     "task_id",
     "updated_at",
     "waived",

@@ -149,6 +149,29 @@ describe("creating and editing versions", () => {
     });
 });
 
+describe("the rendered statement", () => {
+    it("comes back as safe HTML on a single read, and as null in lists and edits", async () => {
+        const version = await newVersion();
+        const hostile = "# Sum\n\n<script>alert(1)</script> [x](javascript:alert(1)) $a+b$";
+        const edited = await call(BOB, "PATCH", `/task-versions/${version.id}`, {
+            statement: hostile,
+        });
+        expect(versionSchema.parse(await edited.json()).statement_html).toBeNull();
+        const read = versionSchema.parse(
+            await (await call(CAROL, "GET", `/task-versions/${version.id}`)).json(),
+        );
+        expect(read.statement).toBe(hostile);
+        expect(read.statement_html).toContain("<h3>Sum</h3>");
+        expect(read.statement_html).toContain("<math");
+        expect(read.statement_html).not.toMatch(/<script|href="javascript:/i);
+        const task = version.task_id;
+        const list = versionsResponseSchema.parse(
+            await (await call(CAROL, "GET", `/tasks/${task}/versions`)).json(),
+        );
+        expect(list.items.every((item) => item.statement_html === null)).toBe(true);
+    });
+});
+
 describe("uploading a bundle", () => {
     it("records a bundle whose size and hash match, and audits the hash", async () => {
         const version = await newVersion();

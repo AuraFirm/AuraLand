@@ -18,6 +18,7 @@ import { CHECK_VIOLATION, postgresErrorCode } from "@aura/db/errors";
 import { type Context, Hono } from "hono";
 import type { AppEnv } from "../../app-env.ts";
 import type { Clock } from "../../platform/clock.ts";
+import { renderMarkdownSafe } from "../../platform/markdown.ts";
 import { type ObjectStorage, uploadKey } from "../../platform/object-storage.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import type { Rng } from "../../platform/rng.ts";
@@ -56,7 +57,7 @@ export function versionRoutes(deps: VersionRouteDeps): Hono<AppEnv> {
     return routes;
 }
 
-export function versionBody(row: VersionRow) {
+export function versionBody(row: VersionRow, withHtml = false) {
     return versionSchema.parse({
         id: encodeId("tsv", row.id),
         task_id: encodeId("tsk", row.task_id),
@@ -64,6 +65,8 @@ export function versionBody(row: VersionRow) {
         state: row.state,
         spec: row.spec,
         statement: row.statement,
+        statement_html:
+            withHtml && row.statement !== null ? renderMarkdownSafe(row.statement).html : null,
         bundle:
             row.bundle_bytes === null || row.bundle_sha256 === null
                 ? null
@@ -138,7 +141,7 @@ async function handleList(c: Context<AppEnv>) {
     const tx = c.get("tx");
     if ((await getTask(tx, taskId)) === null) return notFound(c);
     const rows = await listVersions(tx, taskId);
-    return c.json(versionsResponseSchema.parse({ items: rows.map(versionBody) }));
+    return c.json(versionsResponseSchema.parse({ items: rows.map((row) => versionBody(row)) }));
 }
 
 async function handleGet(c: Context<AppEnv>) {
@@ -147,7 +150,7 @@ async function handleGet(c: Context<AppEnv>) {
     const versionId = versionIdParam(c);
     if (versionId === null) return invalid(c);
     const row = await getVersion(c.get("tx"), versionId);
-    return row === null ? notFound(c) : c.json(versionBody(row));
+    return row === null ? notFound(c) : c.json(versionBody(row, true));
 }
 
 async function handleUpdate(c: Context<AppEnv>) {

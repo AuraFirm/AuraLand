@@ -247,3 +247,10 @@ hash definition and cap: slices 4 and 5; roles: slice 1; waiver: slices 2 and 5;
   newer version retires the previous one in the same transaction. 13 HTTP tests including a race of two
   simultaneous releases and an approval that must not survive a change request; routes in the
   authorization matrix. Test helpers moved to `http-task-support.ts`.
+- **Slice 6:** `renderMarkdownSafe` (ADR 0026), rendered by the API into `statement_html` on the single
+  version read. markdown-it with raw HTML and images off, our own token renderer (nothing passes through
+  markdown-it's), links limited to https and same-site, KaTeX as checked MathML (no stylesheet, no inline
+  styles, no new web dependency). 47 hostile inputs, 4,000 random documents, an independent output audit,
+  mutation checks (3 survivors are protected by a second layer; two corpus gaps found and closed).
+  Semgrep bans raw HTML sinks outside the future `SafeHtml` component. The browser XSS check arrives
+  with the statement page (slice 7).
