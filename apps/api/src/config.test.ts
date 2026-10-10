@@ -1,6 +1,6 @@
 // Goal: configuration is validated once, completely, and fails closed.
 import { describe, expect, it } from "vitest";
-import { oauthClientSettings, parseConfig } from "./config.ts";
+import { oauthClientSettings, parseConfig, s3ClientSettings } from "./config.ts";
 
 const valid = {
     AURA_ENV: "local",
@@ -15,6 +15,13 @@ const valid = {
     AURA_MAIL_API_URL: "http://127.0.0.1:8025",
     AURA_MAIL_FROM: "no-reply@auraland.test",
     AURA_LOGIN_TOKEN_SECRET: Buffer.alloc(32, 7).toString("base64"),
+    AURA_STORAGE_DRIVER: "s3",
+    AURA_S3_ENDPOINT: "http://127.0.0.1:8333",
+    AURA_S3_PUBLIC_ENDPOINT: "http://127.0.0.1:8333",
+    AURA_S3_BUCKET: "aura-dev",
+    AURA_S3_REGION: "us-east-1",
+    AURA_S3_ACCESS_KEY_ID: "key-id",
+    AURA_S3_SECRET_ACCESS_KEY: "secret",
 };
 
 describe("parseConfig", () => {
@@ -183,5 +190,50 @@ describe("OAuth provider settings", () => {
                 AURA_OAUTH_GITHUB_CLIENT_SECRET: "s",
             }),
         ).toThrow();
+    });
+});
+
+describe("test-only variables", () => {
+    it("ignores AURA_TEST_* values that share the .env file", () => {
+        expect(() =>
+            parseConfig({ ...valid, AURA_TEST_DATABASE_URL: "postgres://x/y" }),
+        ).not.toThrow();
+        expect(() => parseConfig({ ...valid, AURA_UNKNOWN: "1" })).toThrow();
+    });
+});
+
+describe("storage settings", () => {
+    it("needs every S3 setting for the s3 driver", () => {
+        for (const name of [
+            "AURA_S3_ENDPOINT",
+            "AURA_S3_PUBLIC_ENDPOINT",
+            "AURA_S3_BUCKET",
+            "AURA_S3_REGION",
+            "AURA_S3_ACCESS_KEY_ID",
+            "AURA_S3_SECRET_ACCESS_KEY",
+        ]) {
+            const incomplete: Record<string, string | undefined> = { ...valid, [name]: undefined };
+            expect(() => parseConfig(incomplete), name).toThrow();
+        }
+        expect(s3ClientSettings(parseConfig(valid))?.bucket).toBe("aura-dev");
+    });
+
+    it("refuses malformed endpoints and bucket names", () => {
+        expect(() => parseConfig({ ...valid, AURA_S3_ENDPOINT: "http://x/path" })).toThrow();
+        expect(() => parseConfig({ ...valid, AURA_S3_BUCKET: "Bad_Bucket" })).toThrow();
+        expect(() => parseConfig({ ...valid, AURA_STORAGE_DRIVER: "disk" })).toThrow();
+    });
+
+    it("allows the in-memory driver in the test environment only", () => {
+        const memory = { ...valid, AURA_STORAGE_DRIVER: "memory" };
+        expect(s3ClientSettings(parseConfig({ ...memory, AURA_ENV: "test" }))).toBeNull();
+        for (const env of ["local", "staging", "prod"]) {
+            const overrides = {
+                ...memory,
+                AURA_ENV: env,
+                AURA_PUBLIC_ORIGIN: "https://app.example",
+            };
+            expect(() => parseConfig(overrides), env).toThrow();
+        }
     });
 });

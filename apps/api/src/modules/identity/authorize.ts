@@ -1,5 +1,4 @@
 import type { OrgRole } from "@aura/contracts/identity";
-import { STEP_UP_FRESH_S } from "./limits.ts";
 
 // Deny by default: every action is listed here with the rule that allows it, and anything else is
 // refused. The same rules are enforced again by PostgreSQL row-level security, so a mistake in one
@@ -44,11 +43,7 @@ const ALLOWED: Decision = { allowed: true };
 const NOT_MEMBER: Decision = { allowed: false, reason: "not_member" };
 const INSUFFICIENT: Decision = { allowed: false, reason: "insufficient_role" };
 
-// A privileged action needs a passkey check within the last STEP_UP_FRESH_S seconds. A sign-in with
-// a passkey counts, as does a step-up, as does registering a new passkey.
-export function hasFreshStepUp(stepUpAtMs: number | null, nowMs: number): boolean {
-    return stepUpAtMs !== null && nowMs - stepUpAtMs < STEP_UP_FRESH_S * 1000;
-}
+export { hasFreshStepUp } from "../../platform/step-up.ts";
 
 export function roleIn(subject: Subject, orgId: string): OrgRole | null {
     return subject.orgs.find((membership) => membership.orgId === orgId)?.role ?? null;

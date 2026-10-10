@@ -7,6 +7,7 @@ import { parseConfig } from "./config.ts";
 import { createPgSessionStore } from "./modules/identity/queries.ts";
 import { createSession, type SessionDeps } from "./modules/identity/service.ts";
 import { createMemoryMail, type MailPort } from "./platform/mail.ts";
+import { createMemoryStorage, type MemoryStorage } from "./platform/storage-memory.ts";
 import { createFakeClock, createSeededRng } from "./sim/world.ts";
 
 // Shared fixtures for tests that drive the real HTTP app against a real PostgreSQL: two users, a
@@ -30,6 +31,7 @@ const BASE_ENV = {
     AURA_MAIL_API_URL: "http://127.0.0.1:8025",
     AURA_MAIL_FROM: "no-reply@auraland.test",
     AURA_LOGIN_TOKEN_SECRET: Buffer.alloc(32, 7).toString("base64"),
+    AURA_STORAGE_DRIVER: "memory",
 };
 
 const IDENTITY_CONTEXT = {
@@ -45,6 +47,8 @@ export interface Harness {
     readonly onInvariantViolation: ReturnType<typeof vi.fn>;
     // Every email the app "sent" in this harness.
     readonly mail: ReturnType<typeof createMemoryMail>;
+    // The in-memory object storage the app uses; tests play the browser against it.
+    readonly storage: MemoryStorage;
     // Every log line the app wrote in this harness (no redaction, so leaks show).
     readonly logs: string[];
     app(
@@ -88,6 +92,7 @@ export async function createHarness(): Promise<Harness> {
     const rng = createSeededRng(2026);
     const onInvariantViolation = vi.fn();
     const mail = createMemoryMail();
+    const storage = createMemoryStorage(clock);
     const logs: string[] = [];
     const app = (
         env: Record<string, string> = {},
@@ -101,6 +106,7 @@ export async function createHarness(): Promise<Harness> {
             rng,
             database: db.database,
             mail: sender,
+            storage,
             oauthProviders,
             pingDatabase: async () => undefined,
             onInvariantViolation,
@@ -114,6 +120,7 @@ export async function createHarness(): Promise<Harness> {
         clock,
         onInvariantViolation,
         mail,
+        storage,
         logs,
         app,
         asIdentity,

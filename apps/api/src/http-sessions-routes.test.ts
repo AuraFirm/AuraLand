@@ -144,6 +144,14 @@ describe("logout", () => {
             AURA_PUBLIC_ORIGIN: "https://app.example",
             AURA_LOG_LEVEL: "info",
             AURA_MAIL_DRIVER: "disabled",
+            // Production cannot use the in-memory storage driver.
+            AURA_STORAGE_DRIVER: "s3",
+            AURA_S3_ENDPOINT: "https://s3.example",
+            AURA_S3_PUBLIC_ENDPOINT: "https://s3.example",
+            AURA_S3_BUCKET: "aura-prod",
+            AURA_S3_REGION: "eu-west-1",
+            AURA_S3_ACCESS_KEY_ID: "id",
+            AURA_S3_SECRET_ACCESS_KEY: "secret",
         });
         const response = await prod.request("/api/v1/auth/logout", {
             method: "POST",

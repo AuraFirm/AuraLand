@@ -16,8 +16,9 @@ export const SESSIONS_PER_USER_MAX = 20;
 // Activity extends a session at most once per interval, so reading a page does not write a row.
 export const SESSION_TOUCH_INTERVAL_S = 60;
 
-// How recently a passkey check must have happened to count as a fresh second factor.
-export const STEP_UP_FRESH_S = 15 * 60;
+// How recently a passkey check must have happened to count as a fresh second factor; defined in
+// platform/step-up.ts because other modules need the same window.
+export { STEP_UP_FRESH_S } from "../../platform/step-up.ts";
 
 // A browser sends at most 4 KiB of cookies; a token is 43 characters, so anything longer is junk.
 export const SESSION_TOKEN_TEXT_LENGTH = 43;
