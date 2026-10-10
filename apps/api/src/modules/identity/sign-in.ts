@@ -111,7 +111,7 @@ export type CompleteResult =
 
 const HANDLE_RANDOM_BYTES = 5;
 
-function audit(
+export function userAudit(
     userId: string,
     action: string,
     ip: string | null,
@@ -128,6 +128,40 @@ function audit(
     };
 }
 
+export interface LoginSessionInput {
+    readonly userId: string;
+    readonly method: AuthMethod;
+    readonly ipNetwork: string | null;
+    readonly ip: string | null;
+    readonly userAgent: string | null;
+    // The session the browser is already using, if any; ended so one browser holds one login.
+    readonly previousSessionId: string | null;
+}
+
+// The shared tail of every successful sign-in, whatever the method: end the browser's previous
+// session, start a new one, and record it. Runs as `aura_auth`. Returns the new session token.
+export async function issueLoginSession(
+    tx: Transaction,
+    deps: SessionDeps,
+    input: LoginSessionInput,
+): Promise<string> {
+    if (input.previousSessionId !== null) {
+        await revokeSession(deps, input.previousSessionId, "rotated");
+    }
+    const created = await createSession(deps, {
+        userId: input.userId,
+        authMethod: input.method,
+        privileged: false,
+        ipNetwork: input.ipNetwork,
+        userAgent: input.userAgent,
+    });
+    await appendAudit(
+        tx,
+        userAudit(input.userId, "auth.login_succeeded", input.ip, { method: input.method }),
+    );
+    return created.token;
+}
+
 // Runs as `aura_auth`. Refuses suspended accounts without creating a session.
 export async function completeSignIn(
     tx: Transaction,
@@ -142,24 +176,11 @@ export async function completeSignIn(
     if (account.status !== "active") {
         await appendAudit(
             tx,
-            audit(account.id, "auth.login_refused", input.ip, { reason: "suspended" }),
+            userAudit(account.id, "auth.login_refused", input.ip, { reason: "suspended" }),
         );
         return { ok: false };
     }
-    if (input.previousSessionId !== null) {
-        await revokeSession(deps, input.previousSessionId, "rotated");
-    }
-    const created = await createSession(deps, {
-        userId: account.id,
-        authMethod: input.method,
-        privileged: false,
-        ipNetwork: input.ipNetwork,
-        userAgent: input.userAgent,
-    });
-    if (account.created) await appendAudit(tx, audit(account.id, "auth.signup", input.ip));
-    await appendAudit(
-        tx,
-        audit(account.id, "auth.login_succeeded", input.ip, { method: input.method }),
-    );
-    return { ok: true, token: created.token, newAccount: account.created };
+    if (account.created) await appendAudit(tx, userAudit(account.id, "auth.signup", input.ip));
+    const token = await issueLoginSession(tx, deps, { ...input, userId: account.id });
+    return { ok: true, token, newAccount: account.created };
 }

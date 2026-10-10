@@ -276,3 +276,13 @@ database valid. Each slice merges only with green CI, and the stage report recor
   kept, both rate limits, lock audit, suspended people, new-account flag, binding cookie clearing)
   were all caught. Not done here and deliberately so: the web pages that call these endpoints
   (slice 7), and a production mail provider (ADR 0014 revisit trigger).
+- **Slice 4 (2026-10-10), as built.** Passkeys. Migration 0007 adds `passkeys` and
+  `webauthn_challenges`; routes `POST /auth/passkey/register/options|verify`,
+  `POST /auth/passkey/login/options|verify`, and `GET|PATCH|DELETE /me/passkeys`. New dependency
+  `@simplewebauthn/server` 14.0.3 (ADR 0015). The shared tail of every sign-in (end the old session,
+  start the new one, audit) moved into `issueLoginSession`. Differences from the plan: **Playwright
+  and `@simplewebauthn/browser` move to slice 7**, because there are no pages to drive yet; the
+  server side is tested with a software authenticator that makes real signatures instead. Step-up
+  (a fresh passkey check for a session that already exists) is built in slice 6 with the first
+  privileged action, which is where it is needed. Sessions created by passkey are not yet marked
+  privileged for platform admins; that arrives with roles in slice 6, for all methods at once.

@@ -16,6 +16,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `profiles` | `modules/identity` | Handle, display name, visibility; owner-editable |
 | `sessions` | `modules/identity` | Login sessions (token hashes only); created by the identity role, listable and revocable by their owner |
 | `login_challenges` | `modules/identity` | Email sign-in challenges (HMAC hashes only); identity role only, invisible to `aura_app` |
+| `passkeys` | `modules/identity` | WebAuthn public keys; owner may list, rename and delete (never read the key or counter); identity role verifies and records use |
+| `webauthn_challenges` | `modules/identity` | One-time passkey challenges (5 minutes); identity role only |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
 | `audit_log` | `packages/db` (`audit.ts`), written through `appendAudit` by any module | Append-only hash chain; readable by org members and by the actor |
 

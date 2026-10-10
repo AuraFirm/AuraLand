@@ -10,6 +10,8 @@ import type { AppEnv } from "./app-env.ts";
 import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
+import { relyingPartyId } from "./modules/identity/passkey.ts";
+import { passkeyRoutes } from "./modules/identity/passkey-routes.ts";
 import { identityRoutes } from "./modules/identity/routes.ts";
 import { signInRoutes } from "./modules/identity/sign-in-routes.ts";
 import { assertPipelineOrder, type PipelineName } from "./pipeline.ts";
@@ -130,7 +132,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
             key: loginTokenKey(deps.config),
             trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
         }),
-        "/v1/auth/email/*",
+        "/v1/auth/*",
     );
     // Everything under /v1 is the product API: identify the caller, refuse cross-site writes, and
     // give the handler its transaction. Health probes above and below it stay dependency-free.
@@ -138,6 +140,23 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     use("csrf", csrf(deps), "/v1/*");
     use("dbContext", dbContext(deps), "/v1/*");
     assertPipelineOrder(registered);
+    mountProductRoutes(app, deps);
+
+    // Liveness: the process is up. It must not touch dependencies, or an outage restarts everything.
+    app.get("/healthz", (c) => c.json({ status: "ok" }));
+    // Readiness: safe to receive traffic, meaning the database answers.
+    app.get("/readyz", async (c) => {
+        if (await pingWithTimeout(deps.pingDatabase)) return c.json({ status: "ready" });
+        return problemResponse(c, "unavailable", "Service unavailable");
+    });
+
+    app.notFound((c) => problemResponse(c, "not_found", "Not found"));
+    app.onError((error, c) => mapError(error, c, deps));
+    return app;
+}
+
+// The product API under /v1: identity and sessions, email sign-in, passkeys.
+function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     const secureCookies = usesSecureCookies(deps.config);
     app.route("/v1", identityRoutes({ clock: deps.clock, secureCookies }));
     app.route(
@@ -155,17 +174,19 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
         }),
     );
 
-    // Liveness: the process is up. It must not touch dependencies, or an outage restarts everything.
-    app.get("/healthz", (c) => c.json({ status: "ok" }));
-    // Readiness: safe to receive traffic, meaning the database answers.
-    app.get("/readyz", async (c) => {
-        if (await pingWithTimeout(deps.pingDatabase)) return c.json({ status: "ready" });
-        return problemResponse(c, "unavailable", "Service unavailable");
-    });
-
-    app.notFound((c) => problemResponse(c, "not_found", "Not found"));
-    app.onError((error, c) => mapError(error, c, deps));
-    return app;
+    app.route(
+        "/v1",
+        passkeyRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            rng: deps.rng,
+            rpId: relyingPartyId(deps.config.AURA_PUBLIC_ORIGIN),
+            rpName: "AuraLand",
+            origin: deps.config.AURA_PUBLIC_ORIGIN,
+            secureCookies,
+            trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+        }),
+    );
 }
 
 function mapError(error: Error, c: Context<AppEnv>, deps: AppDeps) {
