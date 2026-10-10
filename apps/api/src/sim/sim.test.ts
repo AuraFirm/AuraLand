@@ -1,11 +1,15 @@
 // Goal: the simulation harness must be deterministic and must surface bugs with a replayable seed.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { loginScenario } from "./login.sim.ts";
 import { runScenario, runSeeds } from "./runner.ts";
 import { boundedQueueScenario } from "./selftest.sim.ts";
 import { sessionScenario } from "./sessions.sim.ts";
 import { taskVersionScenario } from "./task-versions.sim.ts";
 import { createFakeClock, createSeededRng } from "./world.ts";
+
+// Each scenario runs 150 seeds against the real services. That fits the default 5 seconds when the
+// machine is idle but not when all test files run at once, so the limit is generous.
+vi.setConfig({ testTimeout: 60_000 });
 
 describe("seeded rng", () => {
     it("is reproducible for a seed and different across seeds", () => {

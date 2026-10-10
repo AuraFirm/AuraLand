@@ -47,3 +47,14 @@ rules:
         - "**/apps/api/src/platform/egress.ts"
         - "**/apps/e2e/**"
         - "**/*.test.ts"
+
+  - id: aura-no-raw-html-sink
+    languages: [typescript]
+    severity: ERROR
+    message: "Raw HTML sinks are banned. User text becomes HTML only through renderMarkdownSafe, and is placed with the SafeHtml component (docs/kit/08)."
+    pattern-either:
+      - pattern: $E.innerHTML = ...
+      - pattern: $E.outerHTML = ...
+      - pattern: $E.insertAdjacentHTML(...)
+      - pattern: document.write(...)
+      - pattern: document.writeln(...)

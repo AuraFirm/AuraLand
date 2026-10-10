@@ -29,6 +29,9 @@ export const versionSchema = z
         state: versionStateSchema,
         spec: taskSpecSchema.nullable(),
         statement: z.string().nullable(),
+        // The statement rendered to safe HTML by the API (renderMarkdownSafe). Only the single-version
+        // read fills it; other answers carry null so lists stay cheap.
+        statement_html: z.string().nullable(),
         bundle: z
             .object({ bytes: z.number().int().min(1), sha256: sha256HexSchema })
             .strict()

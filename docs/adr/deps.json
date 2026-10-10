@@ -23,8 +23,11 @@
             "@aws-sdk/client-s3": "0025",
             "@aws-sdk/s3-request-presigner": "0025",
             "@hono/node-server": "0001",
+            "@types/katex": "0026",
             "@simplewebauthn/server": "0015",
             "hono": "0001",
+            "katex": "0026",
+            "markdown-it": "0026",
             "pino": "0001",
             "zod": "0001"
         },

@@ -33,3 +33,17 @@ createHash("sha256");
 fetch("https://example.com");
 // ok: aura-no-direct-http
 const fetchLabel = "fetch";
+
+declare const element: any;
+declare const htmlText: string;
+
+// ruleid: aura-no-raw-html-sink
+element.innerHTML = htmlText;
+// ruleid: aura-no-raw-html-sink
+element.outerHTML = htmlText;
+// ruleid: aura-no-raw-html-sink
+element.insertAdjacentHTML("beforeend", htmlText);
+// ruleid: aura-no-raw-html-sink
+document.write(htmlText);
+// ok: aura-no-raw-html-sink
+element.textContent = htmlText;
