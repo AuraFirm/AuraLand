@@ -87,6 +87,50 @@ cleanup job for expired rows. No production mail provider, so email sign-in is o
 notifications after security changes. OAuth has not been exercised against the real providers. Rate
 limits use fixed windows, which allow a burst of up to twice the limit across a window boundary.
 
+## STRIDE for the Stage 2 surface (tasks and bundles, v2)
+New trust boundaries: the browser talks to object storage directly (presigned URLs); the API reads
+uploaded bytes from storage to hash them; **bundles are untrusted archives** and are parsed only by the
+validator library, which runs in the Stage 3 sandbox, never on the API host; statements are
+user-written Markdown shown to other users.
+
+| Threat | Surface | Control | Evidence |
+|---|---|---|---|
+| **Tampering**: replace a verified bundle by uploading other bytes under its hash | Upload and finalize | Uploads land under `uploads/<org>/<id>`; size and SHA-256 are re-read from storage and compared before the object is copied to `bundles/<org>/<sha256>`; an existing bundle is never overwritten | `upload-verify.test.ts` (forged hash, same-size forgery), `http-task-versions.test.ts` |
+| Tampering: change a released version | Task versions | Three layers: the state machine refuses, the application role has no way to update released rows except retiring, a trigger raises on any other change or delete | `tasks.test.ts` (frozen, delete), `rules.test.ts`, simulation |
+| Tampering: approve one thing, release another | Review | An approval counts only for the review stint it was given in (`submitted_at`); a change request clears it | `tasks.test.ts`, `http-task-review.test.ts` (approval does not outlive content) |
+| Tampering: release without a second person | Separation of duties | Constraint on the creator, trigger on reviews, rule in `decide`, and the simulation checks no release has the creator as approver or releaser | `tasks.test.ts`, `rules.test.ts`, `task-versions` simulation (100,000 seeds) |
+| Tampering: skip steps (release a draft) | State machine | Allowed pairs are one list in the application and one in the database; a test compares them; every move is a single guarded statement | `rules.database.test.ts`, `http-task-review.test.ts` (simultaneous releases) |
+| **Information disclosure**: hidden tests, solutions or checker code in a response | All task routes | No schema carries file contents or storage keys; keys are derived, not stored; a test reads every response for every role and state and checks key names against allowlists | `http-task-hidden.test.ts` |
+| Disclosure: another organization's bundle | Storage keys | The organization is part of every key; keys are built only from uuids and digests; presigned URLs are per key, per part, size-pinned and expire in 15 minutes | `object-storage.ts`, `storage.contract.test.ts` |
+| Disclosure: private tasks to plain members | Task visibility | Row-level security: plain members see only released versions of `org`-visible tasks; drafts and private tasks answer 404. Known limit: titles of `org` tasks with no release yet are visible (ADR 0023) | `tasks.test.ts`, `http-tasks.test.ts` |
+| **Denial of service**: zip bomb, huge entry, many entries | Bundle validator | Packed 64 MiB, unpacked 256 MiB, ratio 100:1 above 5 MiB, 5,000 entries, 64 MiB per file; the output cap is enforced while decompressing; 88-file corpus and 200,000 fuzzed inputs per night | `packages/bundle` tests, `fuzz-cli.ts` |
+| DoS: upload floods and abandoned uploads | Upload plan | 5 unfinished uploads per person, 1-hour plan, 15-minute part URLs, 64 MiB cap checked at finalize; abandoned multipart uploads need a bucket lifecycle rule in production (F23) | `tasks.test.ts`, `http-task-versions.test.ts` |
+| DoS: slow rendering of a hostile statement | Markdown renderer | 64 KiB input, 200 formulas, 2 KiB per formula, bounded macro expansion, 1 MiB output cap; pathological inputs finish in well under 2 seconds in tests | `markdown.test.ts` |
+| **Elevation**: a setter approving their own work, a reviewer editing content | Roles | Policies split writer and reviewer moves; the authorization table has six roles; routes check role, then state, then facts | `access.test.ts`, `authz-matrix.test.ts`, `tasks.test.ts` |
+| Elevation: release or retire from a stolen session | Release, retire | Fresh passkey check (15 minutes) after role and state checks; a written waiver reason is audited | `http-task-review.test.ts` |
+| **Stored XSS** through statements | Statement rendering | Raw HTML off, own token renderer with a tag allowlist, https and same-site links only, images off, KaTeX as grammar-checked MathML, strict CSP with no inline script or style; browser test with a hostile statement | `markdown.test.ts` (47 inputs, 4,000 fuzzed), `tasks.spec.ts` |
+| XSS through the storage origin | Browser and bucket | Only `/versions/*` may connect to the storage origin; objects are never served inline or from the application origin; nothing in storage is rendered | `csp.test.ts`, `tasks.spec.ts` (fails without the origin) |
+| SSRF | Upload and storage | Nothing fetches a user-supplied URL; the S3 endpoint is configuration | `config.test.ts` |
+| Repudiation | Task actions | Audit entries for task and version creation, edits, upload start, bundle verified (with hash), submit, review (with outcome), release (with waiver reason), retire, abandon | `http-task-*.test.ts` |
+| Supply chain: the AWS SDK, markdown-it, KaTeX | Dependencies | Exact pins, 3-day release age, ADRs 0025 and 0026, Trivy and `pnpm audit` in CI; no tar or zstd package (Node's `zlib` and 150 lines we fuzz) | `deps.json`, CI |
+
+**Untrusted archives, in one place.** The API host never opens a bundle. It checks the size and SHA-256
+of the stored object as bytes (`upload-verify.ts`). The validator (`packages/bundle`) has no file,
+network or process access (enforced by `tigerlint`), takes bytes and returns a value, and is exercised
+by a corpus and a fuzzer. From Stage 3 it runs inside the sandbox on a judge node. Until it is wired in,
+ASVS V5.2.2, V5.2.3 and V5.2.5 are partial (`asvs-matrix-stage-2.md`).
+
+**Waived releases.** Until Stage 3 provides sandbox validation, a reviewer with a fresh passkey check can
+release on a written reason. Every such version has `waived = true`, so Stage 3 can list and re-validate
+all of them (runbook `tasks.md`).
+
+## Privacy review (Stage 2)
+New personal data: none beyond what Stage 1 holds. Statements, specs and bundles are customer content,
+stored per organization; the audit log holds ids, hashes and waiver reasons, not content. Deletion of an
+organization removes its tasks and versions in the database (cascade) except released versions, which a
+trigger protects from person-initiated deletes; object deletion on organization removal is a worker job
+(F24).
+
 ## v0 rows (Stage 0, unchanged)
 | Threat | Surface | Control | Evidence |
 |---|---|---|---|

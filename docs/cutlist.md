@@ -1,6 +1,6 @@
 # Cutlist: deferred work with reasons
 
-Nothing here blocks Stage 1. Ranked by how much it matters; "owner" is who decides.
+Nothing here blocks Stage 1 or Stage 2. Ranked by how much it matters; "owner" is who decides.
 
 | # | Item | Why deferred | Owner |
 |---|---|---|---|
@@ -21,3 +21,14 @@ Nothing here blocks Stage 1. Ranked by how much it matters; "owner" is who decid
 | F15 | ASVS mapping for V1 to V5 and V9 to V17 | Mapped as the stages that introduce each surface land; V6, V7, V8 are the Stage 1 set | security review |
 | F16 | Sliding-window rate limits | Fixed windows allow a burst of up to twice the limit across a boundary; acceptable at current limits | engineering |
 | F17 | Real-provider compatibility tests for the browser sign-in buttons | Same as F11 | founder |
+| F18 | Run the bundle validator on every finalized upload and record the canonical-tar hash (ASVS V5.2.2, V5.2.3, V5.2.5) | By design the API host never opens a bundle; the sandbox arrives in Stage 3 | engineering |
+| F19 | Total storage quota per organization (V5.2.4) | Per-person upload and per-task counts bound it for now; needs billing/plan decisions | founder |
+| F20 | Malware scan for bundles (V5.4.3) | Bundles are never executed outside the sandbox or served; decide with delivery in Stage 4 | security review |
+| F21 | Refuse duplicate keys in `task.json` (V1.5.3) | `JSON.parse` keeps the last value; the schema check applies to what remains, so it is a consistency gap, not a bypass | engineering |
+| F22 | Automated ReDoS scan of all regular expressions (V1.3.12) | The new expressions are linear and tested; a scanner needs choosing | security review |
+| F23 | Bucket lifecycle rule to abort abandoned multipart uploads and expire `uploads/` | Part of the infrastructure that does not exist yet (F1); the local server needs nothing | engineering |
+| F24 | Worker job to delete storage objects when an organization or task is removed, and to prune finished upload rows | Needs the Stage 3 worker | engineering |
+| F25 | Raise the bundle cap from 64 MiB to the kit's 512 MiB | Needs the worker to hash off-request (plan section 10) | engineering |
+| F26 | Re-validate every `waived` release in the sandbox and retire those that fail | Stage 3, when validation exists | engineering |
+| F27 | Hide titles of `org`-visible tasks that have no release yet from plain members | Needs the tasks and versions policies not to refer to each other (ADR 0023); use `private` while drafting | engineering |
+| F28 | Images in statements and a sandboxed content origin for assets | Needs the content origin; images are refused for now (ADR 0026) | engineering |

@@ -262,3 +262,8 @@ hash definition and cap: slices 4 and 5; roles: slice 1; waiver: slices 2 and 5;
   (no script, no dialog, no CSP violation, MathML shown, unsafe links dropped), a real upload to the
   local S3 server, release by a second person; and a read-only member. Proven not vacuous: with the
   storage origin removed from the CSP the upload test fails.
+- **Slice 8:** hardening and report: threat model v2, ASVS mapping for V1, V2 and V5 (56 requirements),
+  runbook `tasks.md`, cutlist F18 to F28, `stage-2-report.md`. 100,000 simulation seeds and 200,000
+  fuzzed bundles run locally. Found at the CI step: TruffleHog flagged a hostile test URL with
+  credentials in it (built from parts now), and Semgrep already had a raw-HTML rule whose exclusion
+  pointed at a placeholder file.
