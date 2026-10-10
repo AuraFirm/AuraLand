@@ -166,3 +166,53 @@ export async function getUpload(
 export async function finishUpload(tx: Transaction, uploadId: string, at: Date): Promise<void> {
     await tx`update bundle_uploads set finished_at = ${at} where id = ${uploadId} and finished_at is null`;
 }
+
+// An approval counts only if it came from someone other than the creator during the current review
+// stint (after the version last entered review), the same rule the database applies on release.
+export async function hasApproval(tx: Transaction, versionId: string): Promise<boolean> {
+    const rows = await tx`
+        select exists (
+            select 1 from task_reviews r join task_versions v on v.id = r.task_version_id
+            where r.task_version_id = ${versionId} and r.outcome = 'approved'
+              and r.reviewer_id <> v.created_by and r.created_at >= v.submitted_at) as approved`;
+    return z.object({ approved: z.boolean() }).parse(rows[0]).approved;
+}
+
+export async function insertReview(
+    tx: Transaction,
+    input: {
+        orgId: string;
+        versionId: string;
+        reviewerId: string;
+        outcome: string;
+        comment: string | null;
+    },
+): Promise<void> {
+    await tx`
+        insert into task_reviews (org_id, task_version_id, reviewer_id, outcome, comment)
+        values (${input.orgId}, ${input.versionId}, ${input.reviewerId}, ${input.outcome}, ${input.comment})`;
+}
+
+// The version that is released now, if any, other than this one.
+export async function otherReleasedVersion(
+    tx: Transaction,
+    taskId: string,
+    versionId: string,
+): Promise<string | null> {
+    const rows = await tx`
+        select id from task_versions where task_id = ${taskId} and state = 'released' and id <> ${versionId}`;
+    return rows[0] === undefined ? null : z.object({ id: z.string() }).parse(rows[0]).id;
+}
+
+export async function recordRelease(
+    tx: Transaction,
+    input: { versionId: string; from: string; waived: boolean; releasedBy: string; at: Date },
+): Promise<boolean> {
+    const rows = await tx`
+        update task_versions
+        set state = 'released', waived = ${input.waived}, released_by = ${input.releasedBy},
+            released_at = ${input.at}
+        where id = ${input.versionId} and state = ${input.from}
+        returning id`;
+    return rows.length === 1;
+}

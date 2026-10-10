@@ -241,3 +241,9 @@ hash definition and cap: slices 4 and 5; roles: slice 1; waiver: slices 2 and 5;
   so the tasks module can use it without depending on identity. Found while testing: spec JSON was
   stored as a JSON string (fixed with `tx.json`). `.env` files with `AURA_TEST_*` values now start the
   API (the test variables are ignored by the config loader).
+- **Slice 5b-ii:** submit, review (approve, request changes, reject), release with a recorded waiver,
+  retire and abandon. Each move is decided by `rules.ts` from role, state, creator, an approval in the
+  current review stint and a fresh passkey check, then applied as one guarded statement. Releasing a
+  newer version retires the previous one in the same transaction. 13 HTTP tests including a race of two
+  simultaneous releases and an approval that must not survive a change request; routes in the
+  authorization matrix. Test helpers moved to `http-task-support.ts`.

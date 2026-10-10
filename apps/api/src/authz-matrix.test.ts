@@ -200,6 +200,43 @@ const MATRIX: readonly Row[] = [
         body: { upload_id: `bup_${SAMPLE_UUID}` },
     },
     {
+        method: "POST",
+        path: "/api/v1/task-versions/:id/submit-review",
+        access: "user",
+        owned: true,
+        object: "tsv",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/task-versions/:id/abandon",
+        access: "user",
+        owned: true,
+        object: "tsv",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/task-versions/:id/retire",
+        access: "user",
+        owned: true,
+        object: "tsv",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/task-versions/:id/review",
+        access: "user",
+        owned: true,
+        object: "tsv",
+        body: { outcome: "approved" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/task-versions/:id/release",
+        access: "user",
+        owned: true,
+        object: "tsv",
+        body: {},
+    },
+    {
         method: "PATCH",
         path: "/api/v1/tasks/:id",
         access: "user",
@@ -229,12 +266,17 @@ const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
 
 // A private task in an organization only the victim belongs to.
+let victimTasksOrg = "";
 async function victimTask(): Promise<{ task: string; version: string }> {
-    const [org] = await h.db.database.sql<{ id: string }[]>`
-        insert into orgs (kind, slug, name) values ('company', ${`tasks-${randomBytes(4).toString("hex")}`}, 'Victim tasks')
-        returning id`;
-    await h.db.database
-        .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${ALICE}, 'owner')`;
+    if (victimTasksOrg === "") {
+        const [created] = await h.db.database.sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('company', ${`tasks-${randomBytes(4).toString("hex")}`}, 'Victim tasks')
+            returning id`;
+        victimTasksOrg = created?.id ?? "";
+        await h.db.database
+            .sql`insert into memberships (org_id, user_id, role) values (${victimTasksOrg}, ${ALICE}, 'owner')`;
+    }
+    const org = { id: victimTasksOrg };
     const [task] = await h.db.database.sql<{ id: string }[]>`
         insert into tasks (org_id, slug, kind, title, created_by)
         values (${org?.id ?? ""}, ${`t-${randomBytes(4).toString("hex")}`}, 'algorithmic', 'Secret', ${ALICE})
