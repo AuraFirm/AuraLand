@@ -38,6 +38,25 @@ export const BUNDLE_TEST_FILE_BYTES_MAX = 64 * 1024 * 1024;
 // Decompressed size over compressed size; above this an archive is treated as a bomb.
 export const BUNDLE_COMPRESSION_RATIO_MAX = 100;
 
+// The unpacked tar. Highly compressible tests (long runs of zeros) are legitimate, which is why the
+// ratio rule below has a floor and this cap exists as well.
+export const BUNDLE_UNCOMPRESSED_BYTES_MAX = 256 * 1024 * 1024;
+
+// Below this much output the ratio rule does not apply. 5 MiB is the unpacked size of the largest
+// bundle of small files: 5,000 entries of a 512-byte header and at most one 512-byte data block,
+// which compress far better than 100:1 because headers are nearly identical. A bomb that stays under
+// 5 MiB hurts nobody.
+export const BUNDLE_RATIO_FLOOR_BYTES = 5 * 1024 * 1024;
+
+// A canonical tar header holds a name of at most 100 bytes (we use no prefix field), made of short
+// segments and few levels; that is far more than any real layout needs.
+export const BUNDLE_PATH_BYTES_MAX = 100;
+export const BUNDLE_PATH_SEGMENT_BYTES_MAX = 64;
+export const BUNDLE_PATH_DEPTH_MAX = 4;
+
+// task.json is a spec: a thousand tests at a few dozen bytes each fit comfortably.
+export const SPEC_FILE_BYTES_MAX = 256 * 1024;
+
 // A statement is read by people in one sitting; 64 KiB also bounds rendering work per request.
 export const STATEMENT_BYTES_MAX = 64 * 1024;
 
@@ -84,3 +103,5 @@ assert(
 assert(UPLOAD_PART_URL_LIFETIME_S < UPLOAD_PLAN_LIFETIME_S, "part URLs expire before the plan");
 assert(TASK_PAGE_SIZE_DEFAULT <= TASK_PAGE_SIZE_MAX, "default page size within the maximum");
 assert(TASK_SLUG_LENGTH_MIN < TASK_SLUG_LENGTH_MAX, "task slug bounds");
+assert(BUNDLE_BYTES_MAX < BUNDLE_UNCOMPRESSED_BYTES_MAX, "unpacked cap exceeds the packed cap");
+assert(BUNDLE_PATH_SEGMENT_BYTES_MAX < BUNDLE_PATH_BYTES_MAX, "a segment fits in a path");

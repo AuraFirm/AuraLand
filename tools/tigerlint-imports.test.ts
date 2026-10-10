@@ -25,6 +25,26 @@ describe("layering", () => {
         ).toEqual([]);
     });
 
+    it("keeps the bundle validator free of I/O and of other workspaces", () => {
+        const rules = (file: string, line: string) => rulesFor({ [file]: line });
+        expect(rules("packages/bundle/src/a.ts", 'import { x } from "node:fs";')).toContain(
+            "layering",
+        );
+        expect(
+            rules("packages/bundle/src/a.ts", 'import { x } from "node:child_process";'),
+        ).toContain("layering");
+        expect(rules("packages/bundle/src/a.ts", 'import { x } from "@aura/db/client";')).toContain(
+            "layering",
+        );
+        expect(rules("packages/bundle/src/a.ts", 'import { x } from "node:zlib";')).toEqual([]);
+        expect(
+            rules("packages/bundle/src/a.ts", 'import { x } from "@aura/contracts/tasks";'),
+        ).toEqual([]);
+        // The corpus tool and tests do read files.
+        expect(rules("packages/bundle/src/a-cli.ts", 'import { x } from "node:fs";')).toEqual([]);
+        expect(rules("packages/bundle/src/a.test.ts", 'import { x } from "node:fs";')).toEqual([]);
+    });
+
     it("forbids relative imports that leave a package", () => {
         const files = {
             "packages/db/src/a.ts": 'import { x } from "../../../apps/api/src/platform/clock.ts";',
