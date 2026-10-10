@@ -14,6 +14,7 @@ import { ipNetwork } from "../../platform/client-address.ts";
 import type { Logger } from "../../platform/log.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import { clientAddress, userAgentOf } from "../../request-info.ts";
+import { parseFlowCookie, serializeClearedFlowCookie, serializeFlowCookie } from "./flow-cookie.ts";
 import {
     type OAuthDeps,
     type RefusalReason,
@@ -24,11 +25,6 @@ import {
     startOAuth,
     unlinkAudit,
 } from "./oauth.ts";
-import {
-    parseOauthCookie,
-    serializeClearedOauthCookie,
-    serializeOauthCookie,
-} from "./oauth-cookie.ts";
 import { type OAuthProvider, OAuthUnavailableError, type ProviderName } from "./oauth-providers.ts";
 import { deleteOwnIdentity, listOwnIdentities } from "./oauth-queries.ts";
 import { createPgSessionStore } from "./queries.ts";
@@ -87,7 +83,7 @@ async function handleStart(c: Context<AppEnv>, deps: OAuthRouteDeps) {
             userId: body.data.purpose === "link" ? userId : null,
         }),
     );
-    c.header("Set-Cookie", serializeOauthCookie(started.verifier, deps.secureCookies));
+    c.header("Set-Cookie", serializeFlowCookie(started.verifier, deps.secureCookies));
     return c.json(oauthStartResponseSchema.parse({ authorization_url: started.authorizationUrl }));
 }
 
@@ -106,7 +102,7 @@ async function handleCallback(c: Context<AppEnv>, deps: OAuthRouteDeps) {
     if (provider === null) return problemResponse(c, "not_found", "Not found");
     const outcome = await runCallback(c, deps, provider);
     c.set("clearSessionCookie", false);
-    c.header("Set-Cookie", serializeClearedOauthCookie(deps.secureCookies));
+    c.header("Set-Cookie", serializeClearedFlowCookie(deps.secureCookies));
     if (outcome.status === "signed_in") {
         c.header("Set-Cookie", serializeSessionCookie(outcome.token, deps.secureCookies), {
             append: true,
@@ -126,7 +122,7 @@ async function runCallback(
     if (c.req.query("error") !== undefined) return failed("denied");
     const state = c.req.query("state") ?? "";
     const code = c.req.query("code") ?? "";
-    const verifier = parseOauthCookie(c.req.header("cookie"), deps.secureCookies);
+    const verifier = parseFlowCookie(c.req.header("cookie"), deps.secureCookies);
     if (verifier === null || !STATE_PATTERN.test(state) || !CODE_PATTERN.test(code)) {
         return failed("invalid");
     }
