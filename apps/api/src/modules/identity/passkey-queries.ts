@@ -5,7 +5,7 @@ import type { UserStatus } from "./rules.ts";
 // SQL for passkeys and their challenges. Verification-side functions run as `aura_auth`; the three
 // "own" functions at the end run as `aura_app` for the signed-in person and see no key material.
 
-export type ChallengePurpose = "register" | "login";
+export type ChallengePurpose = "register" | "login" | "step_up";
 
 export const TRANSPORTS = ["usb", "nfc", "ble", "hybrid", "internal", "smart-card"] as const;
 const transportSet: ReadonlySet<string> = new Set(TRANSPORTS);
@@ -155,6 +155,12 @@ export async function recordPasskeyUse(
             last_used_at = ${new Date(use.nowMs)}
         where id = ${id}
     `;
+}
+
+// Records that the person just proved themselves again with a passkey. Privileged actions look at
+// this time (STEP_UP_FRESH_S). Runs as `aura_auth`, the only role that may write the column.
+export async function markStepUp(tx: Transaction, sessionId: string, nowMs: number): Promise<void> {
+    await tx`update sessions set step_up_at = ${new Date(nowMs)} where id = ${sessionId}`;
 }
 
 // ---- as the signed-in person (aura_app) ----

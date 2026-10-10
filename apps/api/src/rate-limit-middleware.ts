@@ -60,6 +60,8 @@ const RULES: ReadonlyMap<string, RateLimitRule> = new Map([
     ["POST /api/v1/auth/email/verify", VERIFY_BY_ADDRESS],
     ["POST /api/v1/auth/passkey/login/options", PASSKEY_LOGIN_BY_ADDRESS],
     ["POST /api/v1/auth/passkey/login/verify", PASSKEY_LOGIN_BY_ADDRESS],
+    ["POST /api/v1/auth/passkey/register/options", PASSKEY_LOGIN_BY_ADDRESS],
+    ["POST /api/v1/auth/passkey/step-up/options", PASSKEY_LOGIN_BY_ADDRESS],
     ["POST /api/v1/auth/oauth/:provider/start", OAUTH_BY_ADDRESS],
     ["GET /api/v1/auth/oauth/:provider/callback", OAUTH_BY_ADDRESS],
 ]);

@@ -15,6 +15,14 @@ export type Actor =
           readonly stepUpAtMs: number | null;
           // The organizations this person belongs to, loaded when the request is identified.
           readonly orgs: readonly OrgMembership[];
+          readonly platformRole: "none" | "admin";
+      }
+    // A request authenticated by an organization API key. It acts for that organization only.
+    | {
+          readonly kind: "api_key";
+          readonly keyId: string;
+          readonly orgId: string;
+          readonly scopes: readonly string[];
       };
 
 export interface AppEnv {

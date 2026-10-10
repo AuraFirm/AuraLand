@@ -13,7 +13,9 @@ interface Row {
     readonly method: "GET" | "POST" | "DELETE" | "PUT" | "PATCH";
     readonly path: string;
     // "public": anyone, including anonymous callers. "user": a signed-in person.
-    readonly access: "public" | "user";
+    // "key": reachable by an API key (or refused with 403 to anyone else); "admin": platform
+    // administrators only (404 for everyone else).
+    readonly access: "public" | "user" | "key" | "admin";
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
@@ -64,6 +66,38 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "org",
     },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/api-keys",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: { name: "ci" },
+    },
+    {
+        method: "GET",
+        path: "/api/v1/orgs/:id/api-keys",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/orgs/:id/api-keys/:keyId",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    { method: "GET", path: "/api/v1/key", access: "key" },
+    {
+        method: "POST",
+        path: "/api/v1/admin/orgs/:id/verify",
+        access: "admin",
+        owned: true,
+        object: "org",
+    },
+    { method: "POST", path: "/api/v1/auth/passkey/step-up/options", access: "user" },
+    { method: "POST", path: "/api/v1/auth/passkey/step-up/verify", access: "user" },
     { method: "GET", path: "/api/v1/me/passkeys", access: "user" },
     {
         method: "PATCH",
@@ -95,7 +129,8 @@ afterAll(async () => {
 const concrete = (row: Row) =>
     row.path
         .replace(":id", encodeId(row.object ?? "ses", SAMPLE_UUID))
-        .replace(":userId", encodeId("usr", SAMPLE_UUID));
+        .replace(":userId", encodeId("usr", SAMPLE_UUID))
+        .replace(":keyId", encodeId("key", SAMPLE_UUID));
 const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
 
@@ -141,7 +176,7 @@ describe("generated checks", () => {
     for (const row of MATRIX) {
         const name = `${row.method} ${row.path}`;
 
-        if (row.access === "user") {
+        if (row.access !== "public") {
             it(`${name}: anonymous callers get 401`, async () => {
                 const response = await call(row, browser(null));
                 expect(response.status).toBe(401);
@@ -164,7 +199,8 @@ describe("generated checks", () => {
                 const objectId = await victimObject(row, victim.session.id);
                 const path = row.path
                     .replace(":id", objectId)
-                    .replace(":userId", encodeId("usr", ALICE));
+                    .replace(":userId", encodeId("usr", ALICE))
+                    .replace(":keyId", encodeId("key", SAMPLE_UUID));
                 const hasBody = row.method === "PATCH" || row.method === "PUT";
                 const response = await h.app().request(path, {
                     method: row.method,

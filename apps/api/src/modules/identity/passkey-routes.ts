@@ -22,8 +22,10 @@ import { clientAddress, userAgentOf } from "../../request-info.ts";
 import {
     beginLogin,
     beginRegistration,
+    beginStepUp,
     finishLogin,
     finishRegistration,
+    finishStepUp,
     type IssuedOptions,
     type PasskeyDeps,
 } from "./passkey.ts";
@@ -65,6 +67,8 @@ export function passkeyRoutes(deps: PasskeyRouteDeps): Hono<AppEnv> {
     };
     routes.post("/auth/passkey/register/options", (c) => registerOptions(c, deps, ceremony));
     routes.post("/auth/passkey/register/verify", (c) => registerVerify(c, deps, ceremony));
+    routes.post("/auth/passkey/step-up/options", (c) => stepUpOptions(c, deps, ceremony));
+    routes.post("/auth/passkey/step-up/verify", (c) => stepUpVerify(c, deps, ceremony));
     routes.post("/auth/passkey/login/options", (c) => loginOptions(c, deps, ceremony));
     routes.post("/auth/passkey/login/verify", (c) => loginVerify(c, deps, ceremony));
     routes.get("/me/passkeys", listPasskeys);
@@ -84,6 +88,39 @@ const optionsBody = (issued: IssuedOptions) =>
         challenge_id: issued.challengeId,
         options: issued.options,
     });
+
+function sessionIdOf(c: Context<AppEnv>): string {
+    const actor = c.get("actor");
+    if (actor.kind !== "user") throw new Error("only a signed-in person has a session");
+    return actor.sessionId;
+}
+
+async function stepUpOptions(c: Context<AppEnv>, deps: PasskeyRouteDeps, ceremony: PasskeyDeps) {
+    const userId = signedInUserId(c);
+    if (userId === null) return problemResponse(c, "unauthenticated", "Authentication required");
+    const issued = await withRequestContext(deps.sql, IDENTITY_CONTEXT, (tx) =>
+        beginStepUp(tx, ceremony, userId),
+    );
+    // A person with no passkey cannot step up; they register one first.
+    if (issued === null) return problemResponse(c, "conflict", "Add a passkey first");
+    return c.json(optionsBody(issued));
+}
+
+async function stepUpVerify(c: Context<AppEnv>, deps: PasskeyRouteDeps, ceremony: PasskeyDeps) {
+    const userId = signedInUserId(c);
+    if (userId === null) return problemResponse(c, "unauthenticated", "Authentication required");
+    const parsed = passkeyLoginRequestSchema.safeParse(await readJson(c));
+    if (!parsed.success) return problemResponse(c, "invalid_request", REFUSED);
+    const ok = await withRequestContext(deps.sql, IDENTITY_CONTEXT, (tx) =>
+        finishStepUp(tx, ceremony, {
+            userId,
+            sessionId: sessionIdOf(c),
+            challengeId: parsed.data.challenge_id,
+            credential: parsed.data.credential,
+        }),
+    );
+    return ok ? c.body(null, 204) : problemResponse(c, "invalid_request", REFUSED);
+}
 
 function signedInUserId(c: Context<AppEnv>): string | null {
     const actor = c.get("actor");
@@ -114,6 +151,7 @@ async function registerVerify(c: Context<AppEnv>, deps: PasskeyRouteDeps, ceremo
             credential: parsed.data.credential,
             name,
             ip,
+            sessionId: sessionIdOf(c),
         }),
     );
     if (!finished.ok) return problemResponse(c, "invalid_request", REFUSED);

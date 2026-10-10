@@ -21,6 +21,24 @@ export async function loadMemberships(tx: Transaction, userId: string): Promise<
     });
 }
 
+export async function loadPlatformRole(tx: Transaction, userId: string): Promise<"none" | "admin"> {
+    const rows = await tx`select platform_role from users where id = ${userId}`;
+    return z.object({ platform_role: z.enum(["none", "admin"]) }).parse(rows[0]).platform_role;
+}
+
+// Does this person hold power over other people's data or accounts? Platform administrators do, and so
+// do owners and admins of any organization except their personal space (everyone owns that). Such
+// sessions get the shorter idle timeout.
+export async function isPrivilegedAccount(tx: Transaction, userId: string): Promise<boolean> {
+    const rows = await tx`
+        select (exists (select 1 from users where id = ${userId} and platform_role = 'admin')
+             or exists (select 1 from memberships m join orgs o on o.id = m.org_id
+                        where m.user_id = ${userId} and m.role in ('owner', 'admin')
+                          and o.kind <> 'personal')) as privileged
+    `;
+    return z.object({ privileged: z.boolean() }).parse(rows[0]).privileged;
+}
+
 const orgRowSchema = z.object({
     id: z.string(),
     kind: z.enum(["personal", "university", "company", "ai_lab", "community", "platform"]),

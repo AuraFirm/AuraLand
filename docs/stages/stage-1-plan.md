@@ -307,3 +307,12 @@ database valid. Each slice merges only with green CI, and the stage report recor
   organization ids to PostgreSQL. ADR 0017. Two simultaneous owner departures resolve to exactly
   one success at both the database and HTTP level. Invitations were pulled out of this slice because
   they need their own table, email and acceptance flow.
+- **Slice 6b (2026-10-10), as built.** API keys, privileged sessions, passkey step-up and
+  organization verification. Migration 0010 (`api_keys`, step-up challenge purpose, `verify_org`,
+  key-read policy on organizations). Routes: `POST|GET /orgs/{id}/api-keys`,
+  `DELETE /orgs/{id}/api-keys/{keyId}`, `GET /key`, `POST /auth/passkey/step-up/options|verify`,
+  `POST /admin/orgs/{id}/verify`. New error code `step_up_required`. Bearer authentication with the
+  CSRF exception for keys (ADR 0018, closing the promise in ADR 0013). Differences from the plan: the
+  only scope is `org:read` (nothing else exists to guard yet); the stricter idle limit is set at
+  sign-in and on promotion, not recomputed every request (recorded in ADR 0018 and left for slice 8);
+  invitations are slice 6c.
