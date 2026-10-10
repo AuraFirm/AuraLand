@@ -570,3 +570,41 @@ describe("platform administrators ending someone's sessions", () => {
         );
     });
 });
+
+describe("ending sessions asks for a fresh check from people who hold a passkey", () => {
+    it("guards ending other devices and everything at once, but not ending this device", async () => {
+        const t = await team();
+        const authenticator = await registerPasskey(t.owner);
+        const other = await h.login(ALICE);
+        h.clock.advance(16 * MINUTE);
+        const otherId = encodeId("ses", other.session.id);
+        for (const [method, path] of [
+            ["DELETE", `/me/sessions/${otherId}`],
+            ["POST", "/me/sessions/revoke-others"],
+            ["POST", "/auth/logout-all"],
+        ] as const) {
+            expect(await problemCode(await call(t.owner, method, path)), path).toBe(
+                "step_up_required",
+            );
+        }
+        expect((await h.request("/me", { headers: browser(other.token) })).status).toBe(200);
+        expect((await stepUp(t.owner, authenticator)).status).toBe(204);
+        const response = await call(t.owner, "POST", "/me/sessions/revoke-others");
+        expect(response.status).toBe(200);
+        expect(
+            z.object({ revoked: z.number() }).parse(await response.json()).revoked,
+        ).toBeGreaterThanOrEqual(1);
+        expect((await h.request("/me", { headers: browser(other.token) })).status).toBe(401);
+        expect((await h.request("/me", { headers: browser(t.owner) })).status).toBe(200);
+    });
+
+    it("lets someone without a passkey do it, and lets anyone end the device they are on", async () => {
+        await h.db.database.sql`delete from passkeys where user_id = ${CAROL}`;
+        const carol = await h.login(CAROL);
+        await h.login(CAROL);
+        h.clock.advance(16 * MINUTE);
+        expect((await call(carol.token, "POST", "/me/sessions/revoke-others")).status).toBe(200);
+        const own = encodeId("ses", carol.session.id);
+        expect((await call(carol.token, "DELETE", `/me/sessions/${own}`)).status).toBe(204);
+    });
+});

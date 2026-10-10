@@ -14,7 +14,13 @@ function mailpitBase(): string {
 }
 
 const listSchema = z.object({
-    messages: z.array(z.object({ ID: z.string(), To: z.array(z.object({ Address: z.string() })) })),
+    messages: z.array(
+        z.object({
+            ID: z.string(),
+            Subject: z.string(),
+            To: z.array(z.object({ Address: z.string() })),
+        }),
+    ),
 });
 const messageSchema = z.object({ Text: z.string() });
 
@@ -24,12 +30,14 @@ export function freshEmail(): string {
 }
 
 // Waits for the newest message sent to this address and returns its plain text.
-export async function waitForMail(to: string): Promise<string> {
+export async function waitForMail(to: string, subject = ""): Promise<string> {
     for (let attempt = 0; attempt < 40; attempt++) {
         const listed = listSchema.parse(
             await (await fetch(`${mailpitBase()}/api/v1/messages`)).json(),
         );
-        const found = listed.messages.find((m) => m.To.some((t) => t.Address === to));
+        const found = listed.messages.find(
+            (m) => m.Subject.includes(subject) && m.To.some((t) => t.Address === to),
+        );
         if (found !== undefined) {
             const full = messageSchema.parse(
                 await (await fetch(`${mailpitBase()}/api/v1/message/${found.ID}`)).json(),
@@ -106,14 +114,19 @@ export async function expectAccessible(page: Page): Promise<void> {
     expect(summary, "accessibility violations").toEqual([]);
 }
 
+// On the sign-in page: asks for the emailed code and enters it. Where the person lands is up to the caller.
+export async function signInWithEmailCode(page: Page, email: string): Promise<void> {
+    await page.getByLabel("Email address").fill(email);
+    await page.getByRole("button", { name: "Email me a link and code" }).click();
+    const code = codeIn(await waitForMail(email, "sign-in"));
+    await page.getByLabel("Code").fill(code);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+}
+
 // Signs in by email code and lands on the account page.
 export async function signInByEmail(page: Page, email: string): Promise<void> {
     await page.goto("/sign-in");
-    await page.getByLabel("Email address").fill(email);
-    await page.getByRole("button", { name: "Email me a link and code" }).click();
-    const code = codeIn(await waitForMail(email));
-    await page.getByLabel("Code").fill(code);
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await signInWithEmailCode(page, email);
     await expect(page.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
 }
 

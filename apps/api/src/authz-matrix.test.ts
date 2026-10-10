@@ -132,6 +132,7 @@ const MATRIX: readonly Row[] = [
     { method: "GET", path: "/api/v1/me/export", access: "user" },
     { method: "POST", path: "/api/v1/me/delete-request", access: "user" },
     { method: "DELETE", path: "/api/v1/me/delete-request", access: "user" },
+    { method: "POST", path: "/api/v1/me/sessions/revoke-others", access: "user" },
     { method: "GET", path: "/api/v1/me/passkeys", access: "user" },
     {
         method: "PATCH",

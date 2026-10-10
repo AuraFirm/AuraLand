@@ -46,6 +46,8 @@ read access; a compromised dependency.
 | Disclosure: data of other tenants | Every tenant table | RLS enabled and forced (two documented exceptions), generated coverage test, two-organization tests | `rls-matrix.test.ts`, `orgs.test.ts` |
 | Disclosure: leakage through responses | API output | Strict allowlist schemas; secrets are not in any schema | schema tests, export test |
 | Disclosure: injected script steals a session | Web | Nonce CSP with `strict-dynamic`, no eval, HttpOnly cookie, strict headers; the browser is tested to block an inline handler | `pages.spec.ts` (end to end), `csp.test.ts` |
+| Tampering: send someone to another site after sign-in (open redirect) | `?next=` on the sign-in page | Only plain paths on this site are accepted (no scheme, host, `//`, backslash or control characters); anything else falls back to the account page | `next-path.test.ts`, `sign-in.spec.ts` |
+| Disclosure: invitation secret kept during sign-in | Invitation link opened while signed out | Held in this tab's session storage for one sign-in and removed when read; one-time, tied to one verified email | `orgs.spec.ts`, ADR 0019 |
 | **Denial of service**: flood sign-in or email | Anonymous endpoints | Per-address, per-email and per-organization limits, body cap, timeouts; flood drill shows the numbers | `http-red-team.test.ts` |
 | DoS: lock a victim out | Code guessing | Locks one challenge, not the account; the victim requests a new one; per-email limit caps inbox flooding at 5 an hour | `http-red-team.test.ts` |
 | DoS: provider or mail outage | GitHub, Google, mail | Typed 503 or redirect reason, nothing half-saved, other sign-in methods keep working | `http-sign-in.test.ts`, `http-oauth.test.ts`, `http-invites.test.ts` |

@@ -6,6 +6,7 @@ import { apiDo, apiGet, messageOf } from "../lib/api.ts";
 import { registerPasskey, usePasskeysSupported, withStepUp } from "../lib/passkeys.ts";
 import { button, buttonDanger, buttonQuiet, input } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
+import { OtherDevicesPrompt } from "./other-devices-prompt.tsx";
 import { Notice, Section } from "./section.tsx";
 
 export function AccountPasskeys() {
@@ -13,14 +14,17 @@ export function AccountPasskeys() {
     const { data, error, reload } = useLoad(load);
     const [message, setMessage] = useState("");
     const supported = usePasskeysSupported();
+    const [removedOne, setRemovedOne] = useState(false);
 
-    const act = async (work: () => Promise<void>, done: string) => {
+    const act = async (work: () => Promise<void>, done: string): Promise<boolean> => {
         try {
             await work();
             setMessage(done);
             reload();
+            return true;
         } catch (failure) {
             setMessage(messageOf(failure));
+            return false;
         }
     };
 
@@ -42,15 +46,16 @@ export function AccountPasskeys() {
                                 "Passkey renamed.",
                             )
                         }
-                        onRemove={() =>
-                            act(
+                        onRemove={async () => {
+                            const done = await act(
                                 () =>
                                     withStepUp(() =>
                                         apiDo(`/me/passkeys/${item.id}`, { method: "DELETE" }),
                                     ),
                                 "Passkey removed.",
-                            )
-                        }
+                            );
+                            if (done) setRemovedOne(true);
+                        }}
                     />
                 ))}
             </ul>
@@ -62,13 +67,14 @@ export function AccountPasskeys() {
                 <Notice text="This browser does not support passkeys." />
             )}
             {message !== "" && <Notice text={message} />}
+            {removedOne && <OtherDevicesPrompt />}
         </Section>
     );
 }
 
 interface RowProps {
     readonly item: PasskeyItem;
-    readonly onRename: (name: string) => Promise<void>;
+    readonly onRename: (name: string) => Promise<unknown>;
     readonly onRemove: () => Promise<void>;
 }
 
@@ -122,7 +128,7 @@ function PasskeyRow({ item, onRename, onRemove }: RowProps) {
     );
 }
 
-function AddPasskeyForm({ onAdd }: { onAdd: (name: string | undefined) => Promise<void> }) {
+function AddPasskeyForm({ onAdd }: { onAdd: (name: string | undefined) => Promise<unknown> }) {
     const [name, setName] = useState("");
     const submit = async (event: FormEvent) => {
         event.preventDefault();

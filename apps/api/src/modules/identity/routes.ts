@@ -1,3 +1,4 @@
+import { revokedSessionsSchema } from "@aura/contracts/api/account";
 import {
     deviceSchema,
     meResponseSchema,
@@ -12,6 +13,7 @@ import type { Clock } from "../../platform/clock.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import { getMe, listDevices, revokeAllOwnSessions, revokeOwnSession } from "./queries.ts";
 import { serializeClearedCookie } from "./rules.ts";
+import { needsStepUp } from "./step-up-guard.ts";
 
 export interface IdentityRouteDeps {
     readonly clock: Clock;
@@ -29,6 +31,7 @@ export function identityRoutes(deps: IdentityRouteDeps): Hono<AppEnv> {
     routes.get("/me", handleMe());
     routes.get("/me/sessions", handleListSessions(deps));
     routes.delete("/me/sessions/:id", handleRevokeSession(deps));
+    routes.post("/me/sessions/revoke-others", handleRevokeOthers(deps));
     routes.post("/auth/logout", handleLogout(deps));
     routes.post("/auth/logout-all", handleLogoutAll(deps));
     return routes;
@@ -39,6 +42,9 @@ function signedIn(c: Context<AppEnv>): UserActor | null {
     const actor = c.get("actor");
     return actor.kind === "user" ? actor : null;
 }
+
+const stepUpRequired = (c: Context<AppEnv>) =>
+    problemResponse(c, "step_up_required", "Confirm with your passkey to continue");
 
 const unauthenticated = (c: Context<AppEnv>) =>
     problemResponse(c, "unauthenticated", "Authentication required");
@@ -101,6 +107,10 @@ function handleRevokeSession(deps: IdentityRouteDeps): Handler {
         const sessionId = parsed.data.slice("ses_".length);
         const tx = c.get("tx");
         const nowMs = deps.clock.nowUnixMs();
+        // Ending another device is a change to how the person is signed in; ending this one is not.
+        if (sessionId !== actor.sessionId && (await needsStepUp(tx, actor.stepUpAtMs, nowMs))) {
+            return stepUpRequired(c);
+        }
         if (!(await revokeOwnSession(tx, actor.userId, sessionId, nowMs, "logout"))) {
             return problemResponse(c, "not_found", "Not found");
         }
@@ -125,12 +135,37 @@ function handleLogout(deps: IdentityRouteDeps): Handler {
     };
 }
 
+// Signs out every other device and keeps this one.
+function handleRevokeOthers(deps: IdentityRouteDeps): Handler {
+    return async (c) => {
+        const actor = signedIn(c);
+        if (actor === null) return unauthenticated(c);
+        const tx = c.get("tx");
+        const nowMs = deps.clock.nowUnixMs();
+        if (await needsStepUp(tx, actor.stepUpAtMs, nowMs)) return stepUpRequired(c);
+        const count = await revokeAllOwnSessions(
+            tx,
+            actor.userId,
+            nowMs,
+            "logout_all",
+            actor.sessionId,
+        );
+        const target = encodeId("usr", actor.userId);
+        await appendAudit(tx, {
+            ...auditEntry(actor.userId, "auth.sessions_revoked_others", target),
+            detail: { sessions_revoked: count },
+        });
+        return c.json(revokedSessionsSchema.parse({ revoked: count }));
+    };
+}
+
 function handleLogoutAll(deps: IdentityRouteDeps): Handler {
     return async (c) => {
         const actor = signedIn(c);
         if (actor === null) return unauthenticated(c);
         const tx = c.get("tx");
         const nowMs = deps.clock.nowUnixMs();
+        if (await needsStepUp(tx, actor.stepUpAtMs, nowMs)) return stepUpRequired(c);
         const count = await revokeAllOwnSessions(tx, actor.userId, nowMs, "logout_all");
         const target = encodeId("usr", actor.userId);
         await appendAudit(tx, {

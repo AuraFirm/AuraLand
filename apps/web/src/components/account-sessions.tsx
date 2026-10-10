@@ -3,6 +3,7 @@
 import { sessionsResponseSchema } from "@aura/contracts/api/identity";
 import { useCallback, useState } from "react";
 import { apiDo, apiGet, messageOf } from "../lib/api.ts";
+import { withStepUp } from "../lib/passkeys.ts";
 import { buttonDanger, buttonQuiet } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
@@ -68,7 +69,7 @@ export function AccountSessions() {
                 className={buttonDanger}
                 onClick={() =>
                     act(async () => {
-                        await apiDo("/auth/logout-all", { method: "POST" });
+                        await withStepUp(() => apiDo("/auth/logout-all", { method: "POST" }));
                         window.location.assign("/sign-in");
                     })
                 }

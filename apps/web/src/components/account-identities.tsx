@@ -7,6 +7,7 @@ import { apiDo, apiGet, apiSend, messageOf } from "../lib/api.ts";
 import { withStepUp } from "../lib/passkeys.ts";
 import { buttonDanger, buttonQuiet } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
+import { OtherDevicesPrompt } from "./other-devices-prompt.tsx";
 import { Notice, Section } from "./section.tsx";
 
 const LABEL = { github: "GitHub", google: "Google" } as const;
@@ -20,6 +21,7 @@ export function AccountIdentities() {
     const identities = useLoad(loadIdentities);
     const methods = useLoad(loadMethods);
     const [message, setMessage] = useState("");
+    const [disconnected, setDisconnected] = useState(false);
 
     const connect = async (provider: "github" | "google") => {
         try {
@@ -40,6 +42,7 @@ export function AccountIdentities() {
         try {
             await withStepUp(() => apiDo(`/me/identities/${provider}`, { method: "DELETE" }));
             identities.reload();
+            setDisconnected(true);
         } catch (failure) {
             setMessage(messageOf(failure));
         }
@@ -62,6 +65,7 @@ export function AccountIdentities() {
                 ))}
             </ul>
             {message !== "" && <Notice text={message} bad />}
+            {disconnected && <OtherDevicesPrompt />}
         </Section>
     );
 }

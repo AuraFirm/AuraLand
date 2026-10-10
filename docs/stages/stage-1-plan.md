@@ -351,3 +351,8 @@ database valid. Each slice merges only with green CI, and the stage report recor
   100,000-seed simulation workflow, threat model v1, the authentication reference, the identity runbook,
   the cutlist and the stage report. Not done: the human reads (diffs, ASVS sign-off) and the open
   items in `docs/cutlist.md`.
+- **Follow-ups after slice 8 (2026-10-10).** Cutlist F4 and F14 done: ending other devices or all sessions
+  needs a fresh passkey check from anyone who holds a passkey (new `POST /me/sessions/revoke-others`);
+  after removing a passkey or disconnecting a provider the page offers "Sign out my other devices";
+  sign-in follows a checked `?next=` path, and an invitation link opened while signed out goes through
+  sign-in and joins. ASVS V7.4.3 and V7.5.2 are now met (49 met, 3 partial, 4 not met).

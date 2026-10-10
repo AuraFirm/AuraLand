@@ -33,6 +33,8 @@ test("adds, uses, renames and removes a passkey", async ({ page }) => {
     await page.getByRole("button", { name: "Remove" }).click();
     await expect(page.getByText("Passkey removed.")).toBeVisible();
     await expect(page.getByText("Home desktop")).toHaveCount(0);
+    await page.getByRole("button", { name: "Sign out my other devices" }).click();
+    await expect(page.getByText("No other devices were signed in.")).toBeVisible();
     await expectAccessible(page);
     expect(problems()).toEqual([]);
 });

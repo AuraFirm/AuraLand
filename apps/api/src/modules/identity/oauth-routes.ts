@@ -14,7 +14,6 @@ import { ipNetwork } from "../../platform/client-address.ts";
 import type { Logger } from "../../platform/log.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import { clientAddress, userAgentOf } from "../../request-info.ts";
-import { hasFreshStepUp } from "./authorize.ts";
 import { parseFlowCookie, serializeClearedFlowCookie, serializeFlowCookie } from "./flow-cookie.ts";
 import {
     type OAuthDeps,
@@ -28,9 +27,9 @@ import {
 } from "./oauth.ts";
 import { type OAuthProvider, OAuthUnavailableError, type ProviderName } from "./oauth-providers.ts";
 import { deleteOwnIdentity, listOwnIdentities } from "./oauth-queries.ts";
-import { listOwnPasskeys } from "./passkey-queries.ts";
 import { createPgSessionStore } from "./queries.ts";
 import { serializeSessionCookie } from "./rules.ts";
+import { needsStepUp } from "./step-up-guard.ts";
 
 export interface OAuthRouteDeps extends OAuthDeps {
     readonly sql: Sql;
@@ -211,8 +210,7 @@ async function handleUnlink(c: Context<AppEnv>, deps: OAuthRouteDeps) {
     const provider = oauthProviderSchema.safeParse(c.req.param("provider"));
     if (!provider.success) return problemResponse(c, "invalid_request", "Unknown provider");
     const tx = c.get("tx");
-    const holdsPasskey = (await listOwnPasskeys(tx)).length > 0;
-    if (holdsPasskey && !hasFreshStepUp(actor.stepUpAtMs, deps.clock.nowUnixMs())) {
+    if (await needsStepUp(tx, actor.stepUpAtMs, deps.clock.nowUnixMs())) {
         return problemResponse(c, "step_up_required", "Confirm with your passkey to continue");
     }
     if (!(await deleteOwnIdentity(tx, provider.data)))

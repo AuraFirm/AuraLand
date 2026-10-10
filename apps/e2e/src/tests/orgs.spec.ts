@@ -5,6 +5,7 @@ import {
     freshEmail,
     invitationLinkIn,
     loginAs,
+    signInWithEmailCode,
     waitForMail,
     watchForCspProblems,
 } from "../test-helpers.ts";
@@ -62,7 +63,7 @@ test("invites a person by email, who joins through the link", async ({ browser, 
     const guest = await browser.newContext();
     const guestPage = await guest.newPage();
     await loginAs(guest, invitee);
-    await guestPage.goto(invitationLinkIn(await waitForMail(invitee)));
+    await guestPage.goto(invitationLinkIn(await waitForMail(invitee, "invited")));
     await expect(guestPage).toHaveURL(/\/orgs$/);
     await expect(guestPage.getByRole("link", { name: "Invite Team" })).toBeVisible();
     expect(guestPage.url()).not.toContain("#t=");
@@ -74,11 +75,29 @@ test("invites a person by email, who joins through the link", async ({ browser, 
     await guest.close();
 });
 
-test("an invitation link says to sign in first when nobody is signed in", async ({ page }) => {
-    await page.goto(`/invitations/accept#t=${"A".repeat(43)}`);
-    await expect(
-        page.getByRole("alert").filter({ hasText: /Sign in with the email address/ }),
-    ).toBeVisible();
+test("an invitation link opened while signed out goes through sign-in and then joins", async ({
+    browser,
+    page,
+}) => {
+    const invitee = freshEmail();
+    await loginAs(page.context(), freshEmail());
+    await page.goto("/orgs");
+    await page.getByLabel("Name", { exact: true }).fill("Late Joiners");
+    await page.getByLabel(/Address/).fill(uniqueSlug());
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    await page.getByRole("link", { name: "Late Joiners" }).click();
+    await page.getByLabel("Email address to invite").fill(invitee);
+    await page.getByRole("button", { name: "Send invitation" }).click();
+    await expect(page.getByText("Invitation sent.")).toBeVisible();
+
+    const guest = await browser.newContext();
+    const guestPage = await guest.newPage();
+    await guestPage.goto(invitationLinkIn(await waitForMail(invitee, "invited")));
+    await expect(guestPage).toHaveURL(/\/sign-in$/);
+    await signInWithEmailCode(guestPage, invitee);
+    await expect(guestPage).toHaveURL(/\/orgs$/);
+    await expect(guestPage.getByRole("link", { name: "Late Joiners" })).toBeVisible();
+    await guest.close();
 });
 
 test("API keys: shown once, work for the machine, and stop when revoked", async ({
