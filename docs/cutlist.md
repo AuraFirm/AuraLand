@@ -17,7 +17,7 @@ Nothing here blocks Stage 1. Ranked by how much it matters; "owner" is who decid
 | F11 | Exercise OAuth against the real GitHub and Google | Needs OAuth apps created by the repository owner (plan section 12) | founder |
 | F12 | Production mail provider adapter | Provider not chosen | founder |
 | F13 | Platform-administrator screens (verify organizations, end sessions, suspend accounts) | API routes exist; a screen is not needed until there are many | engineering |
-| F14 | ~~Return to where you were after signing in~~ | **Done 2026-10-10**: `?next=` paths are checked to be plain paths on this site, kept in the tab's session storage across sign-in and the trip to GitHub or Google; invitation links opened while signed out come back and join. A link opened from an email in a new tab starts without it, so it lands on the account page | n/a |
+| F14 | ~~Return to where you were after signing in~~ | **Done 2026-10-10**: `?next=` is looked up in a list of three of our own pages (`/account`, `/orgs`, `/invitations/accept`) and our copy is used, kept in the tab's session storage across sign-in and the trip to GitHub or Google; invitation links opened while signed out come back and join. A link opened from an email in a new tab starts without it, so it lands on the account page | n/a |
 | F15 | ASVS mapping for V1 to V5 and V9 to V17 | Mapped as the stages that introduce each surface land; V6, V7, V8 are the Stage 1 set | security review |
 | F16 | Sliding-window rate limits | Fixed windows allow a burst of up to twice the limit across a boundary; acceptable at current limits | engineering |
 | F17 | Real-provider compatibility tests for the browser sign-in buttons | Same as F11 | founder |
