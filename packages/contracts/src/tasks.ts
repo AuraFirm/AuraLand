@@ -150,3 +150,6 @@ export const taskSpecSchema = z
     .superRefine(checkSpecConsistency);
 
 export type TaskSpec = z.infer<typeof taskSpecSchema>;
+
+export type VersionState = z.infer<typeof versionStateSchema>;
+export type TaskKind = z.infer<typeof taskKindSchema>;

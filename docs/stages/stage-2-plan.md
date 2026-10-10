@@ -209,3 +209,14 @@ configuration, and the in-memory adapter is forbidden outside tests. Each slice 
 Section 2 is the list. Anything you answer differently changes the slices it touches (storage: slice 4;
 hash definition and cap: slices 4 and 5; roles: slice 1; waiver: slices 2 and 5; statements: slices 1 and
 6; markdown stack: slice 6; validator language: slice 3).
+
+## 18. Implementation log
+- **Slice 0 (#25):** contracts, limits, ADR 0022.
+- **Slice 1 (#26):** migration 0012 and ADR 0023. Two refinements found while building: an approval
+  counts only for the review stint it was given in (`submitted_at`), and the bundle key and
+  current-version pointer are not stored.
+- **Slice 2:** `modules/tasks/rules.ts` (pure state machine), `sim/task-versions.sim.ts` against an
+  independent table model, and a test that compares the machine's allowed pairs with the database
+  trigger's. Faults injected into the rules (creator may reject, no approval, no step-up, wrong source
+  state, waiver flag, member reviewing, ...) were all caught by the simulation or the unit tests; one
+  (release from `uploaded`) is an equivalent mutant because `uploaded` never holds an approval.
