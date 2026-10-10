@@ -19,7 +19,7 @@ interface Row {
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
-    readonly object?: "pky" | "org" | "usr";
+    readonly object?: "pky" | "org" | "usr" | "tsk";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, string>;
 }
@@ -148,6 +148,17 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "pky",
     },
+    { method: "POST", path: "/api/v1/tasks", access: "user" },
+    { method: "GET", path: "/api/v1/tasks", access: "user" },
+    { method: "GET", path: "/api/v1/tasks/:id", access: "user", owned: true, object: "tsk" },
+    {
+        method: "PATCH",
+        path: "/api/v1/tasks/:id",
+        access: "user",
+        owned: true,
+        object: "tsk",
+        body: { title: "Renamed" },
+    },
 ];
 
 const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -170,6 +181,20 @@ const concrete = (row: Row) =>
 const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
 
+// A private task in an organization only the victim belongs to.
+async function victimTask(): Promise<string> {
+    const [org] = await h.db.database.sql<{ id: string }[]>`
+        insert into orgs (kind, slug, name) values ('company', ${`tasks-${randomBytes(4).toString("hex")}`}, 'Victim tasks')
+        returning id`;
+    await h.db.database
+        .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${ALICE}, 'owner')`;
+    const [task] = await h.db.database.sql<{ id: string }[]>`
+        insert into tasks (org_id, slug, kind, title, created_by)
+        values (${org?.id ?? ""}, ${`t-${randomBytes(4).toString("hex")}`}, 'algorithmic', 'Secret', ${ALICE})
+        returning id`;
+    return task?.id ?? "";
+}
+
 // An object owned by the victim that the row's path can name.
 async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "org") {
@@ -180,6 +205,7 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
             .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${ALICE}, 'owner')`;
         return encodeId("org", org?.id ?? "");
     }
+    if (row.object === "tsk") return encodeId("tsk", await victimTask());
     if (row.object !== "pky") return encodeId("ses", sessionId);
     const [created] = await h.db.database.sql<{ id: string }[]>`
         insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)

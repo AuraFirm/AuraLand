@@ -4,15 +4,20 @@ import { idSchema } from "../ids.ts";
 
 // Request and response shapes for organization invitations.
 
+// Everything but owner: an organization gets a second owner by changing a member's role, which needs
+// a fresh passkey check.
+export const invitableRoleSchema = z.enum(["admin", "setter", "reviewer", "member"]);
+export type InvitableRole = z.infer<typeof invitableRoleSchema>;
+
 export const invitationCreateRequestSchema = z
-    .object({ email: emailSchema, role: z.enum(["admin", "member"]).default("member") })
+    .object({ email: emailSchema, role: invitableRoleSchema.default("member") })
     .strict();
 
 export const invitationSchema = z
     .object({
         id: idSchema("inv"),
         email: z.string(),
-        role: z.enum(["admin", "member"]),
+        role: invitableRoleSchema,
         created_at: z.iso.datetime(),
         expires_at: z.iso.datetime(),
     })

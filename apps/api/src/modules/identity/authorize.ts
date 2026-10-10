@@ -76,13 +76,16 @@ export function authorize(subject: Subject, action: OrgAction): Decision {
     }
 }
 
-// Owners invite admins and members; admins invite members.
+// Owners invite anyone but another owner; admins invite plain members.
 function canInvite(role: OrgRole, invited: OrgRole): Decision {
     if (role === "owner") return invited === "owner" ? INSUFFICIENT : ALLOWED;
     return role === "admin" && invited === "member" ? ALLOWED : INSUFFICIENT;
 }
 
-// Anyone may leave; owners remove anyone; admins remove plain members.
+const HOLDS_NO_POWER: readonly OrgRole[] = ["member", "setter", "reviewer"];
+
+// Anyone may leave; owners remove anyone; admins remove everyone who holds no power over the
+// organization (members, setters and reviewers).
 function canRemove(
     actorId: string,
     role: OrgRole,
@@ -90,5 +93,5 @@ function canRemove(
 ): Decision {
     if (action.targetUserId === actorId) return ALLOWED;
     if (role === "owner") return ALLOWED;
-    return role === "admin" && action.targetRole === "member" ? ALLOWED : INSUFFICIENT;
+    return role === "admin" && HOLDS_NO_POWER.includes(action.targetRole) ? ALLOWED : INSUFFICIENT;
 }

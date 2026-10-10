@@ -1,6 +1,11 @@
 "use client";
 
-import { type InvitationItem, invitationsResponseSchema } from "@aura/contracts/api/invitations";
+import {
+    type InvitableRole,
+    type InvitationItem,
+    invitableRoleSchema,
+    invitationsResponseSchema,
+} from "@aura/contracts/api/invitations";
 import type { OrgItem } from "@aura/contracts/api/orgs";
 import { type FormEvent, useCallback, useState } from "react";
 import { z } from "zod";
@@ -19,7 +24,7 @@ export function OrgInvitations({ org }: { org: OrgItem }) {
     );
     const { data, error, reload } = useLoad(load);
     const [email, setEmail] = useState("");
-    const [role, setRole] = useState<"member" | "admin">("member");
+    const [role, setRole] = useState<InvitableRole>("member");
     const [message, setMessage] = useState("");
     const [failed, setFailed] = useState(false);
 
@@ -86,8 +91,8 @@ function InvitationRow({ item, onRevoke }: { item: InvitationItem; onRevoke: () 
 interface InviteState {
     readonly email: string;
     readonly setEmail: (value: string) => void;
-    readonly role: "member" | "admin";
-    readonly setRole: (value: "member" | "admin") => void;
+    readonly role: InvitableRole;
+    readonly setRole: (value: InvitableRole) => void;
 }
 
 function InviteForm({
@@ -118,11 +123,13 @@ function InviteForm({
                         className={input}
                         value={state.role}
                         onChange={(e) =>
-                            state.setRole(e.target.value === "admin" ? "admin" : "member")
+                            state.setRole(invitableRoleSchema.catch("member").parse(e.target.value))
                         }
                     >
                         <option value="member">member</option>
                         <option value="admin">admin</option>
+                        <option value="setter">setter</option>
+                        <option value="reviewer">reviewer</option>
                     </select>
                 </>
             )}

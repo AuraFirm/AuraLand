@@ -1,3 +1,4 @@
+import type { InvitableRole } from "@aura/contracts/api/invitations";
 import { orgRoleSchema } from "@aura/contracts/identity";
 import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
@@ -22,7 +23,7 @@ export async function insertInvitation(
     input: {
         readonly orgId: string;
         readonly email: string;
-        readonly role: "admin" | "member";
+        readonly role: InvitableRole;
         readonly tokenHash: string;
         readonly invitedBy: string;
         readonly nowMs: number;
@@ -107,7 +108,7 @@ export async function loadVerifiedEmail(tx: Transaction, userId: string): Promis
 export async function consumeInvitation(
     tx: Transaction,
     input: { readonly tokenHash: string; readonly email: string; readonly nowMs: number },
-): Promise<{ orgId: string; role: "admin" | "member"; invitedBy: string } | null> {
+): Promise<{ orgId: string; role: InvitableRole; invitedBy: string } | null> {
     const rows = await tx`
         update org_invitations set accepted_at = ${new Date(input.nowMs)}
         where token_hash = ${Buffer.from(input.tokenHash, "hex")} and email = ${input.email}
@@ -131,7 +132,7 @@ export async function addMember(
     tx: Transaction,
     orgId: string,
     userId: string,
-    role: "admin" | "member",
+    role: InvitableRole,
 ): Promise<boolean> {
     const rows = await tx`
         insert into memberships (org_id, user_id, role) values (${orgId}, ${userId}, ${role})

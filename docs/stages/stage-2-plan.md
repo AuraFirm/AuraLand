@@ -230,3 +230,7 @@ hash definition and cap: slices 4 and 5; roles: slice 1; waiver: slices 2 and 5;
   (staging key, size and SHA-256 check, copy to the content-addressed key). ADR 0025: SeaweedFS
   replaces MinIO (archived); uploads go to a staging key first, because otherwise a setter could
   overwrite a verified bundle by declaring its hash. The HTTP routes that call it are slice 5.
+- **Slice 5a:** setter and reviewer roles usable (migration 0013, authorize table now six roles, members and
+  invitations screens), and task routes: create, list (cursor paging), read, update, with authorization
+  matrix rows, audit entries, a daily creation limit and 404 for anyone who may not know a task exists.
+  Versions, upload, review and release follow in 5b.

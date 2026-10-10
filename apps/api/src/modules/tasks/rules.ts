@@ -1,11 +1,12 @@
 import { assert } from "@aura/contracts/assert";
+import type { OrgRole } from "@aura/contracts/identity";
 import type { VersionState } from "@aura/contracts/tasks";
 
 // The task-version state machine. Pure: no I/O, no clock, so every rule can be simulated and tested.
 // The database enforces the same pairs with a trigger (migration 0012); `ALLOWED_PAIRS` mirrors that
 // list and a database test compares the two, so neither layer can drift alone.
 
-export type TaskRole = "owner" | "admin" | "setter" | "reviewer" | "member";
+export type TaskRole = OrgRole;
 
 // What each action does to the state is in RULES below; the comments here are the one-line summary.
 // finalize: draft -> uploaded (the bundle's size and hash were verified). submit: uploaded ->
