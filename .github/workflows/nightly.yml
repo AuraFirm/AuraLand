@@ -22,3 +22,19 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: node apps/api/src/sim/cli.ts --seeds=100000 --seed=$(( 10#$(date +%j) * 100000 + 1 ))
+  fuzz:
+    # 200,000 mutated bundles through the ingest validator, a different seed each night. A failure
+    # prints the seed and iteration, which replay the exact input.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@d9184bf108216479bc5a137cc391f4d7b14c870b # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node packages/bundle/src/fuzz-cli.ts --iterations=200000 --seed=$(( 10#$(date +%j) + 1 ))

@@ -1,0 +1,14 @@
+{
+    "name": "@aura/bundle",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./*": "./src/*.ts"
+    },
+    "scripts": {
+        "check:types": "tsc --project tsconfig.json"
+    },
+    "dependencies": {
+        "@aura/contracts": "workspace:*"
+    }
+}

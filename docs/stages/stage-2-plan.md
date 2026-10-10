@@ -220,3 +220,8 @@ hash definition and cap: slices 4 and 5; roles: slice 1; waiver: slices 2 and 5;
   trigger's. Faults injected into the rules (creator may reject, no approval, no step-up, wrong source
   state, waiver flag, member reviewing, ...) were all caught by the simulation or the unit tests; one
   (release from `uploaded`) is an equivalent mutant because `uploaded` never holds an approval.
+- **Slice 3:** `packages/bundle` (ADR 0024, `docs/bundle-format.md`): strict reader, validator, 88-file
+  corpus, mutation fuzzer. Mutation testing of the validator found two corpus gaps (checksum value,
+  non-adjacent letter-case duplicate), both closed; the corpus found one design flaw (the ratio rule
+  rejected bundles with 5,000 small files), fixed with a 5 MiB floor. No new dependency: `fast-check`
+  was dropped from the plan.

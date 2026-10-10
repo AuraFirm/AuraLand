@@ -5,6 +5,7 @@
         "apps/api": 25,
         "apps/web": 30,
         "packages/contracts": 3,
+        "packages/bundle": 0,
         "packages/db": 4,
         "apps/e2e": 5
     },
@@ -39,6 +40,7 @@
         "packages/contracts": {
             "zod": "0001"
         },
+        "packages/bundle": {},
         "packages/db": {
             "postgres": "0001"
         },

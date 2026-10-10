@@ -61,6 +61,24 @@ function violation(edge: ImportEdge, rule: string, message: string): Violation {
     return { file: edge.from, line: edge.line, rule, message };
 }
 
+// The bundle validator parses untrusted archives, so it gets no way to reach files, the network or
+// other processes: it takes bytes and returns a value. Tests and the corpus tool read files.
+const BUNDLE_FORBIDDEN_IMPORT =
+    /^node:(fs|net|http|https|http2|child_process|dns|tls|dgram|worker_threads|vm|cluster|inspector)/;
+
+function checkBundleLayering(edge: ImportEdge, workspace: string | undefined): Violation[] {
+    const exempt = /\.test\.ts$|-cli\.ts$/.test(edge.from);
+    if (!edge.from.startsWith("packages/bundle/") || exempt) return [];
+    const out: Violation[] = [];
+    if (workspace !== undefined && workspace !== "contracts") {
+        out.push(violation(edge, "layering", "@aura/bundle may import only @aura/contracts"));
+    }
+    if (BUNDLE_FORBIDDEN_IMPORT.test(edge.specifier)) {
+        out.push(violation(edge, "layering", "the bundle validator performs no I/O"));
+    }
+    return out;
+}
+
 function checkLayering(edge: ImportEdge): Violation[] {
     const out: Violation[] = [];
     const to = edge.resolved;
@@ -78,6 +96,7 @@ function checkLayering(edge: ImportEdge): Violation[] {
     ) {
         out.push(violation(edge, "layering", "@aura/db may import only @aura/contracts"));
     }
+    out.push(...checkBundleLayering(edge, workspace));
     if (to !== null && edge.specifier.startsWith(".")) {
         const [root, name] = edge.from.split("/");
         const [toRoot, toName] = to.split("/");

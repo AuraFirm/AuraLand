@@ -1,0 +1,354 @@
+{
+    "golden-minimal.tar.zst": {
+        "expect": "ok",
+        "compressed": true
+    },
+    "golden-rich.tar.zst": {
+        "expect": "ok",
+        "compressed": true
+    },
+    "empty-input.bin": {
+        "expect": "empty",
+        "compressed": false
+    },
+    "not-zstd.bin": {
+        "expect": "bad_compression",
+        "compressed": false
+    },
+    "truncated-zstd.bin": {
+        "expect": "bad_compression",
+        "compressed": false
+    },
+    "ratio-bomb-8mib-of-zeros.tar.zst": {
+        "expect": "compression_ratio",
+        "compressed": true
+    },
+    "ratio-bomb-300mib-of-zeros.tar.zst": {
+        "expect": "compression_ratio",
+        "compressed": true
+    },
+    "tar-empty-file-list.tar.zst": {
+        "expect": "missing_file",
+        "compressed": true
+    },
+    "tar-ends-inside-header.tar.zst": {
+        "expect": "truncated",
+        "compressed": true
+    },
+    "tar-ends-inside-data.tar.zst": {
+        "expect": "truncated",
+        "compressed": true
+    },
+    "tar-without-trailer.tar.zst": {
+        "expect": "truncated",
+        "compressed": true
+    },
+    "tar-one-trailer-block.tar.zst": {
+        "expect": "bad_trailer",
+        "compressed": true
+    },
+    "tar-bytes-after-trailer.tar.zst": {
+        "expect": "bad_trailer",
+        "compressed": true
+    },
+    "tar-garbage-after-trailer.tar.zst": {
+        "expect": "bad_trailer",
+        "compressed": true
+    },
+    "header-bad-checksum.tar.zst": {
+        "expect": "bad_checksum",
+        "compressed": true
+    },
+    "header-checksum-wrong-value.tar.zst": {
+        "expect": "bad_checksum",
+        "compressed": true
+    },
+    "entry-type-hard-link.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "entry-type-symbolic-link.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "entry-type-character-device.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "entry-type-block-device.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "entry-type-directory.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "entry-type-fifo.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "entry-type-pax-extended.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "entry-type-pax-global.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "entry-type-gnu-long-name.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "entry-type-old-style-regular.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    },
+    "header-mode-0777.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-setuid-mode.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-uid-nonzero.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-gid-nonzero.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-mtime-nonzero.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-owner-name.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-group-name.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-prefix-used.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-linkname-set.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-bad-magic.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-old-gnu-version.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-devmajor-set.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-size-not-octal.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-size-base256.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "header-size-unterminated.tar.zst": {
+        "expect": "non_canonical_header",
+        "compressed": true
+    },
+    "path-absolute.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-dotdot.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-dotdot-inside.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-single-dot.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-backslash.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-empty-segment.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-trailing-slash.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-hidden-file.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-space.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-non-ascii.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-control-character.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-too-deep.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-segment-too-long.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-nul-then-text.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "path-colon-drive.tar.zst": {
+        "expect": "unsafe_path",
+        "compressed": true
+    },
+    "order-duplicate-exact.tar.zst": {
+        "expect": "duplicate_path",
+        "compressed": true
+    },
+    "order-duplicate-letter-case.tar.zst": {
+        "expect": "duplicate_path",
+        "compressed": true
+    },
+    "order-duplicate-mixed-case.tar.zst": {
+        "expect": "duplicate_path",
+        "compressed": true
+    },
+    "order-unsorted.tar.zst": {
+        "expect": "unsorted_entries",
+        "compressed": true
+    },
+    "padding-not-zero.tar.zst": {
+        "expect": "bad_padding",
+        "compressed": true
+    },
+    "entry-count-over-limit.tar.zst": {
+        "expect": "too_many_entries",
+        "compressed": true
+    },
+    "file-over-size-limit.tar.zst": {
+        "expect": "file_too_large",
+        "compressed": true
+    },
+    "layout-no-task-json.tar.zst": {
+        "expect": "missing_file",
+        "compressed": true
+    },
+    "layout-no-statement.tar.zst": {
+        "expect": "missing_file",
+        "compressed": true
+    },
+    "layout-test-input-missing.tar.zst": {
+        "expect": "missing_file",
+        "compressed": true
+    },
+    "layout-test-answer-missing.tar.zst": {
+        "expect": "missing_file",
+        "compressed": true
+    },
+    "layout-extra-test-file.tar.zst": {
+        "expect": "unexpected_file",
+        "compressed": true
+    },
+    "layout-top-level-file.tar.zst": {
+        "expect": "unexpected_file",
+        "compressed": true
+    },
+    "layout-statement-asset.tar.zst": {
+        "expect": "unexpected_file",
+        "compressed": true
+    },
+    "layout-env-directory.tar.zst": {
+        "expect": "unexpected_file",
+        "compressed": true
+    },
+    "layout-checker-with-builtin.tar.zst": {
+        "expect": "unexpected_file",
+        "compressed": true
+    },
+    "layout-custom-checker-missing.tar.zst": {
+        "expect": "missing_file",
+        "compressed": true
+    },
+    "spec-not-json.tar.zst": {
+        "expect": "bad_spec_json",
+        "compressed": true
+    },
+    "spec-not-utf8.tar.zst": {
+        "expect": "bad_spec_json",
+        "compressed": true
+    },
+    "spec-with-bom.tar.zst": {
+        "expect": "bad_spec_json",
+        "compressed": true
+    },
+    "spec-too-large.tar.zst": {
+        "expect": "bad_spec_json",
+        "compressed": true
+    },
+    "spec-array.tar.zst": {
+        "expect": "invalid_spec",
+        "compressed": true
+    },
+    "spec-unknown-field.tar.zst": {
+        "expect": "invalid_spec",
+        "compressed": true
+    },
+    "spec-unsupported-kind.tar.zst": {
+        "expect": "invalid_spec",
+        "compressed": true
+    },
+    "spec-wrong-version.tar.zst": {
+        "expect": "invalid_spec",
+        "compressed": true
+    },
+    "spec-time-limit-too-high.tar.zst": {
+        "expect": "invalid_spec",
+        "compressed": true
+    },
+    "spec-duplicate-test-id.tar.zst": {
+        "expect": "invalid_spec",
+        "compressed": true
+    },
+    "spec-test-id-with-slash.tar.zst": {
+        "expect": "invalid_spec",
+        "compressed": true
+    },
+    "statement-empty.tar.zst": {
+        "expect": "bad_statement",
+        "compressed": true
+    },
+    "statement-not-utf8.tar.zst": {
+        "expect": "bad_statement",
+        "compressed": true
+    },
+    "statement-too-large.tar.zst": {
+        "expect": "bad_statement",
+        "compressed": true
+    },
+    "tar-golden-with-symlink-first.tar.zst": {
+        "expect": "unsupported_entry",
+        "compressed": true
+    }
+}
