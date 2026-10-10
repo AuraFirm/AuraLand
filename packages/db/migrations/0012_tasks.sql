@@ -70,6 +70,9 @@ create table task_versions (
     created_by uuid not null references users (id),
     released_by uuid references users (id),
     released_at timestamptz,
+    -- When the version last entered review. Set by the guard trigger, never by a person. A release
+    -- needs an approval from this stint, so an approval cannot outlive the content it approved.
+    submitted_at timestamptz,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     foreign key (task_id, org_id) references tasks (id, org_id) on delete cascade,
@@ -90,6 +93,7 @@ create table task_versions (
         state in ('draft', 'uploaded', 'rejected') or (spec is not null and statement is not null)),
     constraint task_versions_release_pair check (
         (state in ('released', 'retired')) = (released_at is not null and released_by is not null)),
+    constraint task_versions_submitted check (state in ('draft', 'uploaded', 'rejected') or submitted_at is not null),
     constraint task_versions_waiver check (not waived or state in ('released', 'retired')),
     constraint task_versions_no_self_release check (released_by is null or released_by <> created_by)
 );
@@ -215,12 +219,15 @@ begin
     if new.state <> old.state and not (old.state || '>' || new.state) = any (allowed) then
         raise exception 'a version cannot move from % to %', old.state, new.state using errcode = 'check_violation';
     end if;
+    new.submitted_at := case when new.state = 'in_review' and old.state <> 'in_review' then now()
+                             else old.submitted_at end;
     if new.state = 'released' then
         if new.waived <> (old.state = 'in_review') then
             raise exception 'a release is waived exactly when it skipped validation' using errcode = 'check_violation';
         end if;
         if not exists (select 1 from task_reviews
-                       where task_version_id = new.id and outcome = 'approved' and reviewer_id <> new.created_by) then
+                       where task_version_id = new.id and outcome = 'approved' and reviewer_id <> new.created_by
+                         and created_at >= old.submitted_at) then
             raise exception 'a release needs an approving review' using errcode = 'check_violation';
         end if;
     end if;

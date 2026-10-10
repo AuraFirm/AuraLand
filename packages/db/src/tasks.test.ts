@@ -351,6 +351,19 @@ describe("versions: review and release", () => {
         expect((await release(REVIEWER, second.versionId, false)).length).toBe(1);
     });
 
+    it("does not let an approval outlive the content it approved", async () => {
+        const { versionId } = await draft();
+        await toReview(versionId);
+        await review(REVIEWER, versionId, "approved");
+        // Changes are requested, the setter edits, and the version goes back to review.
+        expect((await move(REVIEWER, versionId, { state: "uploaded" })).length).toBe(1);
+        expect((await move(SETTER, versionId, { statement: "Rewritten." })).length).toBe(1);
+        expect((await move(SETTER, versionId, { state: "in_review" })).length).toBe(1);
+        await fails(release(REVIEWER, versionId, true), /needs an approving review/);
+        await review(REVIEWER, versionId, "approved");
+        expect((await release(REVIEWER, versionId, true)).length).toBe(1);
+    });
+
     it("only reviews versions that are in review", async () => {
         const { versionId } = await draft();
         await fails(review(REVIEWER, versionId), /only a version in review/);
