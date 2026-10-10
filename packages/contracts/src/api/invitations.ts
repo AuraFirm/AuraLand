@@ -18,6 +18,8 @@ export const invitationSchema = z
     })
     .strict();
 
+export type InvitationItem = z.infer<typeof invitationSchema>;
+
 export const invitationsResponseSchema = z.object({ items: z.array(invitationSchema) }).strict();
 
 const LOGIN_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;

@@ -52,10 +52,13 @@ The Next.js rewrite constant is baked into the web image but unused behind the l
 inline zod line depends on a Zod internal global; the e2e CSP check fails if a Zod upgrade changes it.
 
 ## Verification
-14 end-to-end tests: email code, email link, wrong code, redirect when signed out, incomplete link,
+19 end-to-end tests: email code, email link, wrong code, redirect when signed out, incomplete link,
 passkey add/sign-in/rename/remove, device list and sign-out, data export download, deletion request
 and cancel, axe on every page, and zero CSP violations or console errors on the pages that run
-scripts; plus a test that the browser really blocks an inline handler.
+scripts; plus a test that the browser really blocks an inline handler. The organization screens add: creating
+and renaming an organization, an outsider's view (looks missing), inviting a person who joins through the
+emailed link, the sign-in hint on an invitation link, and API keys (shown once, working for a machine, dead
+after revoking, and the "add a passkey first" path for privileged actions).
 
 ## Revisit trigger
 Adding client-side caching needs, a design system (Stage 7), or more browsers in the matrix.

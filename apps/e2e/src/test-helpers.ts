@@ -47,6 +47,12 @@ export const linkIn = (text: string): string => {
     return match[1];
 };
 
+export const invitationLinkIn = (text: string): string => {
+    const match = /(https?:\/\/\S+\/invitations\/accept#t=[A-Za-z0-9_-]+)/.exec(text);
+    if (match?.[1] === undefined) throw new Error("no invitation link in the email");
+    return match[1];
+};
+
 export const codeIn = (text: string): string => {
     const match = /(\d{4}) (\d{4})/.exec(text);
     if (match?.[1] === undefined || match[2] === undefined) throw new Error("no code in the email");

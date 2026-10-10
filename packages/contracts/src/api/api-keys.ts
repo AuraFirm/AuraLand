@@ -41,6 +41,8 @@ export const apiKeySchema = z
     })
     .strict();
 
+export type ApiKeyItem = z.infer<typeof apiKeySchema>;
+
 export const apiKeysResponseSchema = z.object({ items: z.array(apiKeySchema) }).strict();
 
 // The one response that carries the whole key. It is shown once and cannot be fetched again.

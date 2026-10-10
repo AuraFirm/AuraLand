@@ -333,3 +333,11 @@ database valid. Each slice merges only with green CI, and the stage report recor
   and axe, a runner that starts everything (`pnpm test:e2e`), and a CI step. ADR 0020 records the
   dependencies and the real problems the browser found: low button contrast, Zod's `eval` probe
   blocked by the CSP, and a hydration mismatch on passkey support; all fixed.
+- **Slice 7b (2026-10-10), as built.** The organization screens, completing slice 7: the organization
+  list and creation form, the organization page (rename, members with role changes and removal,
+  invitations, API keys with the key shown once), and the invitation landing page. Privileged actions
+  go through a helper that asks for a passkey check and retries once; a person with no passkey is told
+  to add one. Five more browser tests (19 in all), axe-clean on every page. Not built, deliberately:
+  platform-administrator screens (verification is an API route for now; the platform-admin procedure
+  goes into the slice 8 runbook), and a "next" address after sign-in (an invitation link opened while
+  signed out asks the person to sign in and open the link again).
