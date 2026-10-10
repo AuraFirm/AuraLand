@@ -415,6 +415,17 @@ describe("privileged sessions", () => {
         expect((await latest(DAVE))[0]?.privileged).toBe(false);
     });
 
+    it("also bind a session that began before its owner gained power", async () => {
+        const t = await team();
+        const ordinary = await h.login(DAVE);
+        expect((await h.request("/me", { headers: browser(t.owner) })).status).toBe(200);
+        h.clock.advance(31 * MINUTE);
+        // The owner of a team is held to the 30-minute idle limit even though this session was
+        // created as an ordinary one; the other person's session is unaffected.
+        expect((await h.request("/me", { headers: browser(t.owner) })).status).toBe(401);
+        expect((await h.request("/me", { headers: browser(ordinary.token) })).status).toBe(200);
+    });
+
     it("do not count a personal space, which everyone owns", async () => {
         const { sql } = h.db.database;
         await sql`delete from orgs where id in (select org_id from memberships where user_id = ${CAROL})`;
@@ -480,5 +491,82 @@ describe("organization verification", () => {
 
     it("keeps the audit chain valid after all of the above", async () => {
         expect((await verifyAuditChain(h.db.database.sql)).ok).toBe(true);
+    });
+});
+
+describe("changing how people sign in needs a fresh passkey check", () => {
+    it("applies to removing a passkey, and the passkey itself can provide the check", async () => {
+        const t = await team();
+        const authenticator = await registerPasskey(t.owner);
+        const list = z
+            .object({ items: z.array(z.object({ id: z.string() })) })
+            .parse(await (await call(t.owner, "GET", "/me/passkeys")).json());
+        const id = list.items[0]?.id ?? "";
+        h.clock.advance(16 * MINUTE);
+        expect(await problemCode(await call(t.owner, "DELETE", `/me/passkeys/${id}`))).toBe(
+            "step_up_required",
+        );
+        expect((await stepUp(t.owner, authenticator)).status).toBe(204);
+        expect((await call(t.owner, "DELETE", `/me/passkeys/${id}`)).status).toBe(204);
+    });
+
+    it("applies to disconnecting a provider for someone who holds a passkey, not for someone who has none", async () => {
+        const { sql } = h.db.database;
+        const t = await team();
+        await registerPasskey(t.owner);
+        await sql`insert into oauth_identities (user_id, provider, provider_user_id) values (${ALICE}, 'github', 'gh-1')`;
+        h.clock.advance(16 * MINUTE);
+        expect(await problemCode(await call(t.owner, "DELETE", "/me/identities/github"))).toBe(
+            "step_up_required",
+        );
+        await sql`delete from passkeys where user_id = ${ALICE}`;
+        expect((await call(t.owner, "DELETE", "/me/identities/github")).status).toBe(204);
+    });
+});
+
+describe("platform administrators ending someone's sessions", () => {
+    it("ends every session of the person, audits it, and needs a fresh passkey check", async () => {
+        const eve = await h.login(EVE);
+        const authenticator = await registerPasskey(eve.token);
+        const one = await h.login(DAVE);
+        const two = await h.login(DAVE);
+        const target = encodeId("usr", DAVE);
+        const response = await call(eve.token, "POST", `/admin/users/${target}/revoke-sessions`);
+        expect(response.status).toBe(200);
+        expect(
+            z.object({ revoked: z.number() }).parse(await response.json()).revoked,
+        ).toBeGreaterThanOrEqual(2);
+        for (const token of [one.token, two.token]) {
+            expect((await h.request("/me", { headers: browser(token) })).status).toBe(401);
+        }
+        const [audit] = await h.db.database.sql<
+            { n: string }[]
+        >`select count(*) n from audit_log where action = 'admin.sessions_revoked' and actor_user_id = ${EVE}`;
+        expect(audit?.n).toBe("1");
+        h.clock.advance(16 * MINUTE);
+        expect(
+            await problemCode(
+                await call(eve.token, "POST", `/admin/users/${target}/revoke-sessions`),
+            ),
+        ).toBe("step_up_required");
+        expect((await stepUp(eve.token, authenticator)).status).toBe(204);
+        expect(
+            (await call(eve.token, "POST", `/admin/users/${target}/revoke-sessions`)).status,
+        ).toBe(200);
+    });
+
+    it("looks like a missing route to everyone else", async () => {
+        const bob = await h.login(BOB);
+        const target = encodeId("usr", DAVE);
+        expect(
+            (await call(bob.token, "POST", `/admin/users/${target}/revoke-sessions`)).status,
+        ).toBe(404);
+        expect((await call(null, "POST", `/admin/users/${target}/revoke-sessions`)).status).toBe(
+            401,
+        );
+        const eve = await h.login(EVE);
+        expect((await call(eve.token, "POST", "/admin/users/nope/revoke-sessions")).status).toBe(
+            400,
+        );
     });
 });

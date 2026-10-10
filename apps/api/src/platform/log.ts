@@ -1,4 +1,4 @@
-import { type Logger, pino } from "pino";
+import { type DestinationStream, type Logger, pino } from "pino";
 
 export type { Logger };
 
@@ -10,13 +10,23 @@ const REDACTED_PATHS = [
     "*.password",
     "*.token",
     "*.secret",
+    "*.code",
+    "*.otp",
+    "*.key",
+    "*.binding",
+    "*.email",
 ] as const;
 
-export function createLogger(level: "debug" | "info" | "warn" | "error"): Logger {
-    return pino({
+// `destination` is for tests; in production lines go to standard output.
+export function createLogger(
+    level: "debug" | "info" | "warn" | "error",
+    destination?: DestinationStream,
+): Logger {
+    const options = {
         level,
         redact: { paths: [...REDACTED_PATHS], censor: "[redacted]" },
         timestamp: pino.stdTimeFunctions.isoTime,
         base: { service: "aura-api" },
-    });
+    };
+    return destination === undefined ? pino(options) : pino(options, destination);
 }

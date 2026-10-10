@@ -7,17 +7,6 @@ export default function HomePage() {
             <p className="text-muted">
                 Proof you can trust. We verify software capability, for people and for AI.
             </p>
-            <nav aria-label="Main" className="flex gap-4">
-                <a className="text-accent underline" href="/sign-in">
-                    Sign in
-                </a>
-                <a className="text-accent underline" href="/account">
-                    Account
-                </a>
-                <a className="text-accent underline" href="/orgs">
-                    Organizations
-                </a>
-            </nav>
         </main>
     );
 }

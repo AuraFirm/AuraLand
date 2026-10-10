@@ -16,7 +16,7 @@ used to enumerate accounts or to flood a person's inbox, and an outbound call to
 - **Binding.** The browser that asked for the email receives the binding value in a cookie. Both
   the link and the code only work together with that cookie, so a link forwarded to, or
   opened by, another browser fails.
-- **Lifetimes and limits.** Link 15 minutes, code 10 minutes, at most 5 wrong code guesses per
+- **Lifetimes and limits.** Link 10 minutes, code 5 minutes (ASVS V6.5.5 caps out-of-band requests at 10), at most 5 wrong code guesses per
   challenge, one successful use. Every check is a single SQL statement (`update … where … returning`),
   so concurrent guesses cannot both pass and a counted guess cannot be skipped.
 - **Rate limits.** Fixed-window counters in `rate_limit_counters`, keyed by an HMAC of the rule name

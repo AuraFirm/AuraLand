@@ -36,7 +36,7 @@ administrator vouches for them.
   (`privilege_change`) so the next sign-in carries the stricter limit; the person making the change
   keeps theirs. Not done: a person who creates their own team keeps their current session's 7-day idle
   limit until the next sign-in; the step-up requirement is what protects their privileged actions.
-  Recomputing the limit on every request is left for the hardening slice.
+  Recomputing the limit on every request was done in slice 8 (ADR 0021).
 - **Organization verification.** `verify_org()` is a SECURITY DEFINER function that checks the caller is
   a platform administrator before changing anything; the route `POST /admin/orgs/{id}/verify` also
   checks, requires step-up, and answers 404 to everyone who is not an administrator so the route does

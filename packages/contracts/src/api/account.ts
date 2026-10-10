@@ -11,6 +11,11 @@ export const authMethodsResponseSchema = z
     })
     .strict();
 
+// Whether this browser has a session. Always answers 200, so asking never looks like an error.
+export const sessionStatusSchema = z.object({ signed_in: z.boolean() }).strict();
+
+export const revokedSessionsSchema = z.object({ revoked: z.number().int().min(0) }).strict();
+
 export const deletionRequestResponseSchema = z
     .object({ deletion_requested_at: z.iso.datetime().nullable() })
     .strict();

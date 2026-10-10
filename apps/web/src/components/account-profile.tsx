@@ -3,7 +3,7 @@
 import { meResponseSchema } from "@aura/contracts/api/identity";
 import { useCallback, useState } from "react";
 import { apiDo, apiGet, messageOf } from "../lib/api.ts";
-import { button, buttonQuiet } from "../lib/styles.ts";
+import { buttonQuiet } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
 
@@ -16,15 +16,6 @@ export function AccountProfile() {
         try {
             await apiDo("/me/delete-request", { method: "DELETE" });
             reload();
-        } catch (failure) {
-            setMessage(messageOf(failure));
-        }
-    };
-
-    const signOut = async () => {
-        try {
-            await apiDo("/auth/logout", { method: "POST" });
-            window.location.assign("/");
         } catch (failure) {
             setMessage(messageOf(failure));
         }
@@ -53,15 +44,7 @@ export function AccountProfile() {
                         Cancel deletion
                     </button>
                 </div>
-            )}{" "}
-            <div className="flex gap-3">
-                <button type="button" className={button} onClick={signOut}>
-                    Sign out
-                </button>
-                <a className={buttonQuiet} href="/orgs">
-                    Organizations
-                </a>
-            </div>
+            )}
             {message !== "" && <Notice text={message} bad />}
         </Section>
     );

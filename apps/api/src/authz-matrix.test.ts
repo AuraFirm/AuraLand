@@ -19,7 +19,7 @@ interface Row {
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
-    readonly object?: "pky" | "org";
+    readonly object?: "pky" | "org" | "usr";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, string>;
 }
@@ -119,9 +119,16 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "org",
     },
+    {
+        method: "POST",
+        path: "/api/v1/admin/users/:id/revoke-sessions",
+        access: "admin",
+        object: "usr",
+    },
     { method: "POST", path: "/api/v1/auth/passkey/step-up/options", access: "user" },
     { method: "POST", path: "/api/v1/auth/passkey/step-up/verify", access: "user" },
     { method: "GET", path: "/api/v1/auth/methods", access: "public" },
+    { method: "GET", path: "/api/v1/me/status", access: "public" },
     { method: "GET", path: "/api/v1/me/export", access: "user" },
     { method: "POST", path: "/api/v1/me/delete-request", access: "user" },
     { method: "DELETE", path: "/api/v1/me/delete-request", access: "user" },

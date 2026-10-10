@@ -19,6 +19,7 @@ import type { Clock } from "../../platform/clock.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import type { Rng } from "../../platform/rng.ts";
 import { clientAddress, userAgentOf } from "../../request-info.ts";
+import { hasFreshStepUp } from "./authorize.ts";
 import {
     beginLogin,
     beginRegistration,
@@ -73,7 +74,7 @@ export function passkeyRoutes(deps: PasskeyRouteDeps): Hono<AppEnv> {
     routes.post("/auth/passkey/login/verify", (c) => loginVerify(c, deps, ceremony));
     routes.get("/me/passkeys", listPasskeys);
     routes.patch("/me/passkeys/:id", renamePasskey);
-    routes.delete("/me/passkeys/:id", removePasskey);
+    routes.delete("/me/passkeys/:id", (c) => removePasskey(c, deps));
     return routes;
 }
 
@@ -231,9 +232,16 @@ async function renamePasskey(c: Context<AppEnv>) {
     return c.body(null, 204);
 }
 
-async function removePasskey(c: Context<AppEnv>) {
+// Removing a passkey changes how the person proves who they are (ASVS V7.5.1), so it needs a fresh
+// passkey check, which the passkey being removed can itself provide.
+async function removePasskey(c: Context<AppEnv>, deps: PasskeyRouteDeps) {
     const userId = signedInUserId(c);
     if (userId === null) return problemResponse(c, "unauthenticated", "Authentication required");
+    const actor = c.get("actor");
+    const stepUpAtMs = actor.kind === "user" ? actor.stepUpAtMs : null;
+    if (!hasFreshStepUp(stepUpAtMs, deps.clock.nowUnixMs())) {
+        return problemResponse(c, "step_up_required", "Confirm with your passkey to continue");
+    }
     const id = idSchema("pky").safeParse(c.req.param("id"));
     if (!id.success) return problemResponse(c, "invalid_request", "Invalid passkey id");
     const tx = c.get("tx");

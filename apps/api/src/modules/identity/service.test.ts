@@ -130,6 +130,41 @@ describe("validateSession", () => {
     });
 });
 
+describe("validateSession, a person who gains power mid-session", () => {
+    it("is held to the privileged idle limit as soon as they hold power, and only then", async () => {
+        const { clock, store } = setup();
+        let powerful = false;
+        const deps: SessionDeps = {
+            store,
+            clock,
+            rng: createSeededRng(9),
+            holdsPower: async () => powerful,
+        };
+        const { token } = await login(deps);
+        clock.advance((SESSION_IDLE_TIMEOUT_S_PRIVILEGED + 1) * SECOND);
+        expect((await validateSession(deps, token)).ok).toBe(true);
+        powerful = true;
+        clock.advance((SESSION_IDLE_TIMEOUT_S_PRIVILEGED + 1) * SECOND);
+        const refused = await validateSession(deps, token);
+        expect(refused).toEqual({ ok: false, reason: "idle_expired" });
+    });
+
+    it("keeps working within the stricter limit and slides it on use", async () => {
+        const { clock, store } = setup();
+        const deps: SessionDeps = {
+            store,
+            clock,
+            rng: createSeededRng(9),
+            holdsPower: async () => true,
+        };
+        const { token } = await login(deps);
+        for (let n = 0; n < 5; n++) {
+            clock.advance((SESSION_IDLE_TIMEOUT_S_PRIVILEGED - 1) * SECOND);
+            expect((await validateSession(deps, token)).ok, `use ${n}`).toBe(true);
+        }
+    });
+});
+
 describe("validateSession, idle and absolute limits", () => {
     it("expires at the idle timeout when unused, and stays alive while used", async () => {
         const { deps, clock } = setup();

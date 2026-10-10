@@ -45,6 +45,8 @@ export interface Harness {
     readonly onInvariantViolation: ReturnType<typeof vi.fn>;
     // Every email the app "sent" in this harness.
     readonly mail: ReturnType<typeof createMemoryMail>;
+    // Every log line the app wrote in this harness (no redaction, so leaks show).
+    readonly logs: string[];
     app(
         env?: Record<string, string>,
         mail?: MailPort,
@@ -86,6 +88,7 @@ export async function createHarness(): Promise<Harness> {
     const rng = createSeededRng(2026);
     const onInvariantViolation = vi.fn();
     const mail = createMemoryMail();
+    const logs: string[] = [];
     const app = (
         env: Record<string, string> = {},
         sender: MailPort = mail,
@@ -93,7 +96,7 @@ export async function createHarness(): Promise<Harness> {
     ) =>
         createApp({
             config: parseConfig({ ...BASE_ENV, ...env }),
-            logger: pino({ level: "silent" }),
+            logger: pino({ level: "debug" }, { write: (line: string) => void logs.push(line) }),
             clock,
             rng,
             database: db.database,
@@ -111,6 +114,7 @@ export async function createHarness(): Promise<Harness> {
         clock,
         onInvariantViolation,
         mail,
+        logs,
         app,
         asIdentity,
         login: (userId, privileged = false) =>

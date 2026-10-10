@@ -1,14 +1,19 @@
+import { revokedSessionsSchema } from "@aura/contracts/api/account";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
 import { appendAudit } from "@aura/db/audit";
+import type { Sql } from "@aura/db/client";
+import { withRequestContext } from "@aura/db/context";
 import { postgresErrorCode } from "@aura/db/errors";
 import { type Context, Hono } from "hono";
 import type { AppEnv } from "../../app-env.ts";
 import type { Clock } from "../../platform/clock.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import { hasFreshStepUp } from "./authorize.ts";
+import { createPgSessionStore } from "./queries.ts";
 
 export interface AdminRouteDeps {
     readonly clock: Clock;
+    readonly sql: Sql;
 }
 
 // PostgreSQL error codes raised by verify_org: not an administrator, and no such organization.
@@ -21,6 +26,7 @@ const NO_DATA_FOUND = "P0002";
 export function adminRoutes(deps: AdminRouteDeps): Hono<AppEnv> {
     const routes = new Hono<AppEnv>();
     routes.post("/admin/orgs/:id/verify", (c) => handleVerify(c, deps));
+    routes.post("/admin/users/:id/revoke-sessions", (c) => handleRevokeSessions(c, deps));
     return routes;
 }
 
@@ -55,4 +61,44 @@ async function handleVerify(c: Context<AppEnv>, deps: AdminRouteDeps) {
         target: encodeId("org", orgId),
     });
     return c.body(null, 204);
+}
+
+// Incident response: end every session of one person (a stolen device, a suspected takeover). The
+// person is not told whether the account exists by anyone but an administrator, who already can see it.
+async function handleRevokeSessions(c: Context<AppEnv>, deps: AdminRouteDeps) {
+    const actor = c.get("actor");
+    if (actor.kind === "anonymous")
+        return problemResponse(c, "unauthenticated", "Authentication required");
+    if (actor.kind !== "user" || actor.platformRole !== "admin") {
+        return problemResponse(c, "not_found", "Not found");
+    }
+    const parsed = idSchema("usr").safeParse(c.req.param("id"));
+    if (!parsed.success) return problemResponse(c, "invalid_request", "Invalid request");
+    const nowMs = deps.clock.nowUnixMs();
+    if (!hasFreshStepUp(actor.stepUpAtMs, nowMs)) {
+        return problemResponse(c, "step_up_required", "Confirm with your passkey to continue");
+    }
+    const targetId = decodeId("usr", parsed.data);
+    const revoked = await withRequestContext(
+        deps.sql,
+        { role: "aura_auth", actorKind: "anonymous", userId: null, orgIds: [] },
+        async (tx) => {
+            const count = await createPgSessionStore(tx).revokeAllForUser(
+                targetId,
+                nowMs,
+                "admin",
+                null,
+            );
+            await appendAudit(tx, {
+                actorKind: "user",
+                actorUserId: actor.userId,
+                orgId: null,
+                action: "admin.sessions_revoked",
+                target: parsed.data,
+                detail: { count: String(count) },
+            });
+            return count;
+        },
+    );
+    return c.json(revokedSessionsSchema.parse({ revoked }));
 }

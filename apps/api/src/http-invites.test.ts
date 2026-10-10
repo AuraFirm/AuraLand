@@ -229,7 +229,9 @@ describe("accepting, expiry and revocation", () => {
         const secret = lastToken();
         h.clock.advance(7 * DAY - 1);
         const early = await h.login(DAVE);
-        await invite(t.owner, t.publicId, { email: "eve@example.com" });
+        // Owners hold power, so their sessions end after 30 idle minutes: sign in again after 7 days.
+        const owner = (await h.login(ALICE)).token;
+        await invite(owner, t.publicId, { email: "eve@example.com" });
         const eveSecret = lastToken();
         h.clock.advance(1);
         expect((await accept(early.token, secret)).status).toBe(400);
