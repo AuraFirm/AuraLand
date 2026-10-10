@@ -49,3 +49,16 @@ export const LOGIN_SECRET_BYTES = 32;
 export const LOGIN_START_PER_EMAIL_PER_HOUR_MAX = 5;
 export const LOGIN_START_PER_ADDRESS_PER_MINUTE_MAX = 10;
 export const LOGIN_VERIFY_PER_ADDRESS_PER_MINUTE_MAX = 30;
+
+// ---- passkeys ----
+
+// A registration or login challenge is valid for 5 minutes: long enough for a person to find a
+// security key, short enough that a stolen challenge is useless soon.
+export const WEBAUTHN_CHALLENGE_TTL_S = 5 * 60;
+export const WEBAUTHN_CHALLENGE_BYTES = 32;
+
+// Matches the database cap; more than this is clutter, not safety.
+export const PASSKEYS_PER_USER_MAX = 20;
+
+// Passkey login is anonymous and each attempt writes a challenge row, so it is limited per address.
+export const PASSKEY_LOGIN_PER_ADDRESS_PER_MINUTE_MAX = 30;

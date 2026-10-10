@@ -328,3 +328,14 @@ export async function findOrCreateAccount(
     `;
     return { ...accountSchema.parse(found[0]), created: false };
 }
+
+export async function findAccountLabels(
+    tx: Transaction,
+    userId: string,
+): Promise<{ email: string; handle: string }> {
+    const rows = await tx`
+        select u.email::text as email, p.handle::text as handle
+        from users u join profiles p on p.user_id = u.id where u.id = ${userId}
+    `;
+    return z.object({ email: z.string(), handle: z.string() }).parse(rows[0]);
+}

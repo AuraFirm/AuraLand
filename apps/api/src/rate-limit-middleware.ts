@@ -5,6 +5,7 @@ import type { AppEnv } from "./app-env.ts";
 import {
     LOGIN_START_PER_ADDRESS_PER_MINUTE_MAX,
     LOGIN_VERIFY_PER_ADDRESS_PER_MINUTE_MAX,
+    PASSKEY_LOGIN_PER_ADDRESS_PER_MINUTE_MAX,
 } from "./modules/identity/limits.ts";
 import type { Clock } from "./platform/clock.ts";
 import { problemResponse } from "./platform/problem-response.ts";
@@ -39,9 +40,17 @@ export const VERIFY_BY_ADDRESS: RateLimitRule = {
     windowS: MINUTE_S,
 };
 
+export const PASSKEY_LOGIN_BY_ADDRESS: RateLimitRule = {
+    name: "passkey-login:address",
+    max: PASSKEY_LOGIN_PER_ADDRESS_PER_MINUTE_MAX,
+    windowS: MINUTE_S,
+};
+
 const RULES_BY_PATH: ReadonlyMap<string, RateLimitRule> = new Map([
     ["/api/v1/auth/email/start", START_BY_ADDRESS],
     ["/api/v1/auth/email/verify", VERIFY_BY_ADDRESS],
+    ["/api/v1/auth/passkey/login/options", PASSKEY_LOGIN_BY_ADDRESS],
+    ["/api/v1/auth/passkey/login/verify", PASSKEY_LOGIN_BY_ADDRESS],
 ]);
 
 export function consumeRateLimit(

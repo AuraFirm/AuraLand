@@ -4,6 +4,7 @@
 //   anonymous callers get 401 on routes that need a person,
 //   a valid session without the custom CSRF header gets 403 on every state-changing route,
 //   another person's valid session gets 404 on routes that address one of the caller's own objects.
+import { randomBytes } from "node:crypto";
 import { encodeId } from "@aura/contracts/ids";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ALICE, BOB, browser, createHarness, type Harness } from "./http-harness.ts";
@@ -15,6 +16,8 @@ interface Row {
     readonly access: "public" | "user";
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
+    // What kind of object `:id` names. Defaults to a session.
+    readonly object?: "pky";
 }
 
 // Add a row in the same pull request that adds a route. This list is the written access policy.
@@ -29,10 +32,30 @@ const MATRIX: readonly Row[] = [
     // answer the same whether or not an account exists.
     { method: "POST", path: "/api/v1/auth/email/start", access: "public" },
     { method: "POST", path: "/api/v1/auth/email/verify", access: "public" },
+    // Registration needs a signed-in person; the sign-in ceremony is anonymous by nature.
+    { method: "POST", path: "/api/v1/auth/passkey/register/options", access: "user" },
+    { method: "POST", path: "/api/v1/auth/passkey/register/verify", access: "user" },
+    { method: "POST", path: "/api/v1/auth/passkey/login/options", access: "public" },
+    { method: "POST", path: "/api/v1/auth/passkey/login/verify", access: "public" },
+    { method: "GET", path: "/api/v1/me/passkeys", access: "user" },
+    {
+        method: "PATCH",
+        path: "/api/v1/me/passkeys/:id",
+        access: "user",
+        owned: true,
+        object: "pky",
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/me/passkeys/:id",
+        access: "user",
+        owned: true,
+        object: "pky",
+    },
 ];
 
 const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-const SAMPLE_ID = encodeId("ses", "018f0000-0000-7000-8000-0000000000ee");
+const SAMPLE_UUID = "018f0000-0000-7000-8000-0000000000ee";
 
 let h: Harness;
 beforeAll(async () => {
@@ -42,9 +65,19 @@ afterAll(async () => {
     await h.drop();
 });
 
-const concrete = (path: string) => path.replace(":id", SAMPLE_ID);
+const concrete = (row: Row) => row.path.replace(":id", encodeId(row.object ?? "ses", SAMPLE_UUID));
 const call = (row: Row, headers: Record<string, string>) =>
-    h.app().request(concrete(row.path), { method: row.method, headers });
+    h.app().request(concrete(row), { method: row.method, headers });
+
+// An object owned by the victim that the row's path can name.
+async function victimObject(row: Row, sessionId: string): Promise<string> {
+    if (row.object !== "pky") return encodeId("ses", sessionId);
+    const [created] = await h.db.database.sql<{ id: string }[]>`
+        insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)
+        values (${ALICE}, ${randomBytes(32)}, ${randomBytes(77)}, 'singleDevice', false, 'Victim key')
+        returning id`;
+    return encodeId("pky", created?.id ?? "");
+}
 
 describe("route table", () => {
     it("matches the declared matrix exactly", () => {
@@ -90,10 +123,16 @@ describe("generated checks", () => {
             it(`${name}: another person's valid session gets 404, never the object`, async () => {
                 const victim = await h.login(ALICE);
                 const intruder = await h.login(BOB);
-                const path = row.path.replace(":id", encodeId("ses", victim.session.id));
+                const objectId = await victimObject(row, victim.session.id);
+                const path = row.path.replace(":id", objectId);
+                const hasBody = row.method === "PATCH" || row.method === "PUT";
                 const response = await h.app().request(path, {
                     method: row.method,
-                    headers: browser(intruder.token),
+                    headers: browser(
+                        intruder.token,
+                        hasBody ? { "content-type": "application/json" } : {},
+                    ),
+                    ...(hasBody ? { body: JSON.stringify({ name: "intruder" }) } : {}),
                 });
                 expect(response.status).toBe(404);
                 expect((await h.request("/me", { headers: browser(victim.token) })).status).toBe(

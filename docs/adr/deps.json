@@ -19,6 +19,7 @@
         "tools": {},
         "apps/api": {
             "@hono/node-server": "0001",
+            "@simplewebauthn/server": "0015",
             "hono": "0001",
             "pino": "0001",
             "zod": "0001"
