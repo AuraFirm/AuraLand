@@ -26,12 +26,16 @@ const INSUFFICIENT: Access = { allowed: false, reason: "insufficient_role" };
 const WRITERS: readonly OrgRole[] = ["owner", "admin", "setter"];
 const REVIEWERS: readonly OrgRole[] = ["owner", "admin", "reviewer"];
 
+export function roleIn(memberships: readonly Membership[], orgId: string): OrgRole | null {
+    return memberships.find((membership) => membership.orgId === orgId)?.role ?? null;
+}
+
 export function taskAccess(
     memberships: readonly Membership[],
     orgId: string,
     action: TaskAction,
 ): Access {
-    const role = memberships.find((membership) => membership.orgId === orgId)?.role ?? null;
+    const role = roleIn(memberships, orgId);
     if (role === null) return NOT_MEMBER;
     switch (action) {
         case "read":

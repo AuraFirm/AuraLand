@@ -21,6 +21,7 @@ import { relyingPartyId } from "./modules/identity/passkey.ts";
 import { passkeyRoutes } from "./modules/identity/passkey-routes.ts";
 import { identityRoutes } from "./modules/identity/routes.ts";
 import { signInRoutes } from "./modules/identity/sign-in-routes.ts";
+import { reviewRoutes } from "./modules/tasks/review-routes.ts";
 import { taskRoutes } from "./modules/tasks/task-routes.ts";
 import { versionRoutes } from "./modules/tasks/version-routes.ts";
 import { assertPipelineOrder, type PipelineName } from "./pipeline.ts";
@@ -204,6 +205,7 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
         taskRoutes({ sql: deps.database.sql, clock: deps.clock, key: loginTokenKey(deps.config) }),
     );
     app.route("/v1", versionRoutes({ clock: deps.clock, rng: deps.rng, storage: deps.storage }));
+    app.route("/v1", reviewRoutes({ clock: deps.clock }));
     mountSignInRoutes(app, deps, secureCookies);
 }
 
