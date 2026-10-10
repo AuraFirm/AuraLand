@@ -29,7 +29,7 @@ rules:
         - "*.tsx"
         - "*.ts"
       exclude:
-        - "**/apps/web/src/lib/render-markdown-safe.tsx"
+        - "**/apps/web/src/components/safe-html.tsx"
         - "**/tools/tigerlint.test.ts"
 
   - id: aura-no-shell-exec
