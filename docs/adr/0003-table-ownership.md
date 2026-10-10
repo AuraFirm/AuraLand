@@ -24,6 +24,10 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `memberships` | `modules/identity` | Who belongs to which organization, with a role; members read, owners change roles, removal per role; always keeps one owner |
 | `api_keys` | `modules/identity` | Organization API keys (SHA-256 of a random secret, never readable by `aura_app`); owners and admins manage; the identity role authenticates with them |
 | `org_invitations` | `modules/identity` | Pending invitations to join an organization (HMAC of the link secret, never readable by `aura_app`); owners and admins manage; the identity role accepts them |
+| `tasks` | `modules/tasks` | Named problems owned by one organization; content roles read all, members read `org` tasks; owners, admins and setters create and rename |
+| `task_versions` | `modules/tasks` | Versions of a task with spec, statement and bundle size/hash; frozen once released; unreleased versions hidden from plain members; every state move guarded by a trigger |
+| `task_reviews` | `modules/tasks` | Review decisions (append-only); reviewers insert, never about their own version |
+| `bundle_uploads` | `modules/tasks` | Bundle uploads in flight (storage upload id, declared size and hash); the starter and their organization's setters |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
 | `audit_log` | `packages/db` (`audit.ts`), written through `appendAudit` by any module | Append-only hash chain; readable by org members and by the actor |
 
