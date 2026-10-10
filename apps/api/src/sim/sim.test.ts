@@ -4,6 +4,7 @@ import { loginScenario } from "./login.sim.ts";
 import { runScenario, runSeeds } from "./runner.ts";
 import { boundedQueueScenario } from "./selftest.sim.ts";
 import { sessionScenario } from "./sessions.sim.ts";
+import { taskVersionScenario } from "./task-versions.sim.ts";
 import { createFakeClock, createSeededRng } from "./world.ts";
 
 describe("seeded rng", () => {
@@ -82,6 +83,13 @@ describe("sessions scenario", () => {
 describe("login challenge scenario", () => {
     it("passes on 150 seeds with the real store", async () => {
         const failures = await runSeeds(loginScenario(), 0, 150);
+        expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
+    });
+});
+
+describe("task version scenario", () => {
+    it("passes on 150 seeds", async () => {
+        const failures = await runSeeds(taskVersionScenario(), 0, 150);
         expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
     });
 });
