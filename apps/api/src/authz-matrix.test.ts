@@ -25,6 +25,10 @@ const MATRIX: readonly Row[] = [
     // Idempotent on purpose: with no session it still succeeds and clears a stale cookie.
     { method: "POST", path: "/api/v1/auth/logout", access: "public" },
     { method: "POST", path: "/api/v1/auth/logout-all", access: "user" },
+    // Anonymous by nature: these start a login. They are limited per address and per email, and
+    // answer the same whether or not an account exists.
+    { method: "POST", path: "/api/v1/auth/email/start", access: "public" },
+    { method: "POST", path: "/api/v1/auth/email/verify", access: "public" },
 ];
 
 const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);

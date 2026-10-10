@@ -11,6 +11,7 @@ import {
 } from "./limits.ts";
 import { systemClock } from "./platform/clock.ts";
 import { createLogger } from "./platform/log.ts";
+import { createMailFromConfig } from "./platform/mail.ts";
 import { systemRng } from "./platform/rng.ts";
 
 // Process entry point: wire real dependencies, serve, and stop cleanly on signals or invariant
@@ -39,6 +40,7 @@ const app = createApp({
     clock: systemClock,
     rng: systemRng,
     database,
+    mail: createMailFromConfig(config),
     pingDatabase: async () => {
         await database.sql`select 1`;
     },

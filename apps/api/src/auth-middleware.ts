@@ -80,6 +80,8 @@ export function csrf(deps: AppDeps): MiddlewareHandler<AppEnv> {
     };
 }
 
+const OWN_TRANSACTION_PREFIX = "/api/v1/auth/email/";
+
 // Thrown after the handler has produced an error response, to roll the transaction back without
 // turning that response into an exception.
 class RollbackRequest extends Error {}
@@ -89,6 +91,8 @@ class RollbackRequest extends Error {}
 // persist something even when they fail (failed-login counters) use their own transaction.
 export function dbContext(deps: AppDeps): MiddlewareHandler<AppEnv> {
     return async (c, next) => {
+        // The anonymous sign-in endpoints run their own transactions as `aura_auth`.
+        if (c.req.path.startsWith(OWN_TRANSACTION_PREFIX)) return next();
         const actor = c.get("actor");
         const context =
             actor.kind === "user"

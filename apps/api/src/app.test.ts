@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { type AppDeps, createApp } from "./app.ts";
 import { parseConfig } from "./config.ts";
 import { assertPipelineOrder, PIPELINE_ORDER } from "./pipeline.ts";
+import { createMemoryMail } from "./platform/mail.ts";
 import { createFakeClock, createSeededRng } from "./sim/world.ts";
 
 const baseEnv = {
@@ -45,6 +46,7 @@ function makeApp(overrides: Partial<AppDeps> = {}, env: Record<string, string> =
         clock: createFakeClock(0),
         rng: createSeededRng(1),
         database: db.database,
+        mail: createMemoryMail(),
         pingDatabase: async () => undefined,
         onInvariantViolation: () => undefined,
         ...overrides,

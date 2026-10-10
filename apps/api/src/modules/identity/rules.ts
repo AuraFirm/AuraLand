@@ -143,21 +143,23 @@ export function serializeClearedCookie(secure: boolean): string {
     return `${sessionCookieName(secure)}=; ${cookieAttributes(secure, 0)}`;
 }
 
-// Returns the token, or null when there is no usable session cookie. A header with the cookie
-// twice is refused rather than guessed at: that is the signature of cookie tossing, where another
-// origin plants a second cookie of the same name.
-export function parseSessionCookie(header: string | undefined, secure: boolean): string | null {
+// Returns the value of the named cookie, or null. A header with the cookie twice is refused rather
+// than guessed at: that is the signature of cookie tossing, where another origin plants a second
+// cookie of the same name. A value that is not a well-formed token is refused too.
+export function readTokenCookie(header: string | undefined, name: string): string | null {
     if (header === undefined || header.length > COOKIE_HEADER_BYTES_MAX) return null;
-    const wanted = sessionCookieName(secure);
     const values: string[] = [];
     for (const part of header.split(";")) {
         const separator = part.indexOf("=");
         if (separator === -1) continue;
-        if (part.slice(0, separator).trim() === wanted)
-            values.push(part.slice(separator + 1).trim());
+        if (part.slice(0, separator).trim() === name) values.push(part.slice(separator + 1).trim());
     }
     const [value] = values;
     return values.length === 1 && value !== undefined && isWellFormedToken(value) ? value : null;
+}
+
+export function parseSessionCookie(header: string | undefined, secure: boolean): string | null {
+    return readTokenCookie(header, sessionCookieName(secure));
 }
 
 // ---- cross-site request check ----

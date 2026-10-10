@@ -8,14 +8,17 @@ import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv } from "./app-env.ts";
 import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
-import { type Config, usesSecureCookies } from "./config.ts";
+import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
 import { identityRoutes } from "./modules/identity/routes.ts";
+import { signInRoutes } from "./modules/identity/sign-in-routes.ts";
 import { assertPipelineOrder, type PipelineName } from "./pipeline.ts";
 import type { Clock } from "./platform/clock.ts";
 import type { Logger } from "./platform/log.ts";
+import type { MailPort } from "./platform/mail.ts";
 import { problemResponse } from "./platform/problem-response.ts";
 import type { Rng } from "./platform/rng.ts";
+import { rateLimit } from "./rate-limit-middleware.ts";
 
 export interface AppDeps {
     readonly config: Config;
@@ -23,6 +26,7 @@ export interface AppDeps {
     readonly clock: Clock;
     readonly rng: Rng;
     readonly database: Database;
+    readonly mail: MailPort;
     // Rejects when the database is unreachable. Must be cheap (a `select 1`).
     readonly pingDatabase: () => Promise<void>;
     // Called after an invariant violation, when state may be corrupt: the process should stop.
@@ -116,15 +120,39 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     use("accessLog", accessLogMiddleware(deps));
     use("securityHeaders", securityHeadersMiddleware());
     use("bodyLimit", bodyLimitMiddleware());
+    // Sign-in endpoints are anonymous and attractive to abuse, so they are counted before anything
+    // else costs work.
+    use(
+        "rateLimit",
+        rateLimit({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            key: loginTokenKey(deps.config),
+            trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+        }),
+        "/v1/auth/email/*",
+    );
     // Everything under /v1 is the product API: identify the caller, refuse cross-site writes, and
     // give the handler its transaction. Health probes above and below it stay dependency-free.
     use("authenticate", authenticate(deps), "/v1/*");
     use("csrf", csrf(deps), "/v1/*");
     use("dbContext", dbContext(deps), "/v1/*");
     assertPipelineOrder(registered);
+    const secureCookies = usesSecureCookies(deps.config);
+    app.route("/v1", identityRoutes({ clock: deps.clock, secureCookies }));
     app.route(
         "/v1",
-        identityRoutes({ clock: deps.clock, secureCookies: usesSecureCookies(deps.config) }),
+        signInRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            rng: deps.rng,
+            logger: deps.logger,
+            mail: deps.mail,
+            key: loginTokenKey(deps.config),
+            publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+            secureCookies,
+            trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+        }),
     );
 
     // Liveness: the process is up. It must not touch dependencies, or an outage restarts everything.
