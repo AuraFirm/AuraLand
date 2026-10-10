@@ -140,21 +140,6 @@ const table: Array<[string, OrgAction, Expectation]> = [
         },
     ],
     [
-        "read tasks",
-        { kind: "tasks.read", orgId: ORG },
-        { owner: true, admin: true, setter: true, reviewer: true, member: true, stranger: false },
-    ],
-    [
-        "write tasks",
-        { kind: "tasks.write", orgId: ORG },
-        { owner: true, admin: true, setter: true, reviewer: false, member: false, stranger: false },
-    ],
-    [
-        "review tasks",
-        { kind: "tasks.review", orgId: ORG },
-        { owner: true, admin: true, setter: false, reviewer: true, member: false, stranger: false },
-    ],
-    [
         "leave",
         { kind: "members.remove", orgId: ORG, targetUserId: ME, targetRole: "member" },
         { owner: true, admin: true, setter: true, reviewer: true, member: true, stranger: false },

@@ -21,9 +21,6 @@ export type OrgAction =
     | { readonly kind: "org.update"; readonly orgId: string }
     | { readonly kind: "members.read"; readonly orgId: string }
     | { readonly kind: "keys.manage"; readonly orgId: string }
-    | { readonly kind: "tasks.read"; readonly orgId: string }
-    | { readonly kind: "tasks.write"; readonly orgId: string }
-    | { readonly kind: "tasks.review"; readonly orgId: string }
     | { readonly kind: "members.invite"; readonly orgId: string; readonly role: OrgRole }
     | {
           readonly kind: "members.change_role";
@@ -65,18 +62,6 @@ export function authorize(subject: Subject, action: OrgAction): Decision {
         case "org.read":
         case "members.read":
             return ALLOWED;
-        // Which tasks a member sees depends on visibility; row-level security decides that.
-        case "tasks.read":
-            return ALLOWED;
-        // Writers make and edit tasks; reviewers decide on them. Owners and admins do both.
-        case "tasks.write":
-            return role === "owner" || role === "admin" || role === "setter"
-                ? ALLOWED
-                : INSUFFICIENT;
-        case "tasks.review":
-            return role === "owner" || role === "admin" || role === "reviewer"
-                ? ALLOWED
-                : INSUFFICIENT;
         case "keys.manage":
         case "org.update":
             return role === "owner" || role === "admin" ? ALLOWED : INSUFFICIENT;
