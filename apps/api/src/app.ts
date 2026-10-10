@@ -12,6 +12,7 @@ import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
 import type { OAuthProvider, ProviderName } from "./modules/identity/oauth-providers.ts";
 import { oauthRoutes } from "./modules/identity/oauth-routes.ts";
+import { orgRoutes } from "./modules/identity/org-routes.ts";
 import { relyingPartyId } from "./modules/identity/passkey.ts";
 import { passkeyRoutes } from "./modules/identity/passkey-routes.ts";
 import { identityRoutes } from "./modules/identity/routes.ts";
@@ -163,6 +164,10 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     const secureCookies = usesSecureCookies(deps.config);
     app.route("/v1", identityRoutes({ clock: deps.clock, secureCookies }));
+    app.route(
+        "/v1",
+        orgRoutes({ sql: deps.database.sql, clock: deps.clock, key: loginTokenKey(deps.config) }),
+    );
     app.route(
         "/v1",
         signInRoutes({

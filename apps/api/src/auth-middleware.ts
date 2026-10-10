@@ -4,6 +4,7 @@ import type { AppDeps } from "./app.ts";
 import type { Actor, AppEnv } from "./app-env.ts";
 import { usesSecureCookies } from "./config.ts";
 import { CSRF_HEADER_NAME } from "./modules/identity/limits.ts";
+import { loadMemberships } from "./modules/identity/org-queries.ts";
 import { createPgSessionStore } from "./modules/identity/queries.ts";
 import {
     evaluateCsrf,
@@ -31,14 +32,17 @@ export function authenticate(deps: AppDeps): MiddlewareHandler<AppEnv> {
             const result = await withRequestContext(
                 deps.database.sql,
                 { role: "aura_auth", actorKind: "anonymous", userId: null, orgIds: [] },
-                (tx) =>
-                    validateSession(
+                async (tx) => {
+                    const validated = await validateSession(
                         { store: createPgSessionStore(tx), clock: deps.clock, rng: deps.rng },
                         token,
-                    ),
+                    );
+                    if (!validated.ok) return { validated, orgs: [] };
+                    return { validated, orgs: await loadMemberships(tx, validated.session.userId) };
+                },
             );
-            if (result.ok) {
-                const { session } = result;
+            if (result.validated.ok) {
+                const { session } = result.validated;
                 c.set("actor", {
                     kind: "user",
                     userId: session.userId,
@@ -46,6 +50,7 @@ export function authenticate(deps: AppDeps): MiddlewareHandler<AppEnv> {
                     authMethod: session.authMethod,
                     privileged: session.privileged,
                     stepUpAtMs: session.stepUpAtMs,
+                    orgs: result.orgs,
                 });
             } else {
                 c.set("clearSessionCookie", true);
@@ -104,7 +109,7 @@ export function dbContext(deps: AppDeps): MiddlewareHandler<AppEnv> {
                       role: "aura_app",
                       actorKind: "user",
                       userId: actor.userId,
-                      orgIds: [],
+                      orgIds: actor.orgs.map((membership) => membership.orgId),
                   } as const)
                 : ({ role: "aura_app", actorKind: "anonymous", userId: null, orgIds: [] } as const);
         try {

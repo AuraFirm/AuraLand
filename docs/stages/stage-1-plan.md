@@ -297,3 +297,13 @@ database valid. Each slice merges only with green CI, and the stage report recor
   signed-in session. Not exercised against the real providers: that needs the OAuth apps you create
   (section 12). The plan's `login_tokens` `link_account` purpose was not needed because linking uses
   the existing session instead of an email proof.
+- **Slice 6a (2026-10-10), as built.** Slice 6 was split in three: 6a (this) organizations,
+  memberships, roles, `authorize()`; 6b API keys, privileged sessions with passkey step-up, org
+  verification by a platform admin; 6c invitations. 6a: migration 0009 (`orgs`, `memberships`,
+  `create_org`, role helper functions, last-owner and 20-organization rules as database triggers,
+  personal-space slug reserved, backfill for existing people), personal space at sign-up, routes
+  `POST|GET /orgs`, `GET|PATCH /orgs/{id}`, `GET /orgs/{id}/members`, `PATCH|DELETE
+  /orgs/{id}/members/{userId}`, the actor now carries memberships and `dbContext` passes the
+  organization ids to PostgreSQL. ADR 0017. Two simultaneous owner departures resolve to exactly
+  one success at both the database and HTTP level. Invitations were pulled out of this slice because
+  they need their own table, email and acceptance flow.
