@@ -1,6 +1,7 @@
 "use client";
 
 import { type MemberItem, membersResponseSchema, type OrgItem } from "@aura/contracts/api/orgs";
+import { orgRoleSchema } from "@aura/contracts/identity";
 import { useCallback, useState } from "react";
 import { apiDo, apiGet, messageOf } from "../lib/api.ts";
 import { withStepUp } from "../lib/passkeys.ts";
@@ -8,7 +9,7 @@ import { buttonDanger, input } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
 
-const ROLES = ["owner", "admin", "member"] as const;
+const ROLES = ["owner", "admin", "setter", "reviewer", "member"] as const;
 
 export function OrgMembers({ org }: { org: OrgItem }) {
     const load = useCallback(
@@ -78,7 +79,9 @@ interface ItemProps {
 function MemberListItem({ member, myRole, onRole, onRemove }: ItemProps) {
     const label = member.display_name ?? member.handle ?? "Member";
     const canChangeRole = myRole === "owner";
-    const canRemove = myRole === "owner" || (myRole === "admin" && member.role === "member");
+    const canRemove =
+        myRole === "owner" ||
+        (myRole === "admin" && ["member", "setter", "reviewer"].includes(member.role));
     return (
         <li className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-2">
             <span>
@@ -120,5 +123,5 @@ function MemberListItem({ member, myRole, onRole, onRemove }: ItemProps) {
 }
 
 function roleOf(value: string): MemberItem["role"] {
-    return value === "owner" || value === "admin" ? value : "member";
+    return orgRoleSchema.catch("member").parse(value);
 }

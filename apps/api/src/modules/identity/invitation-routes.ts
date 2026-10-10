@@ -1,3 +1,4 @@
+import type { InvitableRole } from "@aura/contracts/api/invitations";
 import {
     invitationAcceptedSchema,
     invitationAcceptRequestSchema,
@@ -126,7 +127,7 @@ async function handleInvite(c: Context<AppEnv>, deps: InvitationRouteDeps) {
 async function sendInvitation(
     c: Context<AppEnv>,
     deps: InvitationRouteDeps,
-    input: { orgId: string; userId: string; email: string; role: "admin" | "member" },
+    input: { orgId: string; userId: string; email: string; role: InvitableRole },
 ) {
     const tx = c.get("tx");
     const nowMs = deps.clock.nowUnixMs();

@@ -13,24 +13,41 @@ const subject = (role: OrgRole | null): Subject => ({
     orgs: role === null ? [{ orgId: OTHER_ORG, role: "owner" }] : [{ orgId: ORG, role }],
 });
 
-type Expectation = Record<"owner" | "admin" | "member" | "stranger", boolean>;
-const ROLES: Array<keyof Expectation> = ["owner", "admin", "member", "stranger"];
+type Expectation = Record<
+    "owner" | "admin" | "setter" | "reviewer" | "member" | "stranger",
+    boolean
+>;
+const ROLES: Array<keyof Expectation> = [
+    "owner",
+    "admin",
+    "setter",
+    "reviewer",
+    "member",
+    "stranger",
+];
 
 const table: Array<[string, OrgAction, Expectation]> = [
     [
         "read the organization",
         { kind: "org.read", orgId: ORG },
-        { owner: true, admin: true, member: true, stranger: false },
+        { owner: true, admin: true, setter: true, reviewer: true, member: true, stranger: false },
     ],
     [
         "list members",
         { kind: "members.read", orgId: ORG },
-        { owner: true, admin: true, member: true, stranger: false },
+        { owner: true, admin: true, setter: true, reviewer: true, member: true, stranger: false },
     ],
     [
         "rename",
         { kind: "org.update", orgId: ORG },
-        { owner: true, admin: true, member: false, stranger: false },
+        {
+            owner: true,
+            admin: true,
+            setter: false,
+            reviewer: false,
+            member: false,
+            stranger: false,
+        },
     ],
     [
         "change a member's role",
@@ -41,27 +58,106 @@ const table: Array<[string, OrgAction, Expectation]> = [
             targetRole: "member",
             newRole: "admin",
         },
-        { owner: true, admin: false, member: false, stranger: false },
+        {
+            owner: true,
+            admin: false,
+            setter: false,
+            reviewer: false,
+            member: false,
+            stranger: false,
+        },
     ],
     [
         "remove a member",
         { kind: "members.remove", orgId: ORG, targetUserId: THEM, targetRole: "member" },
-        { owner: true, admin: true, member: false, stranger: false },
+        {
+            owner: true,
+            admin: true,
+            setter: false,
+            reviewer: false,
+            member: false,
+            stranger: false,
+        },
     ],
     [
         "remove an admin",
         { kind: "members.remove", orgId: ORG, targetUserId: THEM, targetRole: "admin" },
-        { owner: true, admin: false, member: false, stranger: false },
+        {
+            owner: true,
+            admin: false,
+            setter: false,
+            reviewer: false,
+            member: false,
+            stranger: false,
+        },
     ],
     [
         "remove an owner",
         { kind: "members.remove", orgId: ORG, targetUserId: THEM, targetRole: "owner" },
-        { owner: true, admin: false, member: false, stranger: false },
+        {
+            owner: true,
+            admin: false,
+            setter: false,
+            reviewer: false,
+            member: false,
+            stranger: false,
+        },
+    ],
+    [
+        "remove a setter",
+        { kind: "members.remove", orgId: ORG, targetUserId: THEM, targetRole: "setter" },
+        {
+            owner: true,
+            admin: true,
+            setter: false,
+            reviewer: false,
+            member: false,
+            stranger: false,
+        },
+    ],
+    [
+        "remove a reviewer",
+        { kind: "members.remove", orgId: ORG, targetUserId: THEM, targetRole: "reviewer" },
+        {
+            owner: true,
+            admin: true,
+            setter: false,
+            reviewer: false,
+            member: false,
+            stranger: false,
+        },
+    ],
+    [
+        "invite a setter",
+        { kind: "members.invite", orgId: ORG, role: "setter" },
+        {
+            owner: true,
+            admin: false,
+            setter: false,
+            reviewer: false,
+            member: false,
+            stranger: false,
+        },
+    ],
+    [
+        "read tasks",
+        { kind: "tasks.read", orgId: ORG },
+        { owner: true, admin: true, setter: true, reviewer: true, member: true, stranger: false },
+    ],
+    [
+        "write tasks",
+        { kind: "tasks.write", orgId: ORG },
+        { owner: true, admin: true, setter: true, reviewer: false, member: false, stranger: false },
+    ],
+    [
+        "review tasks",
+        { kind: "tasks.review", orgId: ORG },
+        { owner: true, admin: true, setter: false, reviewer: true, member: false, stranger: false },
     ],
     [
         "leave",
         { kind: "members.remove", orgId: ORG, targetUserId: ME, targetRole: "member" },
-        { owner: true, admin: true, member: true, stranger: false },
+        { owner: true, admin: true, setter: true, reviewer: true, member: true, stranger: false },
     ],
 ];
 
