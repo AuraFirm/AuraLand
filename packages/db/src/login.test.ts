@@ -136,7 +136,7 @@ describe("who may touch login_challenges", () => {
         const id = await inRole(db.database, "aura_auth", anonymous, async (tx) => {
             const [row] = await tx<
                 { id: string }[]
-            >`insert into login_challenges (email, binding_hash, link_hash, code_hash, created_at, link_expires_at, code_expires_at) values ('grace@example.com', ${hash(60)}, ${hash(61)}, ${hash(62)}, now(), now() + interval '15 minutes', now() + interval '10 minutes') returning id`;
+            >`insert into login_challenges (email, binding_hash, link_hash, code_hash, created_at, link_expires_at, code_expires_at) values ('grace@example.com', ${hash(60)}, ${hash(61)}, ${hash(62)}, now(), now() + interval '10 minutes', now() + interval '5 minutes') returning id`;
             return row?.id ?? "";
         });
         await inRole(

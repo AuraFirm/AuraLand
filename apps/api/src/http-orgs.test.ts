@@ -135,13 +135,14 @@ describe("creating organizations, limits", () => {
         const sixth = await makeOrg(token);
         expect(sixth.status).toBe(429);
         h.clock.advance(24 * 3600 * 1000);
-        const { token: dave } = await h.login(DAVE);
+        // Owning a team makes a session privileged (30-minute idle limit), so sign in again each day.
         for (let day = 0; day < 4; day++) {
+            const { token: dave } = await h.login(DAVE);
             for (let n = 0; n < 5; n++)
                 expect((await makeOrg(dave)).status, `day ${day} org ${n}`).toBe(201);
             h.clock.advance(24 * 3600 * 1000);
         }
-        expect((await makeOrg(dave)).status).toBe(409);
+        expect((await makeOrg((await h.login(DAVE)).token)).status).toBe(409);
     });
 });
 

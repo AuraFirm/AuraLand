@@ -3,7 +3,7 @@
 import { type PasskeyItem, passkeysResponseSchema } from "@aura/contracts/api/passkeys";
 import { type FormEvent, useCallback, useState } from "react";
 import { apiDo, apiGet, messageOf } from "../lib/api.ts";
-import { registerPasskey, usePasskeysSupported } from "../lib/passkeys.ts";
+import { registerPasskey, usePasskeysSupported, withStepUp } from "../lib/passkeys.ts";
 import { button, buttonDanger, buttonQuiet, input } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
@@ -44,7 +44,10 @@ export function AccountPasskeys() {
                         }
                         onRemove={() =>
                             act(
-                                () => apiDo(`/me/passkeys/${item.id}`, { method: "DELETE" }),
+                                () =>
+                                    withStepUp(() =>
+                                        apiDo(`/me/passkeys/${item.id}`, { method: "DELETE" }),
+                                    ),
                                 "Passkey removed.",
                             )
                         }

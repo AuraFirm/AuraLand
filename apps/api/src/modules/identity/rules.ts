@@ -96,6 +96,20 @@ export function touchedTimes(record: SessionRecord, nowMs: number) {
     };
 }
 
+// A session that began before its owner gained power (became an owner or admin of a team, or a
+// platform administrator) is held to the stricter idle limit from now on: its idle deadline is pulled
+// in to last activity plus the privileged timeout, never pushed out. Applied to the record read from
+// storage on every request, so a promotion takes effect at once without touching the stored session.
+export function withPrivilegedLimit(record: SessionRecord): SessionRecord {
+    if (record.privileged) return record;
+    const deadline = record.lastSeenAtMs + idleTimeoutMs(true);
+    return {
+        ...record,
+        privileged: true,
+        idleExpiresAtMs: Math.min(record.idleExpiresAtMs, deadline),
+    };
+}
+
 export function isStepUpFresh(record: SessionRecord, nowMs: number): boolean {
     if (record.stepUpAtMs === null) return false;
     const age = nowMs - record.stepUpAtMs;

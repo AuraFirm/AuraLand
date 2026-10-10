@@ -15,6 +15,7 @@ import {
     sessionsToEvict,
     touchedTimes,
     type UserStatus,
+    withPrivilegedLimit,
 } from "./rules.ts";
 
 // Session use-cases: orchestration only. The decisions live in rules.ts and the storage behind
@@ -45,6 +46,9 @@ export interface SessionDeps {
     readonly store: SessionStore;
     readonly clock: Clock;
     readonly rng: Rng;
+    // Does this person hold power right now? Asked for sessions that were not started as privileged,
+    // so a promotion tightens the idle limit at once (ASVS V8.3.2). Absent in simulations.
+    readonly holdsPower?: (userId: string) => Promise<boolean>;
 }
 
 export interface CreatedSession {
@@ -142,12 +146,15 @@ export async function validateSession(deps: SessionDeps, token: string): Promise
     const found = await deps.store.findByTokenHash(hashToken(token));
     if (found === null) return { ok: false, reason: "unknown" };
     const nowMs = deps.clock.nowUnixMs();
-    const verdict = evaluateSession(found.record, found.userStatus, nowMs);
+    const powerful =
+        !found.record.privileged && (await deps.holdsPower?.(found.record.userId)) === true;
+    const record = powerful ? withPrivilegedLimit(found.record) : found.record;
+    const verdict = evaluateSession(record, found.userStatus, nowMs);
     if (!verdict.valid) return { ok: false, reason: verdict.reason };
-    if (!verdict.needsTouch) return { ok: true, session: found.record };
-    const times = touchedTimes(found.record, nowMs);
-    await deps.store.touch(found.record.id, times.lastSeenAtMs, times.idleExpiresAtMs);
-    return { ok: true, session: { ...found.record, ...times } };
+    if (!verdict.needsTouch) return { ok: true, session: record };
+    const times = touchedTimes(record, nowMs);
+    await deps.store.touch(record.id, times.lastSeenAtMs, times.idleExpiresAtMs);
+    return { ok: true, session: { ...record, ...times } };
 }
 
 // Replaces a valid session with a new one for the same user and method, and revokes the old one.

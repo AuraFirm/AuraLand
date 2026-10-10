@@ -113,7 +113,7 @@ codes. Responses are explicit allowlists. A startup test asserts the middleware 
   days for others; absolute 30 days; rotation on sign-in and on privilege change; "log out everywhere".
 - **Login tokens:** purpose-bound (a token for one purpose is rejected for another; the OAuth state
   can never be used as an email link), single-use through one atomic `UPDATE … WHERE consumed_at IS NULL
-  AND expires_at > now() RETURNING`, link lifetime 15 minutes, code 8 digits for 10 minutes with at most
+  AND expires_at > now() RETURNING`, link lifetime 10 minutes (shortened from 15 in slice 8 for ASVS V6.5.5), code 8 digits for 5 minutes (was 10) with at most
   5 attempts, constant-time comparison, and the link or code is bound to the browser that requested it by a
   short-lived cookie. Responses and timing do not reveal whether an email exists.
 - **OAuth:** `state` plus PKCE, exact redirect-URI allowlist, provider-verified email required,
@@ -341,3 +341,11 @@ database valid. Each slice merges only with green CI, and the stage report recor
   platform-administrator screens (verification is an API route for now; the platform-admin procedure
   goes into the slice 8 runbook), and a "next" address after sign-in (an invitation link opened while
   signed out asks the person to sign in and open the link again).
+- **Slice 8 (2026-10-10), as built.** Hardening. Mapped ASVS 5.0 V6, V7 and V8 (79 requirements) against
+  the official list; closed the gaps worth closing (ADR 0021): link 10 minutes and code 5 (V6.5.5), the
+  stricter idle limit applied on every request (V8.3.2), a fresh passkey check to remove a passkey or
+  disconnect a provider (V7.5.1), a platform-admin route to end a person's sessions (V7.4.5), sign-out
+  on every page (V7.4.4). Added the account-takeover drill and the no-secrets-in-logs test, a nightly
+  100,000-seed simulation workflow, threat model v1, the authentication reference, the identity runbook,
+  the cutlist and the stage report. Not done: the human reads (diffs, ASVS sign-off) and the open
+  items in `docs/cutlist.md`.

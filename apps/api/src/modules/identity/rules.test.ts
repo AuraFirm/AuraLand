@@ -16,6 +16,7 @@ import {
     type SessionRecord,
     sessionsToEvict,
     touchedTimes,
+    withPrivilegedLimit,
 } from "./rules.ts";
 
 const T0 = 1_800_000_000_000;
@@ -138,6 +139,32 @@ describe("touching", () => {
 
     it("never moves the last-seen time backwards", () => {
         expect(touchedTimes(s, T0 - 5 * SECOND).lastSeenAtMs).toBe(T0);
+    });
+});
+
+describe("withPrivilegedLimit", () => {
+    it("pulls the idle deadline in to last activity plus the privileged timeout, never out", () => {
+        const idle = SESSION_IDLE_TIMEOUT_S_PRIVILEGED * SECOND;
+        const promoted = withPrivilegedLimit(record({ lastSeenAtMs: T0 + 60 * SECOND }));
+        expect(promoted.privileged).toBe(true);
+        expect(promoted.idleExpiresAtMs).toBe(T0 + 60 * SECOND + idle);
+        const soon = record({ idleExpiresAtMs: T0 + SECOND });
+        expect(withPrivilegedLimit(soon).idleExpiresAtMs).toBe(T0 + SECOND);
+    });
+
+    it("leaves a session that is already privileged exactly as it is", () => {
+        const already = record({ privileged: true, idleExpiresAtMs: T0 + 5 });
+        expect(withPrivilegedLimit(already)).toBe(already);
+    });
+
+    it("makes a session valid strictly before the new deadline and expired from it", () => {
+        const promoted = withPrivilegedLimit(record());
+        const deadline = T0 + SESSION_IDLE_TIMEOUT_S_PRIVILEGED * SECOND;
+        expect(evaluateSession(promoted, "active", deadline - 1).valid).toBe(true);
+        expect(evaluateSession(promoted, "active", deadline)).toEqual({
+            valid: false,
+            reason: "idle_expired",
+        });
     });
 });
 

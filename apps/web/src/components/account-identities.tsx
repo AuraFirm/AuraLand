@@ -4,6 +4,7 @@ import { authMethodsResponseSchema } from "@aura/contracts/api/account";
 import { identitiesResponseSchema, oauthStartResponseSchema } from "@aura/contracts/api/oauth";
 import { useCallback, useState } from "react";
 import { apiDo, apiGet, apiSend, messageOf } from "../lib/api.ts";
+import { withStepUp } from "../lib/passkeys.ts";
 import { buttonDanger, buttonQuiet } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
@@ -37,7 +38,7 @@ export function AccountIdentities() {
     };
     const disconnect = async (provider: "github" | "google") => {
         try {
-            await apiDo(`/me/identities/${provider}`, { method: "DELETE" });
+            await withStepUp(() => apiDo(`/me/identities/${provider}`, { method: "DELETE" }));
             identities.reload();
         } catch (failure) {
             setMessage(messageOf(failure));

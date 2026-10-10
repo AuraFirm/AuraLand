@@ -2,6 +2,7 @@ import {
     authMethodsResponseSchema,
     deletionRequestResponseSchema,
     exportSchema,
+    sessionStatusSchema,
 } from "@aura/contracts/api/account";
 import { encodeId } from "@aura/contracts/ids";
 import { appendAudit } from "@aura/db/audit";
@@ -37,6 +38,9 @@ export function accountRoutes(deps: AccountRouteDeps): Hono<AppEnv> {
                 oauth: deps.oauthProviders,
             }),
         ),
+    );
+    routes.get("/me/status", (c) =>
+        c.json(sessionStatusSchema.parse({ signed_in: c.get("actor").kind === "user" })),
     );
     routes.get("/me/export", (c) => handleExport(c, deps));
     routes.post("/me/delete-request", (c) => handleRequestDeletion(c, deps));

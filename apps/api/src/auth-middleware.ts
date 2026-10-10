@@ -6,7 +6,11 @@ import { usesSecureCookies } from "./config.ts";
 import { bearerKeyFrom, parseApiKey, secretMatches } from "./modules/identity/api-key.ts";
 import { findKeyByPrefix, touchKey } from "./modules/identity/api-key-queries.ts";
 import { CSRF_HEADER_NAME } from "./modules/identity/limits.ts";
-import { loadMemberships, loadPlatformRole } from "./modules/identity/org-queries.ts";
+import {
+    isPrivilegedAccount,
+    loadMemberships,
+    loadPlatformRole,
+} from "./modules/identity/org-queries.ts";
 import { createPgSessionStore } from "./modules/identity/queries.ts";
 import {
     evaluateCsrf,
@@ -61,7 +65,12 @@ async function authenticateSession(c: Context<AppEnv>, deps: AppDeps, secure: bo
     }
     const result = await withRequestContext(deps.database.sql, IDENTITY_CONTEXT, async (tx) => {
         const validated = await validateSession(
-            { store: createPgSessionStore(tx), clock: deps.clock, rng: deps.rng },
+            {
+                store: createPgSessionStore(tx),
+                clock: deps.clock,
+                rng: deps.rng,
+                holdsPower: (userId) => isPrivilegedAccount(tx, userId),
+            },
             token,
         );
         if (!validated.ok) return { validated, orgs: [], platformRole: "none" as const };

@@ -178,7 +178,7 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
         }),
     );
     app.route("/v1", apiKeyRoutes({ clock: deps.clock, rng: deps.rng }));
-    app.route("/v1", adminRoutes({ clock: deps.clock }));
+    app.route("/v1", adminRoutes({ clock: deps.clock, sql: deps.database.sql }));
     app.route(
         "/v1",
         invitationRoutes({

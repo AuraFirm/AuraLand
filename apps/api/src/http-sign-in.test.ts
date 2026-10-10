@@ -86,7 +86,7 @@ describe("start", () => {
         expect(h.mail.outbox.length).toBe(before + 1);
         const cookie = response.headers.getSetCookie().join("\n");
         expect(cookie).toMatch(
-            /^aura_login=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Max-Age=900$/,
+            /^aura_login=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Max-Age=600$/,
         );
         const text = h.mail.outbox.at(-1)?.text ?? "";
         expect(text).toContain(`${ORIGIN}/auth/verify#t=`);
@@ -177,9 +177,9 @@ describe("verify with the link", () => {
         expect((await verify({ token: mine.token }, mine.binding)).status).toBe(200);
     });
 
-    it("expires exactly after 15 minutes", async () => {
+    it("expires exactly after 10 minutes", async () => {
         const s = await start();
-        h.clock.advance(15 * 60 * 1000 - 1);
+        h.clock.advance(10 * 60 * 1000 - 1);
         const early = await start();
         h.clock.advance(1);
         expect((await verify({ token: s.token }, s.binding)).status).toBe(400);
@@ -260,15 +260,15 @@ describe("verify with the code", () => {
         expect(Number(row?.n)).toBeGreaterThanOrEqual(1);
     });
 
-    it("expires exactly after 10 minutes while the link still works", async () => {
+    it("expires exactly after 5 minutes while the link still works", async () => {
         const s = await start();
-        h.clock.advance(10 * 60 * 1000 - 1);
+        h.clock.advance(5 * 60 * 1000 - 1);
         const edge = await start();
         h.clock.advance(1);
         expect((await verify({ code: s.code }, s.binding)).status).toBe(400);
         expect((await verify({ code: edge.code }, edge.binding)).status).toBe(200);
         const linkOnly = await start();
-        h.clock.advance(10 * 60 * 1000);
+        h.clock.advance(5 * 60 * 1000);
         expect((await verify({ code: linkOnly.code }, linkOnly.binding)).status).toBe(400);
         expect((await verify({ token: linkOnly.token }, linkOnly.binding)).status).toBe(200);
     });
