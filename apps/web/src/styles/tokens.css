@@ -8,6 +8,8 @@
     --text: #e5e9f2;
     --muted: #8d99b3;
     --brand: #6366f1;
+    /* Filled buttons with white text: --brand alone is 4.4:1 on white, just under the 4.5:1 minimum. */
+    --brand-strong: #4f46e5;
     --accent: #22d3ee;
     --ok: #22c55e;
     --warn: #f59e0b;
@@ -24,6 +26,7 @@
     --text: #0f172a;
     --muted: #475569;
     --brand: #4f46e5;
+    --brand-strong: #4338ca;
     --accent: #0891b2;
     --ok: #15803d;
     --warn: #b45309;

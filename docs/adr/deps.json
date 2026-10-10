@@ -5,7 +5,8 @@
         "apps/api": 25,
         "apps/web": 30,
         "packages/contracts": 3,
-        "packages/db": 4
+        "packages/db": 4,
+        "apps/e2e": 5
     },
     "allowed": {
         "root": {
@@ -31,13 +32,20 @@
             "tailwindcss": "0001",
             "@tailwindcss/postcss": "0001",
             "@types/react": "0001",
-            "@types/react-dom": "0001"
+            "@types/react-dom": "0001",
+            "@simplewebauthn/browser": "0020",
+            "zod": "0001"
         },
         "packages/contracts": {
             "zod": "0001"
         },
         "packages/db": {
             "postgres": "0001"
+        },
+        "apps/e2e": {
+            "@axe-core/playwright": "0020",
+            "@playwright/test": "0020",
+            "zod": "0001"
         }
     }
 }

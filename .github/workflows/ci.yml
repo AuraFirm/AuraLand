@@ -43,6 +43,8 @@ jobs:
       - run: pnpm test
       - run: pnpm run test:sim
       - run: pnpm run build
+      - run: pnpm --filter @aura/e2e exec playwright install --with-deps chromium
+      - run: pnpm run test:e2e
       - run: pnpm audit --audit-level high
       - run: pnpm audit signatures
   images:

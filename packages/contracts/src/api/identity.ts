@@ -14,6 +14,7 @@ export const meResponseSchema = z
         handle: z.string().nullable(),
         display_name: z.string().nullable(),
         platform_role: z.enum(["none", "admin"]),
+        deletion_requested_at: z.iso.datetime().nullable(),
     })
     .strict();
 export type MeResponse = z.infer<typeof meResponseSchema>;

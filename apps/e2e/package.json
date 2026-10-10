@@ -1,0 +1,16 @@
+{
+    "name": "@aura/e2e",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "check:types": "tsc --project tsconfig.json"
+    },
+    "dependencies": {
+        "@aura/db": "workspace:*",
+        "zod": "4.6.5"
+    },
+    "devDependencies": {
+        "@axe-core/playwright": "4.13.0",
+        "@playwright/test": "1.63.0"
+    }
+}

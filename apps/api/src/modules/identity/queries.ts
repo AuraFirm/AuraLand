@@ -120,6 +120,8 @@ const meRowSchema = z.object({
     email: z.string(),
     email_verified_at: z.date().nullable(),
     platform_role: z.enum(["none", "admin"]),
+    deletion_requested_at: z.date().nullable(),
+    created_at: z.date(),
     handle: z.string().nullable(),
     display_name: z.string().nullable(),
 });
@@ -127,7 +129,8 @@ export type MeRow = z.infer<typeof meRowSchema>;
 
 export async function getMe(tx: Transaction, userId: string): Promise<MeRow | null> {
     const rows = await tx`
-        select u.id, u.email, u.email_verified_at, u.platform_role, p.handle, p.display_name
+        select u.id, u.email, u.email_verified_at, u.platform_role, u.deletion_requested_at,
+               u.created_at, p.handle, p.display_name
         from users u left join profiles p on p.user_id = u.id
         where u.id = ${userId}
     `;
