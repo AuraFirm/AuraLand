@@ -60,7 +60,7 @@ export function OrgApiKeys({ org }: { org: OrgItem }) {
             {error !== "" && <Notice text={error} bad />}
             {shownKey !== "" && (
                 <div
-                    className="mb-4 rounded-[var(--radius-m)] border border-line p-3"
+                    className="mb-4 rounded-(--radius-m) border border-line p-3"
                     role="status"
                 >
                     <p className="mb-2 font-semibold">Copy this key now. It is shown only once.</p>

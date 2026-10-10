@@ -100,12 +100,34 @@ Deviations, all recorded where they happened:
 | Audit chain a few hundred events a second | Not load-tested; `audit.test.ts` verifies one valid chain under concurrent writers |
 | Stage 1 accept list | RLS and authorization matrices generated and green; passkey register and login end to end with a virtual authenticator; rotation and fixation tests; enumeration-safe responses (structural); passkey required for powerful actions; audit tamper detection test; account-takeover drill passes its rate-limit numbers |
 
-## Questions for you
-1. **Sign-off:** approve Stage 1, or list what to change.
-2. **Single-factor email** (V6.3.6): keep it for ordinary people as designed, or require a passkey for everyone after the first sign-in?
-3. **Mail provider** (F12) and **OAuth apps** (F11): who creates them, and when?
-4. **Staging** (F1): decisions D1, D3, D8 are still open.
-5. **Reading the diffs:** the gate wants a human to read the identity, RLS and infra changes. Suggested order: `0012` roles and audit chain, migrations `0005` to `0011`, `authorize.ts`, `auth-middleware.ts`, then the ADRs.
+## Your remaining manual tasks
+Tick these as you go (edit this file in a pull request, or tell me and I will). Last updated 2026-10-10,
+after slice 8 (#21).
+
+### To close Stage 1 (required)
+- [ ] **Read the security-sensitive diffs** (gate item). Order: `docs/security/authentication.md`, then `docs/security/asvs-matrix.md`, then migrations `0002`, `0004`, `0005`, `0009`, `0010`, then `authorize.ts`, `rules.ts`, `sign-in.ts`, `oauth.ts`, `passkey.ts`, then `auth-middleware.ts` and `app.ts`, then the red-team and log-hygiene tests.
+- [ ] **Sign off the ASVS table** (`docs/security/asvs-matrix.md`: 47 met, 5 partial, 4 not met, 23 not applicable). Accept or reject each partial and not-met row; follow-ups are in `docs/cutlist.md`.
+- [ ] **Decide on single-factor email sign-in** (V6.3.3, V6.3.6): keep it for ordinary people as built, or require a passkey for everyone after their first sign-in.
+- [ ] **Approve Stage 1 in writing** (a pull request comment is enough), or list what to change. Then I update `docs/stages/CURRENT.md` and start Stage 2.
+
+### Before the first real deployment (not needed for sign-off)
+- [ ] **Staging decisions D1 (legal entity), D3 (region), D8 (domain)**, and an AWS account for them (cutlist F1, ADR 0008).
+- [ ] **Choose a production mail provider** (F12). Until then email sign-in is off in production; passkeys, GitHub and Google still work.
+- [ ] **Create the OAuth apps** (F11): a GitHub OAuth App and a Google Cloud OAuth client. Callback URL `<AURA_PUBLIC_ORIGIN>/api/v1/auth/oauth/<provider>/callback` (development: `http://localhost:3000/...`). Put client ids and secrets in your local `.env` as `AURA_OAUTH_GITHUB_CLIENT_ID` / `_SECRET` and `AURA_OAUTH_GOOGLE_CLIENT_ID` / `_SECRET`; never commit them. Then do one real sign-in with each and tell me what happened.
+- [ ] **Create the first platform administrator** when there is a real deployment: `docs/runbooks/identity.md` section 6, with a second person watching.
+- [ ] **Cloudflare account and Turnstile site key** if you want the bot challenge (F7).
+
+### Routine
+- [ ] **Run `pnpm audit:verify` weekly** and keep the printed chain head somewhere outside the database, until the automated anchor exists (F8; runbook section 7).
+- [ ] **Patch high and critical Next.js advisories within 72 hours** (ADR 0005); CI's audit step will show them.
+- [ ] **After 2026-10-28:** ask me for the ADR recording Node 26 as the new LTS (F2).
+- [ ] **Review the platform-administrator list quarterly** (`select email from users where platform_role = 'admin'`).
+- [ ] **Look at the nightly simulation** (GitHub Actions, workflow `nightly`) now and then. A failure prints a seed that reproduces it exactly.
+
+### Optional decisions I can act on whenever you say
+Offer "sign out everywhere" after removing a passkey (F4); platform-administrator screens (F13); return to
+the page you were on after signing in (F14); ASVS mapping for the other chapters (F15). Details and owners:
+`docs/cutlist.md`.
 
 ## Suggested reading order for the human review
 1. `docs/security/authentication.md` and `docs/security/asvs-matrix.md` (what is claimed)

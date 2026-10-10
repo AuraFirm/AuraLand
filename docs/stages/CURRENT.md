@@ -5,4 +5,4 @@
 
 **Stage 1 — Identity, tenancy, audit: all slices merged; report awaiting your sign-off.**
 Plan: [stage-1-plan.md](stage-1-plan.md). Report: [stage-1-report.md](stage-1-report.md).
-Open items are in [../cutlist.md](../cutlist.md).
+Open items are in [../cutlist.md](../cutlist.md); your manual tasks are the checklist in the report.
