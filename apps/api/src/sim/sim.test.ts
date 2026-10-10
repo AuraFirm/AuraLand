@@ -1,5 +1,6 @@
 // Goal: the simulation harness must be deterministic and must surface bugs with a replayable seed.
 import { describe, expect, it } from "vitest";
+import { loginScenario } from "./login.sim.ts";
 import { runScenario, runSeeds } from "./runner.ts";
 import { boundedQueueScenario } from "./selftest.sim.ts";
 import { sessionScenario } from "./sessions.sim.ts";
@@ -75,5 +76,12 @@ describe("sessions scenario", () => {
         const failures = await runSeeds(sessionScenario("rotation_keeps_old_token"), 0, 150);
         expect(failures.length).toBeGreaterThan(0);
         expect(failures[0]?.message).toMatch(/model|stops working/);
+    });
+});
+
+describe("login challenge scenario", () => {
+    it("passes on 150 seeds with the real store", async () => {
+        const failures = await runSeeds(loginScenario(), 0, 150);
+        expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
     });
 });

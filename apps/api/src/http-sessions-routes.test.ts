@@ -143,6 +143,7 @@ describe("logout", () => {
             AURA_ENV: "prod",
             AURA_PUBLIC_ORIGIN: "https://app.example",
             AURA_LOG_LEVEL: "info",
+            AURA_MAIL_DRIVER: "disabled",
         });
         const response = await prod.request("/api/v1/auth/logout", {
             method: "POST",
