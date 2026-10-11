@@ -29,6 +29,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `task_reviews` | `modules/tasks` | Review decisions (append-only); reviewers insert, never about their own version |
 | `bundle_uploads` | `modules/tasks` | Bundle uploads in flight (storage upload id, declared size and hash); the starter and their organization's setters |
 | `jobs` | `modules/jobs` | The one job queue (leases, fencing epochs, retries); only the `aura_worker` role can read or write it |
+| `submissions` | `modules/submissions` | Source code sent to released task versions and its verdict; owner and organization owners/admins read; created by participants, verdicts written only by the worker role |
+| `verdict_details` | `modules/submissions` | Per-test results of a submission; readable wherever the submission is; written only by the worker role |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
 | `audit_log` | `packages/db` (`audit.ts`), written through `appendAudit` by any module | Append-only hash chain; readable by org members and by the actor |
 

@@ -19,7 +19,7 @@ interface Row {
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
-    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv";
+    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv" | "sub";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, string | number>;
 }
@@ -237,6 +237,16 @@ const MATRIX: readonly Row[] = [
         body: {},
     },
     {
+        method: "POST",
+        path: "/api/v1/task-versions/:id/submissions",
+        access: "user",
+        owned: true,
+        object: "tsv",
+        body: { language: "cpp", source: "int main() {}" },
+    },
+    { method: "GET", path: "/api/v1/submissions", access: "user" },
+    { method: "GET", path: "/api/v1/submissions/:id", access: "user", owned: true, object: "sub" },
+    {
         method: "PATCH",
         path: "/api/v1/tasks/:id",
         access: "user",
@@ -287,6 +297,23 @@ async function victimTask(): Promise<{ task: string; version: string }> {
     return { task: task?.id ?? "", version: version?.id ?? "" };
 }
 
+// A submission by the victim. The version is not released (that takes a whole review), so the guard
+// trigger that insists on a released version is paused for this one insert.
+async function victimSubmission(): Promise<string> {
+    const { task, version } = await victimTask();
+    const { sql } = h.db.database;
+    const [row] = await sql<{ org_id: string }[]>`select org_id from tasks where id = ${task}`;
+    await sql`alter table submissions disable trigger submissions_guard`;
+    try {
+        const [made] = await sql<{ id: string }[]>`
+            insert into submissions (org_id, user_id, task_version_id, language, source, source_sha256, source_bytes, created_at, updated_at)
+            values (${row?.org_id ?? ""}, ${ALICE}, ${version}, 'cpp', 'x', ${Buffer.alloc(32, 2)}, 1, now(), now()) returning id`;
+        return made?.id ?? "";
+    } finally {
+        await sql`alter table submissions enable trigger submissions_guard`;
+    }
+}
+
 // An object owned by the victim that the row's path can name.
 async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "org") {
@@ -299,6 +326,7 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
     }
     if (row.object === "tsk") return encodeId("tsk", (await victimTask()).task);
     if (row.object === "tsv") return encodeId("tsv", (await victimTask()).version);
+    if (row.object === "sub") return encodeId("sub", await victimSubmission());
     if (row.object !== "pky") return encodeId("ses", sessionId);
     const [created] = await h.db.database.sql<{ id: string }[]>`
         insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)

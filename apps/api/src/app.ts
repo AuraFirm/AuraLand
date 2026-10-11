@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { assert, InvariantError } from "@aura/contracts/assert";
-import { REQUEST_BODY_BYTES_MAX, REQUEST_ID_LENGTH_MAX } from "@aura/contracts/limits";
+import {
+    REQUEST_BODY_BYTES_MAX,
+    REQUEST_ID_LENGTH_MAX,
+    SUBMISSION_SOURCE_BYTES_MAX,
+} from "@aura/contracts/limits";
 import type { Database } from "@aura/db/client";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -21,6 +25,11 @@ import { relyingPartyId } from "./modules/identity/passkey.ts";
 import { passkeyRoutes } from "./modules/identity/passkey-routes.ts";
 import { identityRoutes } from "./modules/identity/routes.ts";
 import { signInRoutes } from "./modules/identity/sign-in-routes.ts";
+import {
+    QUEUE_FULL_RETRY_AFTER_S,
+    QueueFullError,
+    submissionRoutes,
+} from "./modules/submissions/routes.ts";
 import { reviewRoutes } from "./modules/tasks/review-routes.ts";
 import { taskRoutes } from "./modules/tasks/task-routes.ts";
 import { versionRoutes } from "./modules/tasks/version-routes.ts";
@@ -104,11 +113,17 @@ function securityHeadersMiddleware(): MiddlewareHandler<AppEnv> {
     };
 }
 
+// Source code is the one body that can legitimately exceed the general cap: 256 KiB of source can
+// take up to six times that once JSON-escaped. The route's schema still enforces the exact limit on
+// the decoded text; this only keeps the transport limit from cutting valid submissions off.
+const SUBMISSION_PATH = /^\/api\/v1\/task-versions\/[^/]+\/submissions$/;
+const SUBMISSION_BODY_BYTES_MAX = 6 * SUBMISSION_SOURCE_BYTES_MAX + 1024;
+
 function bodyLimitMiddleware(): MiddlewareHandler<AppEnv> {
-    return bodyLimit({
-        maxSize: REQUEST_BODY_BYTES_MAX,
-        onError: (c) => problemResponse(c, "payload_too_large", "Payload too large"),
-    });
+    const refuse = (c: Context) => problemResponse(c, "payload_too_large", "Payload too large");
+    const general = bodyLimit({ maxSize: REQUEST_BODY_BYTES_MAX, onError: refuse });
+    const sources = bodyLimit({ maxSize: SUBMISSION_BODY_BYTES_MAX, onError: refuse });
+    return (c, next) => (SUBMISSION_PATH.test(c.req.path) ? sources(c, next) : general(c, next));
 }
 
 async function pingWithTimeout(ping: () => Promise<void>): Promise<boolean> {
@@ -206,6 +221,14 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     );
     app.route("/v1", versionRoutes({ clock: deps.clock, rng: deps.rng, storage: deps.storage }));
     app.route("/v1", reviewRoutes({ clock: deps.clock }));
+    app.route(
+        "/v1",
+        submissionRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            key: loginTokenKey(deps.config),
+        }),
+    );
     mountSignInRoutes(app, deps, secureCookies);
 }
 
@@ -263,6 +286,10 @@ function mapError(error: Error, c: Context<AppEnv>, deps: AppDeps) {
             error.status === 413 ? "payload_too_large" : "invalid_request",
             "Bad request",
         );
+    }
+    if (error instanceof QueueFullError) {
+        c.header("Retry-After", String(QUEUE_FULL_RETRY_AFTER_S));
+        return problemResponse(c, "unavailable", "The judge is busy, try again shortly");
     }
     if (error instanceof StorageUnavailableError) {
         // The request transaction rolls back, so nothing is half-recorded; the caller can retry.
