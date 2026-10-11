@@ -183,3 +183,9 @@ storage outage during bundle fetch; oversized or malformed result; node reports 
   Linux container (Colima, kernel 6.8, cgroup v2 with memory/pids/cpu controllers, isolate v2.1.1 built
   from source): isolate v2 needs a systemd-managed delegated cgroup, which a plain container lacks, so the
   suite could not run here. **Nothing about isolation is verified until a Linux node runs that suite.**
+- **Slice 7:** the submit screen and verdict panel on a released version's page: language choice limited
+  to what the spec and the judge both support, source editor with a skeleton, submit, polling every 2 s
+  until judged, a results table (test, result, time, memory; never checker output), a system error
+  described as ours, and the person's earlier submissions. The browser test submits as a plain member;
+  because the end-to-end environment has no judge node, the test settles the submission in the database
+  to exercise the panel. This tests the screen, not judging.

@@ -5,6 +5,7 @@ import {
     freshEmail,
     loginAs,
     seedTeam,
+    settleLatestSubmission,
     watchForCspProblems,
 } from "../test-helpers.ts";
 
@@ -49,10 +50,11 @@ async function pageFor(browser: Browser, email: string, stepUp = false): Promise
     return context.newPage();
 }
 
-async function buildVersion(page: Page, orgId: string): Promise<string> {
+async function buildVersion(page: Page, orgId: string, visibleToMembers = false): Promise<string> {
     await page.goto(`/orgs/${orgId}`);
     await page.getByLabel("Title", { exact: true }).fill("Sum of two numbers");
     await page.getByLabel("Address (letters, digits and dashes)").fill(`sum-${Date.now()}`);
+    if (visibleToMembers) await page.getByLabel("Who can see it").selectOption("org");
     await page.getByRole("button", { name: "Create task" }).click();
     await expect(page.getByText("Task created.")).toBeVisible();
     await page.getByRole("link", { name: "Sum of two numbers" }).first().click();
@@ -61,14 +63,47 @@ async function buildVersion(page: Page, orgId: string): Promise<string> {
     return page.url();
 }
 
+async function releaseAsReviewer(browser: Browser, email: string, versionUrl: string) {
+    const reviewer = await pageFor(browser, email, true);
+    await reviewer.goto(versionUrl);
+    await reviewer.getByRole("button", { name: "Approve" }).click();
+    await expect(reviewer.getByText("Approved.")).toBeVisible();
+    await reviewer
+        .getByLabel(/^Why is it safe to release/)
+        .fill("Checked by hand; no sandbox exists yet.");
+    await reviewer.getByRole("button", { name: "Release this version" }).click();
+    await expect(reviewer.getByText("Released.")).toBeVisible();
+    await expect(reviewer.getByText(/released without sandbox validation/i)).toBeVisible();
+    await expectAccessible(reviewer);
+}
+
+async function submitAsMember(browser: Browser, email: string, versionUrl: string) {
+    // A plain member submits code; there is no judge node here, so the test settles the submission.
+    const member = await pageFor(browser, email);
+    await member.goto(versionUrl);
+    await member
+        .getByLabel("Source code")
+        .fill("#include <iostream>\nint main() { std::cout << 3; }\n");
+    await member.getByRole("button", { name: "Submit", exact: true }).click();
+    await expect(member.getByText("Waiting for a judge…").first()).toBeVisible();
+    await settleLatestSubmission(email, "AC");
+    await expect(member.getByText(/Accepted · 100 points/)).toBeVisible({ timeout: 15_000 });
+    await expect(
+        member.getByRole("table", { name: "Results by test" }).getByText("12 ms"),
+    ).toBeVisible();
+    await expectAccessible(member);
+}
+
 test("a setter builds a version, a reviewer releases it, and a hostile statement runs nothing", async ({
     browser,
 }) => {
     const setterEmail = freshEmail();
     const reviewerEmail = freshEmail();
+    const memberEmail = freshEmail();
     const orgId = await seedTeam("E2E team", [
         { email: setterEmail, role: "setter" },
         { email: reviewerEmail, role: "reviewer" },
+        { email: memberEmail, role: "member" },
     ]);
 
     const setter = await pageFor(browser, setterEmail);
@@ -78,7 +113,7 @@ test("a setter builds a version, a reviewer releases it, and a hostile statement
         dialogs.push(dialog.message());
         void dialog.dismiss();
     });
-    const versionUrl = await buildVersion(setter, orgId);
+    const versionUrl = await buildVersion(setter, orgId, true);
 
     await setter.getByLabel(/^Statement \(Markdown/).fill(HOSTILE_STATEMENT);
     await setter.getByRole("button", { name: "Save statement" }).click();
@@ -116,17 +151,8 @@ test("a setter builds a version, a reviewer releases it, and a hostile statement
     expect(dialogs).toEqual([]);
     expect(problems()).toEqual([]);
 
-    const reviewer = await pageFor(browser, reviewerEmail, true);
-    await reviewer.goto(versionUrl);
-    await reviewer.getByRole("button", { name: "Approve" }).click();
-    await expect(reviewer.getByText("Approved.")).toBeVisible();
-    await reviewer
-        .getByLabel(/^Why is it safe to release/)
-        .fill("Checked by hand; no sandbox exists yet.");
-    await reviewer.getByRole("button", { name: "Release this version" }).click();
-    await expect(reviewer.getByText("Released.")).toBeVisible();
-    await expect(reviewer.getByText(/released without sandbox validation/i)).toBeVisible();
-    await expectAccessible(reviewer);
+    await releaseAsReviewer(browser, reviewerEmail, versionUrl);
+    await submitAsMember(browser, memberEmail, versionUrl);
 });
 
 test("the task pages are accessible and a plain member sees no write controls", async ({

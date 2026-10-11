@@ -9,6 +9,7 @@ import { apiGet } from "../lib/api.ts";
 import { canReviewTasks, canWriteTasks } from "../lib/roles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
+import { SubmitPanel } from "./submit-panel.tsx";
 import { VersionActions } from "./version-actions.tsx";
 import { VersionBundle } from "./version-bundle.tsx";
 import { VersionContent } from "./version-content.tsx";
@@ -55,6 +56,9 @@ export function VersionDetail({ versionId }: { versionId: string }) {
             <VersionContent version={current} editable={editable} onChanged={version.reload} />
             {editable && current.state === "draft" && (
                 <VersionBundle versionId={current.id} onDone={version.reload} />
+            )}
+            {current.state === "released" && current.spec !== null && (
+                <SubmitPanel versionId={current.id} languages={current.spec.languages} />
             )}
             <VersionActions
                 version={current}
