@@ -17,8 +17,7 @@ import { verifySignature } from "./signing.ts";
 
 // Authentication for /judge/v1: the request must carry a node id, a fresh timestamp, a single-use
 // nonce and an Ed25519 signature over the method, path, timestamp, nonce and body hash. Every failure
-// gets the same bare 401, so a caller learns nothing about which nodes exist. The request then runs in
-// one transaction as the worker role.
+// gets the same bare 401, so a caller learns nothing about which nodes exist.
 
 export interface NodeAuthDeps {
     readonly sql: Sql;
@@ -65,17 +64,9 @@ export const nodeAuth =
             return (await recordNonce(tx, node.id, Buffer.from(nonce), nowMs)) ? node.id : null;
         });
         if (verifiedNode === null) return denied();
-        try {
-            await withRequestContext(deps.sql, WORKER, async (tx) => {
-                c.set("tx", tx);
-                c.set("nodeId", verifiedNode);
-                await next();
-                if (c.res.status >= 400) throw new RollbackRequest();
-            });
-        } catch (error) {
-            if (!(error instanceof RollbackRequest)) throw error;
-        }
+        // Handlers open their own transactions: a long-polling lease must not hold a connection open
+        // while it waits.
+        c.set("nodeId", verifiedNode);
+        await next();
         return undefined;
     };
-
-class RollbackRequest extends Error {}

@@ -26,6 +26,8 @@ interface Subject {
     put(url: string, bytes: Uint8Array): Promise<boolean>;
     // Lets a short-lived URL expire.
     pass(seconds: number): Promise<void>;
+    // Follows a download URL the way a client would; undefined when it is refused.
+    get(url: string): Promise<Uint8Array | undefined>;
 }
 
 async function memorySubject(): Promise<Subject> {
@@ -36,6 +38,7 @@ async function memorySubject(): Promise<Subject> {
         storage,
         put: async (url, bytes) => storage.putPart(url, bytes),
         pass: async (seconds) => clock.advance(seconds * 1000),
+        get: async (url) => storage.fetchDownload(url),
     };
 }
 
@@ -61,6 +64,10 @@ async function s3Subject(): Promise<Subject> {
         storage: createS3Storage(settings),
         put: async (url, bytes) => (await fetch(url, { method: "PUT", body: bytes })).ok,
         pass: (seconds) => new Promise((resolve) => setTimeout(resolve, seconds * 1000)),
+        async get(url) {
+            const response = await fetch(url);
+            return response.ok ? new Uint8Array(await response.arrayBuffer()) : undefined;
+        },
     };
 }
 
@@ -167,6 +174,21 @@ describe.each(["memory", "s3"])("object storage contract, failure cases: %s", (n
         expect(await subject().put(url, new Uint8Array(101))).toBe(false);
         expect(await subject().put(url, new Uint8Array(99))).toBe(false);
         expect(await subject().put(url, new Uint8Array(100))).toBe(true);
+    });
+});
+
+describe.each(["memory", "s3"])("object storage contract, downloads: %s", (name) => {
+    it("hands out a short-lived attachment URL for an object, and none works after it expires", async () => {
+        const found = subjects.find((s) => s.name === name);
+        if (found === undefined) throw new Error("subject not ready");
+        const key = freshUploadKey();
+        const { uploadId, whole } = await uploadParts(found, key, [8 * MIB, 5]);
+        await found.storage.completeMultipart(key, uploadId, 2);
+        const url = await found.storage.downloadUrl(key, 1);
+        const bytes = await found.get(url);
+        expect(bytes && sha256(bytes)).toBe(sha256(whole));
+        await found.pass(2.5);
+        expect(await found.get(url)).toBeUndefined();
     });
 });
 

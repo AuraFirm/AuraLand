@@ -50,6 +50,8 @@ export interface ObjectStorage {
     // Reads the object once, counting bytes and hashing them, and stops at `bytesMax`.
     measure(key: string, bytesMax: number): Promise<MeasureResult>;
     copy(fromKey: string, toKey: string): Promise<void>;
+    // A short-lived URL that downloads the object as an attachment (never inline). For judge nodes.
+    downloadUrl(key: string, lifetimeS: number): Promise<string>;
     remove(key: string): Promise<void>;
     exists(key: string): Promise<boolean>;
 }

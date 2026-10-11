@@ -231,6 +231,8 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
             clock: deps.clock,
             key: loginTokenKey(deps.config),
             trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+            rng: deps.rng,
+            storage: deps.storage,
         }),
     );
     app.route(
