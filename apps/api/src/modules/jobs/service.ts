@@ -1,8 +1,10 @@
 import { assert } from "@aura/contracts/assert";
 import { makeUuidV7 } from "@aura/contracts/ids";
+import type { Transaction } from "@aura/db/context";
 import type { Clock } from "../../platform/clock.ts";
 import type { Rng } from "../../platform/rng.ts";
 import { ATTEMPTS_DEFAULT, ATTEMPTS_MAX, LEASE_TTL_MS } from "./limits.ts";
+import { createPgJobStore } from "./queries.ts";
 import type { JobRecord } from "./rules.ts";
 import type { JobStore } from "./store.ts";
 
@@ -14,6 +16,17 @@ export interface JobDeps {
     readonly clock: Clock;
     readonly rng: Rng;
 }
+
+// Queue dependencies bound to one transaction, for callers in other modules (the judge protocol).
+export function jobDepsFor(tx: Transaction, clock: Clock, rng: Rng): JobDeps {
+    return { store: createPgJobStore(tx), clock, rng };
+}
+
+export function getJob(deps: JobDeps, id: string): Promise<JobRecord | null> {
+    return deps.store.get(id);
+}
+
+export { LEASE_TTL_MS } from "./limits.ts";
 
 export interface EnqueueInput {
     readonly kind: string;

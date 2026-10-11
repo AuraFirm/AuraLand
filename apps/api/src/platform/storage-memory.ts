@@ -25,6 +25,8 @@ interface Handle {
 export interface MemoryStorage extends ObjectStorage {
     // What a client does with a presigned URL. Returns false when S3 would refuse it.
     putPart(url: string, bytes: Uint8Array): boolean;
+    // What a client gets by following a download URL, or undefined once it expired.
+    fetchDownload(url: string): Uint8Array | undefined;
     // Test inspection and tampering.
     read(key: string): Uint8Array | undefined;
     write(key: string, bytes: Uint8Array): void;
@@ -37,6 +39,7 @@ interface State {
     readonly objects: Map<string, Uint8Array>;
     readonly uploads: Map<string, Upload>;
     readonly handles: Map<string, Handle>;
+    readonly downloads: Map<string, { key: string; expiresAtMs: number }>;
     counter: number;
 }
 
@@ -92,6 +95,7 @@ export function createMemoryStorage(clock: Clock): MemoryStorage {
         objects: new Map(),
         uploads: new Map(),
         handles: new Map(),
+        downloads: new Map(),
         counter: 0,
     };
     return {
@@ -111,6 +115,21 @@ export function createMemoryStorage(clock: Clock): MemoryStorage {
             const object = state.objects.get(fromKey);
             assert(object !== undefined, "copy needs an existing source");
             state.objects.set(toKey, object);
+        },
+        async downloadUrl(key, lifetimeS) {
+            state.counter++;
+            const url = `memory://get/${state.counter}`;
+            state.downloads.set(url, {
+                key,
+                expiresAtMs: state.clock.nowUnixMs() + lifetimeS * 1000,
+            });
+            return url;
+        },
+        fetchDownload(url) {
+            const grant = state.downloads.get(url);
+            if (grant === undefined || state.clock.nowUnixMs() >= grant.expiresAtMs)
+                return undefined;
+            return state.objects.get(grant.key);
         },
         remove: async (key) => void state.objects.delete(key),
         exists: async (key) => state.objects.has(key),

@@ -105,6 +105,13 @@ export const JUDGE_QUEUE_READY_MAX = 1_000;
 export const NODE_ENROLLMENT_TTL_S = 60 * 60;
 export const NODE_SIGNATURE_SKEW_MS = 60_000;
 
+// Leasing: how long a request may wait for work, and how often the server looks while it waits.
+export const LEASE_WAIT_MS_MAX = 25_000;
+export const LEASE_POLL_MS = 1_000;
+// Bundle downloads by a node use a presigned URL this short; the node fetches at once.
+export const NODE_BUNDLE_URL_LIFETIME_S = 5 * 60;
+export const JOB_ERROR_CHARS_MAX = 2_000;
+
 // Relationships between limits are checked when the module loads, so a bad edit fails at startup.
 assert(HANDLE_LENGTH_MIN >= 1 && HANDLE_LENGTH_MIN < HANDLE_LENGTH_MAX, "handle length bounds");
 assert(ORG_SLUG_LENGTH_MIN >= 3 && ORG_SLUG_LENGTH_MIN < ORG_SLUG_LENGTH_MAX, "slug length bounds");

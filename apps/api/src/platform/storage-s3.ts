@@ -203,6 +203,15 @@ async function copy(context: Context, fromKey: string, toKey: string): Promise<v
     );
 }
 
+function downloadUrl(context: Context, key: string, lifetimeS: number): Promise<string> {
+    const command = new GetObjectCommand({
+        Bucket: context.bucket,
+        Key: key,
+        ResponseContentDisposition: "attachment",
+    });
+    return getSignedUrl(context.signer, command, { expiresIn: lifetimeS });
+}
+
 async function exists(context: Context, key: string): Promise<boolean> {
     try {
         await context.internal.send(new HeadObjectCommand({ Bucket: context.bucket, Key: key }));
@@ -230,6 +239,8 @@ export function createS3Storage(settings: S3Settings): ObjectStorage {
             guarded("abortMultipart", () => abortMultipart(context, key, uploadId)),
         measure: (key, bytesMax) => guarded("measure", () => measure(context, key, bytesMax)),
         copy: (fromKey, toKey) => guarded("copy", () => copy(context, fromKey, toKey)),
+        downloadUrl: (key, lifetimeS) =>
+            guarded("downloadUrl", () => downloadUrl(context, key, lifetimeS)),
         remove: (key) =>
             guarded("remove", async () => {
                 await context.internal.send(

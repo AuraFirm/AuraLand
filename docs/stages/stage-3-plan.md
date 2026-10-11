@@ -148,3 +148,13 @@ storage outage during bundle fetch; oversized or malformed result; node reports 
   request that failed cannot be repeated. A shared signature vector (`judge/fixtures/signature.json`)
   is for the Go agent. Mutation checks caught every fault but one (method binding), now covered by a
   unit test.
+- **Slice 4b:** the judging loop. Routes under `/api/judge/v1`: lease (long poll up to 25 s as a series
+  of short looks, never an open transaction), job heartbeat, complete, fail, bundle download (302 to a
+  5-minute attachment URL, only for a node holding a live lease on a job for that bundle). Results are
+  checked against the spec by `summarize` (pure, tested): the control plane decides the overall verdict,
+  binary tasks stop at the first failure, other scoring needs every test, impossible reports and system
+  errors go back to the queue for another node and are never shown to the participant. Checker messages
+  are stored with control characters stripped and never returned to participants. Bugs found by the
+  tests: a lease that expired left the submission "judging", so the re-leased job was skipped as already
+  started (now accepted); the worker role lacked read access to the spec and audit insert (migration
+  0019, column-level and kind-restricted). A node's long poll holds no database connection while it waits.

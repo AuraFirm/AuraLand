@@ -63,3 +63,83 @@ export const nodeHeartbeatResponseSchema = z.object({ state: nodeStateSchema }).
 export const enrollmentCreatedSchema = z
     .object({ token: enrollmentTokenSchema, expires_at: z.iso.datetime() })
     .strict();
+
+// ---- leasing and results ----
+
+import { judgeLanguageSchema, testVerdictSchema } from "./judging.ts";
+import { JOB_ERROR_CHARS_MAX, LEASE_WAIT_MS_MAX } from "./limits.ts";
+import { taskSpecSchema } from "./tasks.ts";
+
+export const leaseRequestSchema = z
+    .object({
+        queue: z.literal("judge"),
+        // 0 answers at once; up to 25 s holds the request until work arrives.
+        wait_ms: z.number().int().min(0).max(LEASE_WAIT_MS_MAX),
+    })
+    .strict();
+
+const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
+
+// What a node needs to judge one submission. The test files come separately, from the bundle.
+export const leasedJobSchema = z
+    .object({
+        job_id: idSchema("job"),
+        lease_epoch: z.number().int().min(1),
+        lease_ttl_s: z.number().int().min(1),
+        kind: z.literal("judge.tier1"),
+        submission: z
+            .object({ id: idSchema("sub"), language: judgeLanguageSchema, source: z.string() })
+            .strict(),
+        task: z
+            .object({
+                version_id: idSchema("tsv"),
+                bundle: z.object({ sha256: sha256Hex, bytes: z.number().int().min(1) }).strict(),
+                spec: taskSpecSchema,
+            })
+            .strict(),
+    })
+    .strict();
+
+export const leaseResponseSchema = z.object({ job: leasedJobSchema.nullable() }).strict();
+
+export const jobHeartbeatRequestSchema = z
+    .object({ lease_epoch: z.number().int().min(1) })
+    .strict();
+export const jobHeartbeatResponseSchema = z
+    .object({ lease_ttl_s: z.number().int().min(1) })
+    .strict();
+
+export const nodeTestResultSchema = z
+    .object({
+        test_id: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/),
+        verdict: testVerdictSchema,
+        cpu_ms: z.number().int().min(0).max(3_600_000),
+        wall_ms: z.number().int().min(0).max(3_600_000),
+        memory_kib: z.number().int().min(0).max(8_388_608),
+        // Checker output is data from an untrusted machine: bounded, control characters stripped.
+        checker_msg: z.string().max(2048).optional(),
+    })
+    .strict();
+
+export const jobCompleteRequestSchema = z
+    .object({
+        lease_epoch: z.number().int().min(1),
+        result: z
+            .object({
+                compile_ok: z.boolean(),
+                compile_message: z.string().max(2048).optional(),
+                tests: z.array(nodeTestResultSchema).max(1000),
+            })
+            .strict(),
+    })
+    .strict();
+
+export const jobFailRequestSchema = z
+    .object({
+        lease_epoch: z.number().int().min(1),
+        error: z.string().min(1).max(JOB_ERROR_CHARS_MAX),
+        retryable: z.boolean(),
+    })
+    .strict();
+
+export const jobAcceptedSchema = z.object({ accepted: z.literal(true) }).strict();

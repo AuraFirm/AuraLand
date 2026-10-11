@@ -11,10 +11,13 @@ import { withRequestContext } from "@aura/db/context";
 import { type Context, Hono } from "hono";
 import type { AppEnv } from "../../app-env.ts";
 import type { Clock } from "../../platform/clock.ts";
+import type { ObjectStorage } from "../../platform/object-storage.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import type { RateLimitRule } from "../../platform/rate-limit.ts";
+import type { Rng } from "../../platform/rng.ts";
 import { consumeRateLimit, refuseRateLimited } from "../../rate-limit-middleware.ts";
 import { clientAddress } from "../../request-info.ts";
+import { jobRoutes } from "./job-routes.ts";
 import { nodeAuth } from "./node-auth.ts";
 import { enrollNode, recordHeartbeat } from "./node-queries.ts";
 
@@ -23,6 +26,8 @@ export interface JudgeRouteDeps {
     readonly clock: Clock;
     readonly key: Buffer;
     readonly trustEdge: boolean;
+    readonly rng: Rng;
+    readonly storage: ObjectStorage;
 }
 
 const WORKER = { role: "aura_worker", actorKind: "worker", userId: null, orgIds: [] } as const;
@@ -36,6 +41,7 @@ export function judgeRoutes(deps: JudgeRouteDeps): Hono<AppEnv> {
     routes.post("/enroll", (c) => handleEnroll(c, deps));
     routes.use("/node/*", nodeAuth(deps));
     routes.post("/node/heartbeat", (c) => handleHeartbeat(c, deps));
+    routes.route("/", jobRoutes(deps));
     return routes;
 }
 
@@ -69,10 +75,12 @@ async function handleEnroll(c: Context<AppEnv>, deps: JudgeRouteDeps) {
 async function handleHeartbeat(c: Context<AppEnv>, deps: JudgeRouteDeps) {
     const body = nodeHeartbeatRequestSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return problemResponse(c, "invalid_request", "Invalid request");
-    const state = await recordHeartbeat(c.get("tx"), c.get("nodeId"), {
-        agentVersion: body.data.agent_version,
-        canaryOk: body.data.canary_ok,
-        nowMs: deps.clock.nowUnixMs(),
-    });
+    const state = await withRequestContext(deps.sql, WORKER, (tx) =>
+        recordHeartbeat(tx, c.get("nodeId"), {
+            agentVersion: body.data.agent_version,
+            canaryOk: body.data.canary_ok,
+            nowMs: deps.clock.nowUnixMs(),
+        }),
+    );
     return c.json(nodeHeartbeatResponseSchema.parse({ state }));
 }
