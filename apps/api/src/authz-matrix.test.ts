@@ -19,7 +19,7 @@ interface Row {
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
-    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv" | "sub";
+    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv" | "sub" | "nod";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, string | number>;
 }
@@ -245,6 +245,14 @@ const MATRIX: readonly Row[] = [
         body: { language: "cpp", source: "int main() {}" },
     },
     { method: "GET", path: "/api/v1/submissions", access: "user" },
+    { method: "POST", path: "/api/v1/admin/judge-nodes/enrollments", access: "admin" },
+    {
+        method: "POST",
+        path: "/api/v1/admin/judge-nodes/:id/revoke",
+        access: "admin",
+        owned: true,
+        object: "nod",
+    },
     { method: "GET", path: "/api/v1/submissions/:id", access: "user", owned: true, object: "sub" },
     {
         method: "PATCH",
@@ -327,6 +335,7 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "tsk") return encodeId("tsk", (await victimTask()).task);
     if (row.object === "tsv") return encodeId("tsv", (await victimTask()).version);
     if (row.object === "sub") return encodeId("sub", await victimSubmission());
+    if (row.object === "nod") return encodeId("nod", SAMPLE_UUID);
     if (row.object !== "pky") return encodeId("ses", sessionId);
     const [created] = await h.db.database.sql<{ id: string }[]>`
         insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)

@@ -1,0 +1,11 @@
+{
+    "seed_hex": "0707070707070707070707070707070707070707070707070707070707070707",
+    "public_key": "6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iw",
+    "method": "POST",
+    "target": "/api/judge/v1/node/heartbeat",
+    "timestampMs": 1800000000000,
+    "nonce": "bm9uY2Utbm9uY2Utbm9uY2U",
+    "body": "{\"agent_version\":\"0.1.0\",\"canary_ok\":true,\"running_jobs\":0}",
+    "canonical": "AURA-NODE-V1\nPOST\n/api/judge/v1/node/heartbeat\n1800000000000\nbm9uY2Utbm9uY2Utbm9uY2U\n001238143aad476712468d8c232191540983eaf7216a4388fd37e148ddebf6b5",
+    "signature": "xjEUnm6fVQbAc6IFmcARefdSu376a7UeyUEZNwJGxNMyrFgjer-IKQ6sO1_8980sa8XSlyGH2Qs9YP7VLukEAA"
+}
