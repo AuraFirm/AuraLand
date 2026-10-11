@@ -1,3 +1,4 @@
+import { jobScenario } from "./jobs.sim.ts";
 import { loginScenario } from "./login.sim.ts";
 import type { Scenario } from "./runner.ts";
 import { boundedQueueScenario } from "./selftest.sim.ts";
@@ -11,4 +12,5 @@ export const SCENARIOS: readonly Scenario[] = [
     sessionScenario("none"),
     loginScenario(),
     taskVersionScenario(),
+    jobScenario(),
 ];
