@@ -33,6 +33,9 @@ type RunResult struct {
 	WallMS    int
 	MemoryKiB int
 	Stdout    []byte
+	// ExitCode and Signaled say how the program ended; the escape suite needs them, verdicts do not.
+	ExitCode int
+	Signaled bool
 }
 
 type Sandbox interface {
