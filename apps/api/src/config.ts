@@ -28,7 +28,7 @@ const booleanText = z.enum(["true", "false"]).transform((value) => value === "tr
 const configSchema = z
     .object({
         AURA_ENV: z.enum(["local", "test", "staging", "prod"]),
-        AURA_ROLE: z.enum(["http"]),
+        AURA_ROLE: z.enum(["http", "worker"]),
         AURA_HTTP_HOST: z.string().min(1).max(255),
         AURA_HTTP_PORT: z.coerce.number().int().min(1).max(65535),
         AURA_DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "must be a postgres:// url"),

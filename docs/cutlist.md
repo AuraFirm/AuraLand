@@ -12,7 +12,7 @@ Nothing here blocks Stage 1 or Stage 2. Ranked by how much it matters; "owner" i
 | F6 | Adaptive controls on IP, device or time; contextual checks for admin routes (V8.2.4, V8.4.2) | Level 3 items; recorded signals exist (session network, user agent) but nothing consumes them | engineering |
 | F7 | Turnstile hook (kit Stage 1 list) | Needs a Cloudflare account and a site key; rate limits cover the same abuse for now | founder |
 | F8 | External anchor for the audit chain head and a nightly verifier job | Needs object storage with object lock and the worker (Stage 3) | engineering |
-| F9 | Cleanup job for expired sessions, challenges, flows, invitations and rate-limit windows | Needs the worker role (Stage 3); rows are small and unused ones are never read | engineering |
+| F9 | ~~Cleanup job for expired sessions, challenges, flows, invitations and rate-limit windows~~ | **Done 2026-10-11** (Stage 3 slice 2: `maintenance.cleanup`) | n/a |
 | F10 | Send invitation emails after the commit through the worker, with retry | Needs the worker (Stage 3); today a mail outage fails the invitation cleanly | engineering |
 | F11 | Exercise OAuth against the real GitHub and Google | Needs OAuth apps created by the repository owner (plan section 12) | founder |
 | F12 | Production mail provider adapter | Provider not chosen | founder |

@@ -122,3 +122,12 @@ storage outage during bundle fetch; oversized or malformed result; node reports 
   two stores over 12 seeds, concurrency tests (8 workers drain 60 jobs exactly once; two simultaneous
   completions, one wins). Faults injected into both stores were all caught; the simulation originally
   did not check that a non-retryable failure goes straight to `dead`, which a mutation exposed.
+- **Slice 2:** the worker. `AURA_ROLE=worker` runs the same image and bundle (`main.ts` now only picks
+  `http-main.ts` or `worker-main.ts`). Migration 0016: `cleanup_expired` (bounded deletes of expired
+  sessions, sign-in challenges, OAuth flows, passkey challenges, rate-limit windows, old invitations,
+  finished uploads and finished jobs), `expired_uploads` and `close_upload`, all `SECURITY DEFINER` and
+  executable only by `aura_worker`. The worker leases from the queue, heartbeats while a handler runs,
+  retries throwing handlers with backoff, fails unknown kinds for good, and schedules the two recurring
+  housekeeping jobs without duplicating them. Closes F9 (cleanup) and the abort half of F23/F24; deleting
+  storage objects of removed organizations is still open. Run against the real dev database: both jobs
+  completed.
