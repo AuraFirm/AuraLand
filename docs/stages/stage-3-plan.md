@@ -117,4 +117,8 @@ storage outage during bundle fetch; oversized or malformed result; node reports 
 - At the end: sign-off, and a human read of the protocol auth code and the sandbox driver.
 
 ## 12. Implementation log
-(filled in as slices merge)
+- **Slice 1:** migration 0015 (`jobs`, new role `aura_worker`), `modules/jobs` (rules, store port,
+  PostgreSQL store, service), in-memory store, `jobs` simulation scenario, equivalence test between the
+  two stores over 12 seeds, concurrency tests (8 workers drain 60 jobs exactly once; two simultaneous
+  completions, one wins). Faults injected into both stores were all caught; the simulation originally
+  did not check that a non-retryable failure goes straight to `dead`, which a mutation exposed.
