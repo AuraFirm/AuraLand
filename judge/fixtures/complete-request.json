@@ -1,0 +1,17 @@
+{
+    "lease_epoch": 2,
+    "result": {
+        "compile_ok": true,
+        "tests": [
+            { "test_id": "001", "verdict": "AC", "cpu_ms": 12, "wall_ms": 15, "memory_kib": 2048 },
+            {
+                "test_id": "002",
+                "verdict": "WA",
+                "cpu_ms": 14,
+                "wall_ms": 16,
+                "memory_kib": 2048,
+                "checker_msg": "expected 4, got 5"
+            }
+        ]
+    }
+}

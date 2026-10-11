@@ -1,0 +1,7 @@
+{
+    "token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "name": "judge-eu-1",
+    "public_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "agent_version": "0.1.0",
+    "tiers": [1]
+}

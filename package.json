@@ -12,6 +12,7 @@
         "check": "pnpm run check:format && pnpm run check:types && pnpm run check:tigerlint && pnpm run check:deps",
         "check:format": "biome check --error-on-warnings .",
         "check:types": "pnpm --recursive run check:types",
+        "check:go": "cd judge && test -z \"$(gofmt -l .)\" && go vet ./... && go test -count=1 ./...",
         "check:tigerlint": "node tools/tigerlint-cli.ts",
         "check:deps": "node tools/depcheck-cli.ts",
         "format": "biome check --write .",

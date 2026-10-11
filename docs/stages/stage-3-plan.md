@@ -158,3 +158,15 @@ storage outage during bundle fetch; oversized or malformed result; node reports 
   tests: a lease that expired left the submission "judging", so the re-leased job was skipped as already
   started (now accepted); the worker role lacked read access to the spec and audit insert (migration
   0019, column-level and kind-restricted). A node's long poll holds no database connection while it waits.
+- **Slice 5:** the Go agent (`judge/`, standard library only). `wire` (strict decoding, shared JSON
+  fixtures checked by both languages), `sign` (byte-for-byte equal to the TypeScript signature vector),
+  `client` (signed requests, strict answers, 409 on a job call means the lease is lost), `sandbox` (the
+  only way to run code: an interface and a fake; **no real sandbox yet**), `judge` (compile, run tests in
+  order, built-in checkers `exact`/`tokens`/`float`, stop at the first failure for binary tasks; custom
+  checkers and interactive tasks are refused so another node can take them), `agent` (lease, keep the
+  lease alive, discard the result if it is lost, report system errors as retryable failures).
+  `aura-judge enroll` works; `aura-judge run` refuses to start because this build has no sandbox.
+  One TypeScript test builds nothing but runs the agent's Go integration test against the real app over
+  HTTP: enroll with an admin-created token, become active, lease, judge with the fake sandbox, report;
+  the verdict (AC, score 100) is read back from PostgreSQL. CI installs Go (pinned action) and runs
+  `pnpm run check:go`. Not done: bundle unpacking and the isolate driver (slice 6).
