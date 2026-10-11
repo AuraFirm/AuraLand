@@ -32,3 +32,4 @@ Nothing here blocks Stage 1 or Stage 2. Ranked by how much it matters; "owner" i
 | F26 | Re-validate every `waived` release in the sandbox and retire those that fail | Stage 3, when validation exists | engineering |
 | F27 | Hide titles of `org`-visible tasks that have no release yet from plain members | Needs the tasks and versions policies not to refer to each other (ADR 0023); use `private` while drafting | engineering |
 | F28 | Images in statements and a sandboxed content origin for assets | Needs the content origin; images are refused for now (ADR 0026) | engineering |
+| F29 | Make the owner-role requirement for `SECURITY DEFINER` functions explicit at deploy time: they run as the table owner and read forced-RLS tables (`jobs`, `sessions`, challenges), so the migration/owner role needs `BYPASSRLS` (or superuser); a managed database may not give that | Development and CI use a superuser; the first deployment decides the role (F1) | engineering |

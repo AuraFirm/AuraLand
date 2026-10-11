@@ -131,3 +131,11 @@ storage outage during bundle fetch; oversized or malformed result; node reports 
   housekeeping jobs without duplicating them. Closes F9 (cleanup) and the abort half of F23/F24; deleting
   storage objects of removed organizations is still open. Run against the real dev database: both jobs
   completed.
+- **Slice 3:** submissions. Migration 0017 (`submissions`, `verdict_details`, forced RLS, guard trigger,
+  `enqueue_judge_job` so the submission and its judge job commit together and a full queue refuses
+  the whole request). Routes: create (members of the task's organization, released versions, languages
+  the spec allows, 6 a minute per person per task), read one (own source and per-test results, no
+  checker messages), list mine. Source up to 256 KiB: the general 256 KiB body cap would have cut valid
+  submissions off, so that one route gets a larger transport cap and the schema enforces the real limit
+  (found by a test). Full queue: 503 with `Retry-After` and nothing left behind. Cutlist F29 records
+  that the `SECURITY DEFINER` functions need an owner role that can bypass row-level security.

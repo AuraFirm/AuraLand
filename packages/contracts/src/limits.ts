@@ -88,6 +88,18 @@ export const SPEC_SUBTASKS_MAX = 100;
 export const TASK_PAGE_SIZE_DEFAULT = 25;
 export const TASK_PAGE_SIZE_MAX = 100;
 
+// ---- submissions and judging (Stage 3) ----
+
+// Source code sent to be judged: large enough for any contest solution, small enough to bound storage
+// and the work of every worker that touches it.
+export const SUBMISSION_SOURCE_BYTES_MAX = 256 * 1024;
+export const SUBMISSIONS_PER_MINUTE_PER_TASK_MAX = 6;
+export const SUBMISSION_PAGE_SIZE_DEFAULT = 25;
+export const SUBMISSION_PAGE_SIZE_MAX = 100;
+
+// Above this many ready judge jobs new submissions are refused with a retry hint.
+export const JUDGE_QUEUE_READY_MAX = 1_000;
+
 // Relationships between limits are checked when the module loads, so a bad edit fails at startup.
 assert(HANDLE_LENGTH_MIN >= 1 && HANDLE_LENGTH_MIN < HANDLE_LENGTH_MAX, "handle length bounds");
 assert(ORG_SLUG_LENGTH_MIN >= 3 && ORG_SLUG_LENGTH_MIN < ORG_SLUG_LENGTH_MAX, "slug length bounds");
