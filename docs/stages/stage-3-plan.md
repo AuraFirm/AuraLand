@@ -170,3 +170,16 @@ storage outage during bundle fetch; oversized or malformed result; node reports 
   HTTP: enroll with an admin-created token, become active, lease, judge with the fake sandbox, report;
   the verdict (AC, score 100) is read back from PostgreSQL. CI installs Go (pinned action) and runs
   `pnpm run check:go`. Not done: bundle unpacking and the isolate driver (slice 6).
+- **Slice 6:** the isolate driver, **written and unit-tested at the pure-function level, not run in a
+  sandbox**. `internal/isolate`: meta-file parser (strict: bounded, malformed numbers are errors),
+  verdict mapping (a documented priority: the sandbox's own failure, then memory, then time, then output,
+  then crashes; unknown statuses count as sandbox failures), argument construction (always `--cg`,
+  memory/process/time/file limits positive, no network sharing, command last after `--`), language
+  profiles (C++20 static build, Python 3; data, not code), the Linux driver `box_linux.go` (box pool,
+  fresh box per test, always cleans up; compiles and vets for linux/amd64) and the escape suite: 15
+  programs in `judge/testdata/escape/` (fork bomb, memory bomb, output flood, infinite loop, stack bomb,
+  ptrace, mount, unshare, chroot, host file reads, network, raw sockets, writes outside the box, signalling
+  init, setuid) with a test (`-tags isolate`, needs `AURA_ISOLATE_BIN`) that has never been run. I tried a
+  Linux container (Colima, kernel 6.8, cgroup v2 with memory/pids/cpu controllers, isolate v2.1.1 built
+  from source): isolate v2 needs a systemd-managed delegated cgroup, which a plain container lacks, so the
+  suite could not run here. **Nothing about isolation is verified until a Linux node runs that suite.**
