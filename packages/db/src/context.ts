@@ -15,7 +15,7 @@ export interface RequestContext {
 }
 
 // The two application roles from migration 0002. A request runs as exactly one of them.
-export const DATABASE_ROLES = ["aura_app", "aura_auth"] as const;
+export const DATABASE_ROLES = ["aura_app", "aura_auth", "aura_worker"] as const;
 export type DatabaseRole = (typeof DATABASE_ROLES)[number];
 
 // What a transaction needs: who is acting, and which database role to act as.

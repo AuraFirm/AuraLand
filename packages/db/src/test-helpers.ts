@@ -46,6 +46,9 @@ async function ensureApplicationRoles(admin: Database): Promise<void> {
                 if not exists (select 1 from pg_roles where rolname = 'aura_auth') then
                     create role aura_auth nologin;
                 end if;
+                if not exists (select 1 from pg_roles where rolname = 'aura_worker') then
+                    create role aura_worker nologin;
+                end if;
             end
             $$`;
     });

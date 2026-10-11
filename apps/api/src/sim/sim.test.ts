@@ -1,5 +1,6 @@
 // Goal: the simulation harness must be deterministic and must surface bugs with a replayable seed.
 import { describe, expect, it, vi } from "vitest";
+import { jobScenario } from "./jobs.sim.ts";
 import { loginScenario } from "./login.sim.ts";
 import { runScenario, runSeeds } from "./runner.ts";
 import { boundedQueueScenario } from "./selftest.sim.ts";
@@ -94,6 +95,13 @@ describe("login challenge scenario", () => {
 describe("task version scenario", () => {
     it("passes on 150 seeds", async () => {
         const failures = await runSeeds(taskVersionScenario(), 0, 150);
+        expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
+    });
+});
+
+describe("job queue scenario", () => {
+    it("passes on 150 seeds", async () => {
+        const failures = await runSeeds(jobScenario(), 0, 150);
         expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
     });
 });
