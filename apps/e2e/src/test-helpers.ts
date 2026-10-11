@@ -205,3 +205,25 @@ export async function seedTeam(
         await database.close(5);
     }
 }
+
+// Plays the judge for the newest submission of a person: marks it judged with the given verdict and
+// one passing test. The end-to-end environment has no judge node, so this stands in for one; it
+// exercises the verdict panel, not judging.
+export async function settleLatestSubmission(email: string, verdict: string): Promise<void> {
+    const url = process.env["AURA_E2E_DATABASE_URL"];
+    if (url === undefined || url === "") throw new Error("AURA_E2E_DATABASE_URL must be set");
+    const database = createDatabase(url, 1);
+    try {
+        const { sql } = database;
+        const [row] = await sql<{ id: string; org_id: string }[]>`
+            select s.id, s.org_id from submissions s join users u on u.id = s.user_id
+            where u.email = ${email} order by s.id desc limit 1`;
+        if (row === undefined) throw new Error("no submission to settle");
+        await sql`update submissions set state = 'judging', updated_at = now() where id = ${row.id}`;
+        await sql`update submissions set state = 'judged', verdict = ${verdict}, score = 100, judged_at = now(), updated_at = now() where id = ${row.id}`;
+        await sql`insert into verdict_details (submission_id, org_id, test_id, verdict, cpu_ms, wall_ms, memory_kib)
+                  values (${row.id}, ${row.org_id}, '001', 'AC', 12, 15, 2048)`;
+    } finally {
+        await database.close(5);
+    }
+}
