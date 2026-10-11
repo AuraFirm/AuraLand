@@ -184,10 +184,10 @@ describe.each(["memory", "s3"])("object storage contract, downloads: %s", (name)
         const key = freshUploadKey();
         const { uploadId, whole } = await uploadParts(found, key, [8 * MIB, 5]);
         await found.storage.completeMultipart(key, uploadId, 2);
-        const url = await found.storage.downloadUrl(key, 1);
+        const url = await found.storage.downloadUrl(key, 3);
         const bytes = await found.get(url);
         expect(bytes && sha256(bytes)).toBe(sha256(whole));
-        await found.pass(2.5);
+        await found.pass(4);
         expect(await found.get(url)).toBeUndefined();
     });
 });

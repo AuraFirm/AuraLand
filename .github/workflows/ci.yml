@@ -41,6 +41,12 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The Go judge agent (judge/) is built and tested here, and one TypeScript test drives it
+      # against the real control plane.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: judge/go.mod
+      - run: pnpm run check:go
       # A service container cannot take a config file or arguments, so the object storage server
       # (same pinned image as infra/compose.yml) is started here and waited for.
       - run: >-
