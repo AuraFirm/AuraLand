@@ -33,3 +33,14 @@ Nothing here blocks Stage 1 or Stage 2. Ranked by how much it matters; "owner" i
 | F27 | Hide titles of `org`-visible tasks that have no release yet from plain members | Needs the tasks and versions policies not to refer to each other (ADR 0023); use `private` while drafting | engineering |
 | F28 | Images in statements and a sandboxed content origin for assets | Needs the content origin; images are refused for now (ADR 0026) | engineering |
 | F29 | Make the owner-role requirement for `SECURITY DEFINER` functions explicit at deploy time: they run as the table owner and read forced-RLS tables (`jobs`, `sessions`, challenges), so the migration/owner role needs `BYPASSRLS` (or superuser); a managed database may not give that | Development and CI use a superuser; the first deployment decides the role (F1) | engineering |
+| F30 | The `task.validate` job: run the bundle validator inside a box on a node for every finalized upload, store an immutable report, and re-validate every `waived` release (F26, ASVS V5.2.x) | Needs a node that can run the TypeScript validator under a pinned Node in a box, i.e. a Linux node (F32) | engineering |
+| F31 | The agent's bundle opener (download by hash, verify, strict unpack in a box) and `aura-judge run` | Depends on F32; `run` refuses to start without a sandbox | engineering |
+| F32 | **Run the escape suite on a KVM-capable Linux judge node and get the external review of the sandbox configuration before any public use** (kit gate) | Needs hardware, a node image and a reviewer; the development machine cannot run isolate | founder, security review |
+| F33 | TLS and mTLS at the edge for `/judge/v1` and the whole API; re-check ASVS V12 and V4.2 | The edge does not exist (F1) | engineering |
+| F34 | Server-sent events for verdicts instead of 2-second polling | Polling is correct and cheap at this scale | engineering |
+| F35 | Custom checkers and interactive tasks in the sandbox | Agent refuses them (another node may take them) until the sandbox exists | engineering |
+| F36 | Lease filtering by language and capacity; per-node scheduler for cores and memory | One job at a time per agent is enough to prove the loop | engineering |
+| F37 | Re-run borderline CPU times up to three times and take the median (kit 4.3) | Needs real timings | engineering |
+| F38 | Contest, exam and Arena submission contexts | Later stages | engineering |
+| F39 | Alerts and dashboards: dead jobs, lease-expiry spikes, node canary failures, queue depth | No deployment, no metrics stack (F1) | engineering |
+
