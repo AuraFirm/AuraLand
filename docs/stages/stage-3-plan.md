@@ -139,3 +139,12 @@ storage outage during bundle fetch; oversized or malformed result; node reports 
   submissions off, so that one route gets a larger transport cap and the schema enforces the real limit
   (found by a test). Full queue: 503 with `Retry-After` and nothing left behind. Cutlist F29 records
   that the `SECURITY DEFINER` functions need an owner role that can bypass row-level security.
+- **Slice 4a:** judge nodes and their authentication. Migration 0018 (`judge_nodes`, single-use
+  `node_enrollments`, `node_nonces`; administrator-only `create_node_enrollment` and `revoke_judge_node`;
+  housekeeping extended). Routes under `/api/judge/v1`: enroll (token spent once, 10 tries a minute per
+  address), node heartbeat (a passing self-test activates, a failing one drains). Every node request is
+  an Ed25519 signature over method, path and query, timestamp (60 s skew), single-use nonce and body
+  hash; all failures give the same bare 401; the nonce is spent in its own committed transaction so a
+  request that failed cannot be repeated. A shared signature vector (`judge/fixtures/signature.json`)
+  is for the Go agent. Mutation checks caught every fault but one (method binding), now covered by a
+  unit test.

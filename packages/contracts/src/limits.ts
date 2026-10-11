@@ -100,6 +100,11 @@ export const SUBMISSION_PAGE_SIZE_MAX = 100;
 // Above this many ready judge jobs new submissions are refused with a retry hint.
 export const JUDGE_QUEUE_READY_MAX = 1_000;
 
+// Judge nodes (Stage 3): how long an enrollment token lives, and how far a signed request's timestamp
+// may differ from our clock before it is refused as stale or from the future.
+export const NODE_ENROLLMENT_TTL_S = 60 * 60;
+export const NODE_SIGNATURE_SKEW_MS = 60_000;
+
 // Relationships between limits are checked when the module loads, so a bad edit fails at startup.
 assert(HANDLE_LENGTH_MIN >= 1 && HANDLE_LENGTH_MIN < HANDLE_LENGTH_MAX, "handle length bounds");
 assert(ORG_SLUG_LENGTH_MIN >= 3 && ORG_SLUG_LENGTH_MIN < ORG_SLUG_LENGTH_MAX, "slug length bounds");

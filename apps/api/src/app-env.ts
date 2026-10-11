@@ -33,5 +33,7 @@ export interface AppEnv {
         tx: Transaction;
         // Set by authenticate when the browser sent a session cookie we no longer accept.
         clearSessionCookie: boolean;
+        // Set by the judge-node authentication: the node whose signature was verified.
+        nodeId: string;
     };
 }
