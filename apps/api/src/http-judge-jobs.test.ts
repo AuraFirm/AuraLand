@@ -41,7 +41,10 @@ beforeAll(async () => {
     await sql`insert into memberships (org_id, user_id, role) values
         (${org?.id ?? ""}, ${ALICE}, 'owner'), (${org?.id ?? ""}, ${BOB}, 'setter'),
         (${org?.id ?? ""}, ${CAROL}, 'reviewer'), (${org?.id ?? ""}, ${DAVE}, 'member')`;
-    world = taskWorld(h, encodeId("org", org?.id ?? ""));
+    world = taskWorld(h, encodeId("org", org?.id ?? ""), {
+        assigner: ALICE,
+        assignees: [CAROL],
+    });
 });
 afterAll(async () => {
     await h.drop();

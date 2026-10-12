@@ -80,3 +80,24 @@ export async function updateTask(
         where id = ${taskId} returning id`;
     return rows.length === 1;
 }
+
+export async function assignStaff(tx: Transaction, taskId: string, userId: string, nowMs: number) {
+    await tx`select assign_task_staff(${taskId}, ${userId}, ${new Date(nowMs)})`;
+}
+
+export async function unassignStaff(tx: Transaction, taskId: string, userId: string) {
+    await tx`select unassign_task_staff(${taskId}, ${userId})`;
+}
+
+// The task's organization, for the audit entry; null when the caller cannot see the task.
+export async function taskOrgOf(tx: Transaction, taskId: string): Promise<string | null> {
+    const rows = await tx`select org_id from tasks where id = ${taskId}`;
+    return rows[0] === undefined ? null : z.object({ org_id: z.string() }).parse(rows[0]).org_id;
+}
+
+// Newest first with the user id as a tiebreaker, bounded by the number of staff an organization has.
+export async function listAssignments(tx: Transaction, taskId: string) {
+    const rows = await tx`select user_id, created_at from task_assignments
+        where task_id = ${taskId} order by created_at desc, user_id desc limit 200`;
+    return rows.map((row) => z.object({ user_id: z.string(), created_at: z.date() }).parse(row));
+}

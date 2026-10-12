@@ -113,6 +113,11 @@ describe("who can read a task", () => {
         const shown = taskSchema.parse(await (await create(BOB, { visibility: "org" })).json());
         expect((await call(DAVE, "GET", `/tasks/${hidden.id}`)).status).toBe(404);
         expect((await call(DAVE, "GET", `/tasks/${shown.id}`)).status).toBe(200);
+        // A reviewer sees a task only once the owner has assigned it to them.
+        expect((await call(CAROL, "GET", `/tasks/${hidden.id}`)).status).toBe(404);
+        await call(ALICE, "POST", `/tasks/${hidden.id}/assignments`, {
+            user_id: encodeId("usr", CAROL),
+        });
         expect((await call(CAROL, "GET", `/tasks/${hidden.id}`)).status).toBe(200);
         expect((await call(ERIN, "GET", `/tasks/${hidden.id}`)).status).toBe(404);
         expect((await call(ERIN, "GET", `/tasks/${shown.id}`)).status).toBe(404);
@@ -123,7 +128,7 @@ describe("who can read a task", () => {
         let cursor: string | null = null;
         for (let page = 0; page < 20; page++) {
             const query = `/tasks?org_id=${orgId}&limit=2${cursor === null ? "" : `&cursor=${cursor}`}`;
-            const response = await call(CAROL, "GET", query);
+            const response = await call(ALICE, "GET", query);
             expect(response.status).toBe(200);
             const body = tasksResponseSchema.parse(await response.json());
             seen.push(...body.items.map((item) => item.id));

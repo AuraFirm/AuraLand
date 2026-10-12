@@ -48,7 +48,10 @@ async function queuedSubmission() {
     await sql`insert into memberships (org_id, user_id, role) values
         (${org?.id ?? ""}, ${ALICE}, 'owner'), (${org?.id ?? ""}, ${BOB}, 'setter'),
         (${org?.id ?? ""}, ${CAROL_ID}, 'reviewer'), (${org?.id ?? ""}, ${DAVE}, 'member')`;
-    const world = taskWorld(h, encodeId("org", org?.id ?? ""));
+    const world = taskWorld(h, encodeId("org", org?.id ?? ""), {
+        assigner: ALICE,
+        assignees: [CAROL_ID],
+    });
     const version = await world.inReview(BOB, await world.newTask(BOB, "org"));
     await world.call(CAROL_ID, "POST", `/task-versions/${version.id}/review`, {
         outcome: "approved",

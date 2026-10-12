@@ -61,7 +61,13 @@ async function newTask(user = BOB, visibility = "private") {
         kind: "algorithmic",
         visibility,
     });
-    return taskSchema.parse(await response.json());
+    const task = taskSchema.parse(await response.json());
+    // The owner assigns the reviewer to every task; assignment itself is tested in http-assignments.
+    const assigned = await call(ALICE, "POST", `/tasks/${task.id}/assignments`, {
+        user_id: encodeId("usr", CAROL),
+    });
+    expect(assigned.status).toBe(201);
+    return task;
 }
 
 async function newVersion(user = BOB, task?: Awaited<ReturnType<typeof newTask>>) {

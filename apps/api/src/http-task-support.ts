@@ -26,7 +26,38 @@ export const SPEC = {
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
-export function taskWorld(h: Harness, orgId: string) {
+// `staffing` models a lead who assigns the same reviewers to every new task, for tests where assignment
+// is not the subject. Tests about assignment itself leave it out and assign explicitly.
+export interface Staffing {
+    readonly assigner: string;
+    readonly assignees: readonly string[];
+}
+
+type Call = (user: string, method: string, path: string, body?: unknown) => Promise<Response>;
+
+async function assignStaff(call: Call, assigner: string, taskId: string, userId: string) {
+    const response = await call(assigner, "POST", `/tasks/${taskId}/assignments`, {
+        user_id: `usr_${userId}`,
+    });
+    expect(response.status).toBe(201);
+}
+
+// Starts an upload, plays the browser against the in-memory storage and finalizes it.
+async function uploadBundle(h: Harness, call: Call, user: string, versionId: string) {
+    const bytes = new Uint8Array(randomBytes(200));
+    const started = await call(user, "POST", `/task-versions/${versionId}/uploads`, {
+        bytes: bytes.length,
+        sha256: sha256(bytes),
+    });
+    const plan = uploadPlanSchema.parse(await started.json());
+    expect(h.storage.putPart(plan.parts[0]?.url ?? "", bytes)).toBe(true);
+    const done = await call(user, "POST", `/task-versions/${versionId}/finalize`, {
+        upload_id: plan.upload_id,
+    });
+    expect(done.status).toBe(200);
+}
+
+export function taskWorld(h: Harness, orgId: string, staffing?: Staffing) {
     let counter = 0;
     const call = async (user: string, method: string, path: string, body?: unknown) => {
         const { token } = await h.login(user);
@@ -45,8 +76,13 @@ export function taskWorld(h: Harness, orgId: string) {
             kind: "algorithmic",
             visibility,
         });
-        return taskSchema.parse(await response.json());
+        const task = taskSchema.parse(await response.json());
+        for (const assignee of staffing?.assignees ?? []) await assign(task.id, assignee);
+        return task;
     }
+
+    const assign = (taskId: string, userId: string) =>
+        assignStaff(call, staffing?.assigner ?? "", taskId, userId);
 
     async function newVersion(user: string, task?: Awaited<ReturnType<typeof newTask>>) {
         const made = task ?? (await newTask(user));
@@ -58,17 +94,7 @@ export function taskWorld(h: Harness, orgId: string) {
     // A draft with a bundle: finalized, so its state is "uploaded".
     async function uploadedVersion(user: string, task?: Awaited<ReturnType<typeof newTask>>) {
         const version = await newVersion(user, task);
-        const bytes = new Uint8Array(randomBytes(200));
-        const started = await call(user, "POST", `/task-versions/${version.id}/uploads`, {
-            bytes: bytes.length,
-            sha256: sha256(bytes),
-        });
-        const plan = uploadPlanSchema.parse(await started.json());
-        expect(h.storage.putPart(plan.parts[0]?.url ?? "", bytes)).toBe(true);
-        const done = await call(user, "POST", `/task-versions/${version.id}/finalize`, {
-            upload_id: plan.upload_id,
-        });
-        expect(done.status).toBe(200);
+        await uploadBundle(h, call, user, version.id);
         return version;
     }
 
@@ -92,5 +118,5 @@ export function taskWorld(h: Harness, orgId: string) {
     const stateOf = async (user: string, versionId: string) =>
         versionSchema.parse(await (await call(user, "GET", `/task-versions/${versionId}`)).json());
 
-    return { call, newTask, newVersion, uploadedVersion, withContent, inReview, stateOf };
+    return { call, assign, newTask, newVersion, uploadedVersion, withContent, inReview, stateOf };
 }

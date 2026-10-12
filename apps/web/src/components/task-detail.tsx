@@ -9,6 +9,7 @@ import { canWriteTasks } from "../lib/roles.ts";
 import { button, buttonQuiet, input } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
+import { TaskAssignments } from "./task-assignments.tsx";
 import { type Visibility, VisibilitySelect } from "./visibility-select.tsx";
 
 export function TaskDetail({ taskId }: { taskId: string }) {
@@ -31,6 +32,9 @@ export function TaskDetail({ taskId }: { taskId: string }) {
             </p>
             {writes && <EditTask task={task.data} onSaved={task.reload} />}
             <Versions taskId={taskId} writes={writes} />
+            {org.data !== null && (org.data.role === "owner" || org.data.role === "admin") && (
+                <TaskAssignments taskId={taskId} orgId={task.data.org_id} />
+            )}
             <a className="text-accent underline" href={`/orgs/${task.data.org_id}`}>
                 Back to the organization
             </a>

@@ -45,8 +45,10 @@ async function newOrg(slug: string): Promise<string> {
 }
 
 let counter = 0;
-const createTask = (userId: string, org = team, visibility = "private") =>
-    inRole(
+// Reviewers see only tasks they are assigned to (migration 0024). Unless a test is about that, the
+// owner has assigned REVIEWER to every task, which is planted here with the owner's rights.
+async function createTask(userId: string, org = team, visibility = "private") {
+    const rows = await inRole(
         db.database,
         "aura_app",
         as(userId),
@@ -57,6 +59,13 @@ const createTask = (userId: string, org = team, visibility = "private") =>
             values (${org}, ${`task-${++counter}`}, 'algorithmic', ${visibility}, 'A task', ${userId})
             returning id`,
     );
+    if (org === team) {
+        await db.database
+            .sql`insert into task_assignments (task_id, org_id, user_id, assigned_by, created_at)
+            values (${rows[0]?.id ?? ""}, ${org}, ${REVIEWER}, ${OWNER}, now())`;
+    }
+    return rows;
+}
 
 const createVersion = (userId: string, taskId: string, seq: number, org = team) =>
     inRole(
@@ -499,7 +508,12 @@ describe("bundle uploads", () => {
     });
 
     it("limits who can start and read, and caps unfinished uploads per person at five", async () => {
-        const { versionId } = await draft();
+        const { taskId, versionId } = await draft();
+        // A second setter works on the task only once assigned (migration 0024).
+        await fails(start(SETTER_TWO, versionId), /row-level security/);
+        await db.database
+            .sql`insert into task_assignments (task_id, org_id, user_id, assigned_by, created_at)
+            values (${taskId}, ${team}, ${SETTER_TWO}, ${OWNER}, now())`;
         await fails(start(MEMBER, versionId), /row-level security/);
         await fails(start(REVIEWER, versionId), /row-level security/);
         await fails(start(SETTER, versionId, { started_by: OWNER }), /row-level security/);
@@ -560,5 +574,48 @@ describe("privileges", () => {
             select r as role, has_table_privilege(r, t, 'select') as allowed
             from unnest(array['aura_auth']) r, unnest(array['tasks', 'task_versions', 'task_reviews', 'bundle_uploads']) t`;
         for (const row of rows) expect(row.allowed).toBe(false);
+    });
+});
+
+describe("task assignments (migration 0024)", () => {
+    const readable = (userId: string, taskId: string) =>
+        inRole(
+            db.database,
+            "aura_app",
+            as(userId),
+            (tx) => tx`select id from tasks where id = ${taskId}`,
+        );
+
+    it("limits a setter to their own and assigned tasks, a reviewer to assigned ones, owners to none", async () => {
+        const { taskId } = await draft();
+        const others = await db.database
+            .sql`delete from task_assignments where task_id = ${taskId} returning user_id`;
+        expect(others.length).toBe(1); // draft() assigned the reviewer; remove it to test the bare rule
+        expect((await readable(SETTER, taskId)).length).toBe(1);
+        expect((await readable(OWNER, taskId)).length).toBe(1);
+        expect((await readable(SETTER_TWO, taskId)).length).toBe(0);
+        expect((await readable(REVIEWER, taskId)).length).toBe(0);
+        await db.database
+            .sql`insert into task_assignments (task_id, org_id, user_id, assigned_by, created_at)
+            values (${taskId}, ${team}, ${REVIEWER}, ${OWNER}, now())`;
+        expect((await readable(REVIEWER, taskId)).length).toBe(1);
+    });
+
+    it("lets only owners and admins assign, and only setters and reviewers of the organization", async () => {
+        const { taskId } = await draft();
+        const assign = (userId: string, target: string) =>
+            inRole(
+                db.database,
+                "aura_app",
+                as(userId),
+                (tx) => tx`select assign_task_staff(${taskId}, ${target}, now())`,
+            );
+        await fails(assign(SETTER, SETTER_TWO), /no such task/);
+        await fails(assign(REVIEWER, SETTER_TWO), /no such task/);
+        await fails(assign(OUTSIDER, SETTER_TWO), /no such task/);
+        await fails(assign(OWNER, MEMBER), /only a setter or reviewer/);
+        await fails(assign(OWNER, OUTSIDER), /only a setter or reviewer/);
+        await assign(OWNER, SETTER_TWO);
+        expect((await readable(SETTER_TWO, taskId)).length).toBe(1);
     });
 });

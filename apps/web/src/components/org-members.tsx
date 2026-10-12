@@ -9,7 +9,7 @@ import { buttonDanger, input } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
 
-const ROLES = ["owner", "admin", "setter", "reviewer", "member"] as const;
+const ROLES = ["owner", "admin", "setter", "reviewer", "member", "buyer"] as const;
 
 export function OrgMembers({ org }: { org: OrgItem }) {
     const load = useCallback(

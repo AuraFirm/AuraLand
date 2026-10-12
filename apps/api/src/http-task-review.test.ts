@@ -36,7 +36,10 @@ beforeAll(async () => {
         (${org?.id ?? ""}, ${ALICE}, 'owner'), (${org?.id ?? ""}, ${BOB}, 'setter'),
         (${org?.id ?? ""}, ${CAROL}, 'reviewer'), (${org?.id ?? ""}, ${FRANK}, 'reviewer'),
         (${org?.id ?? ""}, ${DAVE}, 'member')`;
-    world = taskWorld(h, encodeId("org", org?.id ?? ""));
+    world = taskWorld(h, encodeId("org", org?.id ?? ""), {
+        assigner: ALICE,
+        assignees: [CAROL, FRANK],
+    });
 });
 afterAll(async () => {
     await h.drop();
