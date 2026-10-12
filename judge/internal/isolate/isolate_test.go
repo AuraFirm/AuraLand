@@ -59,6 +59,7 @@ func TestVerdictMapping(t *testing.T) {
 		{"memory by oom", Meta{CgOOMKilled: true, Status: "SG", ExitSignal: 9}, 0, "MLE"},
 		{"memory by peak", Meta{CgMemKiB: 300000}, 0, "MLE"},
 		{"output flood", Meta{}, 2 * 1024 * 1024, "OLE"},
+		{"file size limit signal", Meta{Status: "SG", ExitSignal: 25, HasExitSignal: true}, 0, "OLE"},
 		{"crash by signal", Meta{Status: "SG", ExitSignal: 11}, 0, "RTE"},
 		{"non-zero exit", Meta{Status: "RE", ExitCode: 1}, 0, "RTE"},
 		{"sandbox failure", Meta{Status: "XX"}, 0, "SE"},
@@ -77,7 +78,7 @@ func TestVerdictMapping(t *testing.T) {
 }
 
 func TestRunArgumentsAlwaysIsolate(t *testing.T) {
-	args, err := RunArgs(7, limits, 1, "/box/meta", "/box/in", "/box/out", "/box/err", []string{"PATH=/usr/bin"}, []string{"./main"})
+	args, err := RunArgs(7, limits, limits.OutputKiB, 1, "/box/meta", "/box/in", "/box/out", "/box/err", []string{"PATH=/usr/bin"}, []string{"./main"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,6 +86,10 @@ func TestRunArgumentsAlwaysIsolate(t *testing.T) {
 		if !slices.Contains(args, required) {
 			t.Errorf("missing %s in %v", required, args)
 		}
+	}
+	merged, err := RunArgs(7, limits, CompileFileKiBMax, 16, "/box/meta", "/box/in", "/box/out", "", nil, []string{"g++"})
+	if err != nil || !slices.Contains(merged, "--stderr-to-stdout") || !slices.Contains(merged, "--fsize=32768") {
+		t.Errorf("a compile merges stderr and may write a program: %v %v", merged, err)
 	}
 	for _, forbidden := range []string{"--share-net", "--no-cg", "--cg-timing"} {
 		if slices.Contains(args, forbidden) {
@@ -100,16 +105,16 @@ func TestRunArgumentsAlwaysIsolate(t *testing.T) {
 }
 
 func TestBadArgumentsAreRefused(t *testing.T) {
-	if _, err := RunArgs(-1, limits, 1, "m", "i", "o", "e", nil, []string{"x"}); err == nil {
+	if _, err := RunArgs(-1, limits, 1, 1, "m", "i", "o", "e", nil, []string{"x"}); err == nil {
 		t.Error("negative box id")
 	}
-	if _, err := RunArgs(BoxIDMax+1, limits, 1, "m", "i", "o", "e", nil, []string{"x"}); err == nil {
+	if _, err := RunArgs(BoxIDMax+1, limits, 1, 1, "m", "i", "o", "e", nil, []string{"x"}); err == nil {
 		t.Error("box id too large")
 	}
-	if _, err := RunArgs(1, sandbox.Limits{}, 1, "m", "i", "o", "e", nil, []string{"x"}); err == nil {
+	if _, err := RunArgs(1, sandbox.Limits{}, 1, 1, "m", "i", "o", "e", nil, []string{"x"}); err == nil {
 		t.Error("zero limits must never mean unlimited")
 	}
-	if _, err := RunArgs(1, limits, 0, "m", "i", "o", "e", nil, nil); err == nil {
+	if _, err := RunArgs(1, limits, 1, 0, "m", "i", "o", "e", nil, nil); err == nil {
 		t.Error("no processes / no command")
 	}
 }

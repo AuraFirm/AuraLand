@@ -7,6 +7,10 @@ import (
 	"github.com/AuraFirm/AuraLand/judge/internal/sandbox"
 )
 
+// CompileFileKiBMax bounds the files a compiler may write: a statically linked C++ program is a few
+// megabytes, and 32 MiB leaves room without letting a compiler fill the disk.
+const CompileFileKiBMax = 32 * 1024
+
 // BoxIDMax bounds the box ids this agent hands out (isolate's default config allows 1000 boxes).
 const BoxIDMax = 999
 
@@ -20,11 +24,15 @@ const BoxIDMax = 999
 //	--fsize/--stack         largest file the program may write, stack size
 //	--no-default-dirs is NOT used: the default read-only system directories are what a compiler needs;
 //	the network namespace is isolate's default (no --share-net, ever).
-func RunArgs(boxID int, limits sandbox.Limits, processes int, metaPath, stdin, stdout, stderr string, environment, command []string) ([]string, error) {
+//
+// fileKiB is the largest file the program may write. A run passes its output limit; a compile passes
+// CompileFileKiBMax, because a linker writes the whole program and a 64 KiB cap would kill it. An
+// empty stderr merges standard error into standard output (compiler diagnostics are on stderr).
+func RunArgs(boxID int, limits sandbox.Limits, fileKiB, processes int, metaPath, stdin, stdout, stderr string, environment, command []string) ([]string, error) {
 	if boxID < 0 || boxID > BoxIDMax {
 		return nil, fmt.Errorf("box id %d out of range", boxID)
 	}
-	if limits.CPUMS <= 0 || limits.WallMS <= 0 || limits.MemoryKiB <= 0 || limits.OutputKiB <= 0 || processes <= 0 {
+	if limits.CPUMS <= 0 || limits.WallMS <= 0 || limits.MemoryKiB <= 0 || limits.OutputKiB <= 0 || fileKiB <= 0 || processes <= 0 {
 		return nil, fmt.Errorf("every limit must be positive: %+v processes=%d", limits, processes)
 	}
 	if len(command) == 0 {
@@ -38,13 +46,17 @@ func RunArgs(boxID int, limits sandbox.Limits, processes int, metaPath, stdin, s
 		"--time=" + seconds(limits.CPUMS),
 		"--wall-time=" + seconds(limits.WallMS),
 		"--extra-time=0.5",
-		"--fsize=" + strconv.Itoa(limits.OutputKiB),
+		"--fsize=" + strconv.Itoa(fileKiB),
 		"--stack=" + strconv.Itoa(limits.MemoryKiB),
 		"--meta=" + metaPath,
 		"--stdin=" + stdin,
 		"--stdout=" + stdout,
-		"--stderr=" + stderr,
 		"--silent",
+	}
+	if stderr == "" {
+		args = append(args, "--stderr-to-stdout")
+	} else {
+		args = append(args, "--stderr="+stderr)
 	}
 	for _, entry := range environment {
 		args = append(args, "--env="+entry)

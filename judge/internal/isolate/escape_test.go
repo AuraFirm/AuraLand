@@ -67,6 +67,7 @@ func TestEscapeSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
+		t.Logf("%-16s verdict=%s exit=%d signaled=%v cpu=%dms mem=%dKiB", name, run.Verdict, run.ExitCode, run.Signaled, run.CPUMS, run.MemoryKiB)
 		if allowed, ok := mustBeStopped[name]; ok {
 			covered++
 			if !contains(allowed, run.Verdict) {
