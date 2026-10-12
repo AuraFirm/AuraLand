@@ -23,6 +23,12 @@ ADR 0028.
 | A real customer has been served, a real invoice issued, a real payment made | **No.** No customer, entity or provider exists (D1, F44) |
 | Deployed anywhere | **No** (F1) |
 
+## Evidence at the end of the stage
+`pnpm check` clean (tigerlint 0 violations); `pnpm test` 1,194 tests in 89 files (up from 1,089 in 79);
+`pnpm test:sim` all five scenarios 500/500 seeds; Go tests green; `pnpm test:e2e` 24 browser tests
+(up from 22). Run on the final stack on the development machine; CI runs the same on every pull
+request. The database tests ran against PostgreSQL 18 with the real migrations.
+
 ## What was built, in the order it merged
 | Slice | Pull request | What it adds |
 |---|---|---|
