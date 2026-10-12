@@ -19,7 +19,7 @@ interface Row {
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
-    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv" | "sub" | "nod";
+    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv" | "sub" | "nod" | "ord" | "dlv";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, string | number>;
 }
@@ -253,6 +253,62 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "nod",
     },
+    { method: "GET", path: "/api/v1/admin/orders", access: "admin" },
+    {
+        method: "POST",
+        path: "/api/v1/admin/orders",
+        access: "admin",
+        body: { title: "x", licence_terms: "y", delivery_days: 30 },
+    },
+    {
+        method: "GET",
+        path: "/api/v1/admin/orders/:id",
+        access: "admin",
+        owned: true,
+        object: "ord",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/admin/orders/:id/items",
+        access: "admin",
+        owned: true,
+        object: "ord",
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/admin/orders/:id/items/:versionId",
+        access: "admin",
+        owned: true,
+        object: "ord",
+    },
+    {
+        method: "PUT",
+        path: "/api/v1/admin/orders/:id/invoice",
+        access: "admin",
+        owned: true,
+        object: "ord",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/admin/orders/:id/place",
+        access: "admin",
+        owned: true,
+        object: "ord",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/admin/orders/:id/cancel",
+        access: "admin",
+        owned: true,
+        object: "ord",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/admin/deliveries/:id/revoke",
+        access: "admin",
+        owned: true,
+        object: "dlv",
+    },
     { method: "GET", path: "/api/v1/submissions/:id", access: "user", owned: true, object: "sub" },
     {
         method: "PATCH",
@@ -279,7 +335,8 @@ const concrete = (row: Row) =>
         .replace(":id", encodeId(row.object ?? "ses", SAMPLE_UUID))
         .replace(":userId", encodeId("usr", SAMPLE_UUID))
         .replace(":keyId", encodeId("key", SAMPLE_UUID))
-        .replace(":invitationId", encodeId("inv", SAMPLE_UUID));
+        .replace(":invitationId", encodeId("inv", SAMPLE_UUID))
+        .replace(":versionId", encodeId("tsv", SAMPLE_UUID));
 const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
 
@@ -336,6 +393,8 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "tsv") return encodeId("tsv", (await victimTask()).version);
     if (row.object === "sub") return encodeId("sub", await victimSubmission());
     if (row.object === "nod") return encodeId("nod", SAMPLE_UUID);
+    if (row.object === "ord") return encodeId("ord", SAMPLE_UUID);
+    if (row.object === "dlv") return encodeId("dlv", SAMPLE_UUID);
     if (row.object !== "pky") return encodeId("ses", sessionId);
     const [created] = await h.db.database.sql<{ id: string }[]>`
         insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)
@@ -393,7 +452,8 @@ describe("generated checks", () => {
                     .replace(":id", objectId)
                     .replace(":userId", encodeId("usr", ALICE))
                     .replace(":keyId", encodeId("key", SAMPLE_UUID))
-                    .replace(":invitationId", encodeId("inv", SAMPLE_UUID));
+                    .replace(":invitationId", encodeId("inv", SAMPLE_UUID))
+                    .replace(":versionId", encodeId("tsv", SAMPLE_UUID));
                 const hasBody =
                     row.method === "PATCH" || row.method === "PUT" || row.body !== undefined;
                 const response = await h.app().request(path, {

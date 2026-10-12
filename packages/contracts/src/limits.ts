@@ -112,6 +112,17 @@ export const LEASE_POLL_MS = 1_000;
 export const NODE_BUNDLE_URL_LIFETIME_S = 5 * 60;
 export const JOB_ERROR_CHARS_MAX = 2_000;
 
+// Orders and deliveries (Stage 4A). The item cap mirrors the database check; the page cap bounds lists.
+export const ORDER_ITEMS_MAX = 100;
+export const ORDER_PAGE_SIZE_MAX = 100;
+export const ORDER_TITLE_CHARS_MAX = 200;
+export const ORDER_TERMS_CHARS_MAX = 4_000;
+export const ORDER_INVOICE_CHARS_MAX = 200;
+export const ORDER_DELIVERY_DAYS_MAX = 365;
+export const DELIVERY_REVOKE_REASON_CHARS_MAX = 500;
+// Download links for delivered bundles live this long; the browser fetches at once.
+export const DELIVERY_LINK_LIFETIME_S = 5 * 60;
+
 // Relationships between limits are checked when the module loads, so a bad edit fails at startup.
 assert(HANDLE_LENGTH_MIN >= 1 && HANDLE_LENGTH_MIN < HANDLE_LENGTH_MAX, "handle length bounds");
 assert(ORG_SLUG_LENGTH_MIN >= 3 && ORG_SLUG_LENGTH_MIN < ORG_SLUG_LENGTH_MAX, "slug length bounds");
