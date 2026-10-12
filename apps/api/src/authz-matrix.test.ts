@@ -359,6 +359,21 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "tsk",
     },
+    {
+        method: "GET",
+        path: "/api/v1/task-versions/:id/comments",
+        access: "user",
+        owned: true,
+        object: "tsv",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/task-versions/:id/comments",
+        access: "user",
+        owned: true,
+        object: "tsv",
+        body: { body: "hello" },
+    },
     { method: "GET", path: "/api/v1/deliveries", access: "user" },
     { method: "GET", path: "/api/v1/deliveries/:id", access: "user", owned: true, object: "dlv" },
     {

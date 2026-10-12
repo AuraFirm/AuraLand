@@ -38,6 +38,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `delivery_access` | `modules/orders` | Log of every download link issued for a delivery (who, when, address); append-only |
 | `contractor_payouts` | `modules/payouts` | Agreed amount and payment record for the author of a released task version; the contractor and platform administrators read; written only by platform-administrator functions; never deleted |
 | `task_assignments` | `modules/tasks` | Which setters and reviewers work on which task; owners and admins assign (through a function) and read, the assigned person reads their own |
+| `version_comments` | `modules/tasks` | Discussion on a task version among the people who work on the task and its organization's owners and admins; append-only |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |

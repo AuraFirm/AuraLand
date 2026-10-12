@@ -12,6 +12,7 @@ import { Notice, Section } from "./section.tsx";
 import { SubmitPanel } from "./submit-panel.tsx";
 import { VersionActions } from "./version-actions.tsx";
 import { VersionBundle } from "./version-bundle.tsx";
+import { VersionComments } from "./version-comments.tsx";
 import { VersionContent } from "./version-content.tsx";
 
 // One version of a task: its statement, spec and bundle while they can be edited, and the steps that
@@ -59,6 +60,9 @@ export function VersionDetail({ versionId }: { versionId: string }) {
             )}
             {current.state === "released" && current.spec !== null && (
                 <SubmitPanel versionId={current.id} languages={current.spec.languages} />
+            )}
+            {(canWriteTasks(role) || canReviewTasks(role)) && (
+                <VersionComments versionId={current.id} />
             )}
             <VersionActions
                 version={current}

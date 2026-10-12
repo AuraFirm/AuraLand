@@ -36,6 +36,7 @@ import {
     submissionRoutes,
 } from "./modules/submissions/routes.ts";
 import { assignmentRoutes } from "./modules/tasks/assignment-routes.ts";
+import { commentRoutes } from "./modules/tasks/comment-routes.ts";
 import { reviewRoutes } from "./modules/tasks/review-routes.ts";
 import { taskRoutes } from "./modules/tasks/task-routes.ts";
 import { versionRoutes } from "./modules/tasks/version-routes.ts";
@@ -228,19 +229,15 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", versionRoutes({ clock: deps.clock, rng: deps.rng, storage: deps.storage }));
     app.route("/v1", reviewRoutes({ clock: deps.clock }));
     app.route("/v1", assignmentRoutes({ clock: deps.clock }));
-    app.route("/v1", judgeAdminRoutes({ clock: deps.clock }));
-    app.route("/v1", orderRoutes({ clock: deps.clock, rng: deps.rng }));
-    app.route("/v1", payoutRoutes({ clock: deps.clock }));
     app.route(
         "/v1",
-        deliveryRoutes({
+        commentRoutes({
             sql: deps.database.sql,
             clock: deps.clock,
             key: loginTokenKey(deps.config),
-            storage: deps.storage,
-            trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
         }),
     );
+    app.route("/v1", judgeAdminRoutes({ clock: deps.clock }));
     app.route(
         "/judge/v1",
         judgeRoutes({
@@ -260,7 +257,24 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
             key: loginTokenKey(deps.config),
         }),
     );
+    mountOrderRoutes(app, deps);
     mountSignInRoutes(app, deps, secureCookies);
+}
+
+// Selling and delivering tasks: orders, payment records and customer deliveries (Stage 4).
+function mountOrderRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
+    app.route("/v1", orderRoutes({ clock: deps.clock, rng: deps.rng }));
+    app.route("/v1", payoutRoutes({ clock: deps.clock }));
+    app.route(
+        "/v1",
+        deliveryRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            key: loginTokenKey(deps.config),
+            storage: deps.storage,
+            trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+        }),
+    );
 }
 
 // The ways in: email, OAuth providers and passkeys.
