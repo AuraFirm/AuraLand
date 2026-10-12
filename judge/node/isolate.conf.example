@@ -1,0 +1,17 @@
+# Example isolate configuration for an Aura judge node (UNVERIFIED; compare with the file shipped by
+# isolate v2.1.1 and with the systemd slice created by isolate.service).
+box_root = /var/local/lib/isolate
+lock_root = /run/isolate/locks
+cg_root = auto:/run/isolate/cgroup
+first_uid = 60000
+first_gid = 60000
+num_boxes = 1000
+restricted_init = 1
+
+# Read-only system directories boxes may see (compilers and interpreters live here).
+dir = box=/box:rw
+dir = bin
+dir = lib
+dir = lib64:maybe
+dir = usr
+dir = etc/alternatives:maybe

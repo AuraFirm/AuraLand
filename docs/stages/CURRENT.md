@@ -10,3 +10,5 @@ Open items are in [../cutlist.md](../cutlist.md); your manual tasks are the chec
 **Stage 2 — Tasks and bundles: approved on 2026-10-11.** Report: [stage-2-report.md](stage-2-report.md).
 
 **Stage 3 — Job queue, submissions, judge: all slices merged; report awaiting your review.** Plan: [stage-3-plan.md](stage-3-plan.md). Report: [stage-3-report.md](stage-3-report.md). **The sandbox has never been run: no real use of the judge before the Linux node gate (cutlist F32).**
+
+**What only you can do, with steps: [../owner-tasks.md](../owner-tasks.md).**
