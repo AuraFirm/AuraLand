@@ -2,6 +2,9 @@ package isolate
 
 import "github.com/AuraFirm/AuraLand/judge/internal/sandbox"
 
+// sigXFSZ is the signal Linux sends when a process exceeds its file-size limit.
+const sigXFSZ = 25
+
 // Verdict maps isolate's report to the sandbox's view of one run (docs/kit/07 section 4.3). Order
 // matters and is deliberate: the sandbox's own failure comes first, because anything it says after an
 // internal error is unreliable; memory comes before the generic signal, because the OOM killer ends a
@@ -16,6 +19,10 @@ func Verdict(meta Meta, limits sandbox.Limits, outputBytes int) string {
 	case meta.Status == "TO" || (limits.CPUMS > 0 && int(meta.CPUSeconds*1000) > limits.CPUMS):
 		return "TLE"
 	case limits.OutputKiB > 0 && outputBytes > limits.OutputKiB*1024:
+		return "OLE"
+	// The file-size limit stops a writer with SIGXFSZ exactly at the limit, so the output is never
+	// longer than the limit; the signal is what shows the program tried to write more.
+	case meta.HasExitSignal && meta.ExitSignal == sigXFSZ:
 		return "OLE"
 	case meta.Status == "SG" || meta.Status == "RE" || meta.Killed:
 		return "RTE"

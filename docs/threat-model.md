@@ -149,15 +149,18 @@ privileges the application role does not.
 | **Denial of service**: flood submissions | Create | 6 a minute per person per task, 256 KiB source, load shedding at 1,000 ready jobs (503 with `Retry-After`, nothing left behind) | `http-submissions.test.ts` |
 | DoS: poison submission crashing every node | Queue | Attempts are bounded (5) with exponential backoff, then the job is dead and the submission `failed_system` (not the participant's verdict); an alert on dead jobs is still to be built (F39) | `jobs` simulation, `http-judge-jobs.test.ts` |
 | DoS: long polls exhausting the database | Lease | A waiting lease is a series of short looks, never an open transaction | `job-routes.ts` |
-| **Elevation**: code escapes its sandbox | Judge node | Execution only through the `Sandbox` interface; isolate with cgroup v2, no network, process/memory/time/file limits, fresh box per test; a 15-program escape suite. **Designed and unit-tested at the pure level only; not run in a sandbox yet** | `internal/isolate` tests; F32 |
+| **Elevation**: code escapes its sandbox | Judge node | Execution only through the `Sandbox` interface; isolate with cgroup v2, no network, process/memory/time/file limits, fresh box per test; a 15-program escape suite. **Escape suite passed once on a development Linux VM (2026-10-12, Ubuntu 24.04 aarch64, isolate 2.1.1) with positive controls; not yet on the production-spec node, no external review** | `internal/isolate` tests; F32 |
 | Elevation: a compromised node reaches the control plane | Node identity | The node holds only its own key; the worker role behind the API can read job and submission rows, the spec and bundle columns of task versions, and append worker-kind audit entries; it cannot read statements, users, sessions or keys; a node cannot act as a person | migrations 0015, 0019; `rls-matrix.test.ts` |
 | Elevation: housekeeping functions | `SECURITY DEFINER` | Bounded deletes, executable only by the worker role; they run as the table owner, which must be able to bypass row-level security in production (F29) | `cleanup.test.ts` |
 | Supply chain: Go agent | Dependencies | Standard library only; CI pins the Go toolchain action by commit | `judge/go.mod`, `ci.yml` |
 
-**What is not claimed.** No untrusted code has run anywhere in this stage. The isolate driver has
-never run; the escape suite has never run; nothing here has had the external sandbox review the kit
-requires before public use. Until a Linux judge node passes the suite and the review is done, the judge
-must not be used with real participants. The bundle is unpacked by nobody yet: the agent's bundle opener
+**What is not claimed.** (Updated 2026-10-12.) The isolate driver and the 15-program escape suite ran
+for the first time on a development Ubuntu 24.04 VM (aarch64) and passed after three fixes the first run
+exposed (see `judge/node/README.md`); the ten containment probes were also run unconfined as root to
+show they do detect an escape. That VM is not the production-spec node, no participant code has run, and
+nothing here has had the external sandbox review the kit requires before public use. Until the
+production node passes the suite and the review is done, the judge must not be used with real
+participants. The bundle is unpacked by nobody yet: the agent's bundle opener
 (download by hash, verify, strict unpack inside a box) and the `task.validate` job are not built (F30,
 F31).
 

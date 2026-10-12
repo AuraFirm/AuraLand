@@ -1,8 +1,28 @@
-# Judge node setup (Linux) — UNVERIFIED
+# Judge node setup (Linux) — steps 1, 2 and 4 verified once on a development VM
 
-Everything in this folder was written on macOS and has **never been run**. It is a starting point for
-the person who sets up the first Linux judge node (`docs/owner-tasks.md` section 1.2). Treat every step
-as something to verify, and send corrections back.
+This folder was written on macOS. On 2026-10-12 steps 1, 2 and 4 were run on a development VM (Colima/
+Lima, Ubuntu 24.04.4, kernel 6.8, aarch64, systemd, cgroup v2, no KVM needed for isolate). Steps 3 and
+5 (the installed agent service and the hardening baseline) are still **unverified**, and the VM is not a
+production node. Treat anything not listed under "Verified" as unverified, and send corrections back.
+
+## Verified on 2026-10-12 (development VM)
+- Packages: `build-essential git libcap-dev libsystemd-dev pkg-config g++ python3` (plus `asciidoc-base`,
+  not shown to be needed). Go 1.26 came from the go.dev tarball (`/usr/local/go`), as the Ubuntu
+  package is older.
+- isolate v2.1.1: `make isolate isolate-cg-keeper && sudo make install` worked; `isolate.service` is
+  installed under `/usr/local/lib/systemd/system`, `systemctl enable --now isolate.service` made it
+  active, and `isolate --cg --init` / `--cleanup` worked as an ordinary user (isolate is setuid root).
+  The default `/usr/local/etc/isolate` has `cg_root = auto:/run/isolate/cgroup`.
+- **The escape suite passed** (15 programs). It found three real driver bugs on its first run, fixed in
+  `judge/internal/isolate`: the report file was written inside the root-owned box directory (now in a
+  private temp directory); the 64 KiB file-size limit meant for output also killed the linker (compile
+  now has its own 32 MiB limit and merges compiler errors into the message); a file-size kill showed as
+  a crash instead of an output-limit verdict (SIGXFSZ now maps to OLE). One escape program, the stack
+  bomb, was compiled into a loop and never touched the stack; it was rewritten.
+- Positive controls: each of the ten containment probes exits 3 ("escaped") when run unconfined as root
+  on the same machine and 0 inside the box, so a pass means contained, not broken.
+- Not covered: x86 hardware, KVM, SMT/governor/swap baseline (step 5), the agent as a service (step 3),
+  anything an external reviewer would add.
 
 Target: Ubuntu 24.04 LTS server, systemd, cgroup v2 (`stat -fc %T /sys/fs/cgroup` prints `cgroup2fs`),
 no other workloads, deny-all inbound firewall (outbound only to the control plane).

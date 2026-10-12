@@ -17,9 +17,10 @@ import (
 	"github.com/AuraFirm/AuraLand/judge/internal/sandbox"
 )
 
-// Box implements sandbox.Sandbox with the isolate binary. NOT YET RUN on a judge node: it compiles
-// and is vetted on Linux, and the escape suite in internal/isolate/escape_test.go (build tag `isolate`)
-// is what must pass on a KVM-capable node before this is used for anything real.
+// Box implements sandbox.Sandbox with the isolate binary. Run for the first time on 2026-10-12 on an
+// Ubuntu 24.04 VM (aarch64, cgroup v2, isolate v2.1.1), where the escape suite in
+// internal/isolate/escape_test.go (build tag `isolate`) passed after the fixes in this file. That VM is
+// not the production node and nothing here has had the external review (cutlist F32).
 type Box struct {
 	// Binary is the absolute path of the isolate executable (setuid or with cgroup delegation).
 	Binary string
@@ -55,7 +56,10 @@ type boxDir struct {
 	box  *Box
 	id   int
 	root string
-	once sync.Once
+	// metaDir holds isolate's report outside the box: <root> belongs to root and the box directory is
+	// the sandboxed program's, so neither is a place the agent can write a report the program cannot touch.
+	metaDir string
+	once    sync.Once
 }
 
 func (b *Box) acquire(ctx context.Context) (*boxDir, error) {
@@ -70,13 +74,20 @@ func (b *Box) acquire(ctx context.Context) (*boxDir, error) {
 		b.ids <- id
 		return nil, fmt.Errorf("init box %d: %w", id, err)
 	}
-	return &boxDir{box: b, id: id, root: strings.TrimSpace(string(out))}, nil
+	metaDir, err := os.MkdirTemp("", "aura-meta-")
+	if err != nil {
+		_, _ = b.isolate(context.Background(), CleanupArgs(id)...)
+		b.ids <- id
+		return nil, fmt.Errorf("meta directory for box %d: %w", id, err)
+	}
+	return &boxDir{box: b, id: id, root: strings.TrimSpace(string(out)), metaDir: metaDir}, nil
 }
 
 // release always cleans the box and gives its id back, whatever happened.
 func (d *boxDir) release() {
 	d.once.Do(func() {
 		_, _ = d.box.isolate(context.Background(), CleanupArgs(d.id)...)
+		_ = os.RemoveAll(d.metaDir)
 		d.box.ids <- d.id
 	})
 }
@@ -101,13 +112,28 @@ func truncateText(text string, max int) string {
 	return text
 }
 
+type stepKind int
+
+const (
+	stepCompile stepKind = iota
+	stepRun
+)
+
+// compileMessageBytesMax bounds the compiler diagnostics kept for a compile error.
+const compileMessageBytesMax = 4096
+
 // execute runs one command in an acquired box and returns isolate's report and the capped output.
-func (d *boxDir) execute(ctx context.Context, profile Profile, limits sandbox.Limits, processes int, command []string, stdin []byte) (Meta, []byte, error) {
+func (d *boxDir) execute(ctx context.Context, profile Profile, limits sandbox.Limits, step stepKind, command []string, stdin []byte) (Meta, []byte, error) {
 	if err := os.WriteFile(d.path("stdin"), stdin, 0o644); err != nil {
 		return Meta{}, nil, err
 	}
-	metaFile := filepath.Join(d.root, "meta")
-	args, err := RunArgs(d.id, limits, processes, metaFile, "stdin", "stdout", "stderr", profile.Environment, command)
+	metaFile := filepath.Join(d.metaDir, "meta")
+	fileKiB, processes, stderrFile, outputCapBytes := limits.OutputKiB, profile.RunProcesses, "stderr", limits.OutputKiB*1024+1
+	if step == stepCompile {
+		// Compiler diagnostics are the participant's compile error: merge them and keep only a bounded part.
+		fileKiB, processes, stderrFile, outputCapBytes = CompileFileKiBMax, profile.CompileProcesses, "", compileMessageBytesMax
+	}
+	args, err := RunArgs(d.id, limits, fileKiB, processes, metaFile, "stdin", "stdout", stderrFile, profile.Environment, command)
 	if err != nil {
 		return Meta{}, nil, err
 	}
@@ -121,7 +147,7 @@ func (d *boxDir) execute(ctx context.Context, profile Profile, limits sandbox.Li
 	if err != nil {
 		return Meta{}, nil, err
 	}
-	output, err := readCapped(d.path("stdout"), limits.OutputKiB*1024+1)
+	output, err := readCapped(d.path("stdout"), outputCapBytes)
 	return meta, output, err
 }
 
@@ -154,7 +180,7 @@ func (b *Box) Compile(ctx context.Context, language, source string, limits sandb
 	if err := os.WriteFile(dir.path(profile.SourceName), []byte(source), 0o644); err != nil {
 		return sandbox.CompileResult{}, err
 	}
-	meta, output, err := dir.execute(ctx, profile, limits, profile.CompileProcesses, profile.Compile, nil)
+	meta, output, err := dir.execute(ctx, profile, limits, stepCompile, profile.Compile, nil)
 	if err != nil {
 		return sandbox.CompileResult{}, err
 	}
@@ -205,7 +231,7 @@ func (b *Box) Run(ctx context.Context, p sandbox.Program, stdin []byte, limits s
 	if err := os.WriteFile(dir.path(name), prog.artifact, 0o755); err != nil {
 		return sandbox.RunResult{}, err
 	}
-	meta, output, err := dir.execute(ctx, prog.profile, limits, prog.profile.RunProcesses, prog.profile.Run, stdin)
+	meta, output, err := dir.execute(ctx, prog.profile, limits, stepRun, prog.profile.Run, stdin)
 	if err != nil {
 		return sandbox.RunResult{}, err
 	}

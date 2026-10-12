@@ -27,7 +27,11 @@ whole class of work until it is done.
 5. Reply "Stage 3 approved" or list changes.
 
 ### 1.2 A Linux judge node (hardware or a VM that supports KVM, or any Linux host for the first test)
-Needed so the escape suite can finally run. `judge/node/` has the files I prepared (unverified, see its
+**Update 2026-10-12:** I found the Colima VM on your Mac is Ubuntu 24.04 with systemd and cgroup v2, ran
+isolate and the escape suite there, and it passed (after fixing three driver bugs it exposed; details in
+`judge/node/README.md`). So the suite is no longer unrun. What remains is the same suite on a
+production-spec node (x86, hardened baseline) and the external review in 1.3; those need you.
+The steps below are for that production node. `judge/node/` has the files I prepared (unverified, see its
 README). Steps:
 1. Get a Linux machine: Ubuntu 24.04 LTS server, systemd, cgroup v2, 4+ cores, 8+ GB RAM. Nothing else
    may run on it. For the first test a cloud VM is fine; for real use, dedicated bare metal with KVM.
