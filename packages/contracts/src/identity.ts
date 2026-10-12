@@ -113,8 +113,9 @@ function nameSchema(maxLength: number) {
 export const displayNameSchema = nameSchema(DISPLAY_NAME_LENGTH_MAX);
 export const orgNameSchema = nameSchema(ORG_NAME_LENGTH_MAX);
 
-// The roles that exist in Stage 1. Later stages add instructor, setter and others by migration.
-export const ORG_ROLES = ["owner", "admin", "setter", "reviewer", "member"] as const;
+// The roles that exist so far; later stages add instructor and others by migration. A buyer belongs to a
+// customer organization and sees only its orders and deliveries (migration 0020).
+export const ORG_ROLES = ["owner", "admin", "setter", "reviewer", "member", "buyer"] as const;
 export const orgRoleSchema = z.enum(ORG_ROLES);
 export type OrgRole = z.infer<typeof orgRoleSchema>;
 

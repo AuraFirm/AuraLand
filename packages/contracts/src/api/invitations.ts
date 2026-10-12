@@ -6,7 +6,7 @@ import { idSchema } from "../ids.ts";
 
 // Everything but owner: an organization gets a second owner by changing a member's role, which needs
 // a fresh passkey check.
-export const invitableRoleSchema = z.enum(["admin", "setter", "reviewer", "member"]);
+export const invitableRoleSchema = z.enum(["admin", "setter", "reviewer", "member", "buyer"]);
 export type InvitableRole = z.infer<typeof invitableRoleSchema>;
 
 export const invitationCreateRequestSchema = z

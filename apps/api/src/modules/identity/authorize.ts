@@ -77,10 +77,10 @@ function canInvite(role: OrgRole, invited: OrgRole): Decision {
     return role === "admin" && invited === "member" ? ALLOWED : INSUFFICIENT;
 }
 
-const HOLDS_NO_POWER: readonly OrgRole[] = ["member", "setter", "reviewer"];
+const HOLDS_NO_POWER: readonly OrgRole[] = ["member", "setter", "reviewer", "buyer"];
 
 // Anyone may leave; owners remove anyone; admins remove everyone who holds no power over the
-// organization (members, setters and reviewers).
+// organization (members, setters, reviewers and buyers).
 function canRemove(
     actorId: string,
     role: OrgRole,

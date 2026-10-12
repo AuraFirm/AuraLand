@@ -309,6 +309,16 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "dlv",
     },
+    { method: "GET", path: "/api/v1/deliveries", access: "user" },
+    { method: "GET", path: "/api/v1/deliveries/:id", access: "user", owned: true, object: "dlv" },
+    {
+        method: "POST",
+        path: "/api/v1/deliveries/:id/downloads",
+        access: "user",
+        owned: true,
+        object: "dlv",
+        body: { task_version_id: encodeId("tsv", SAMPLE_UUID) },
+    },
     { method: "GET", path: "/api/v1/submissions/:id", access: "user", owned: true, object: "sub" },
     {
         method: "PATCH",
