@@ -337,6 +337,28 @@ const MATRIX: readonly Row[] = [
         object: "pay",
         body: { reference: "wire-1" },
     },
+    {
+        method: "GET",
+        path: "/api/v1/tasks/:id/assignments",
+        access: "user",
+        owned: true,
+        object: "tsk",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/tasks/:id/assignments",
+        access: "user",
+        owned: true,
+        object: "tsk",
+        body: { user_id: encodeId("usr", SAMPLE_UUID) },
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/tasks/:id/assignments/:userId",
+        access: "user",
+        owned: true,
+        object: "tsk",
+    },
     { method: "GET", path: "/api/v1/deliveries", access: "user" },
     { method: "GET", path: "/api/v1/deliveries/:id", access: "user", owned: true, object: "dlv" },
     {

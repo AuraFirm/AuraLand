@@ -35,6 +35,7 @@ import {
     QueueFullError,
     submissionRoutes,
 } from "./modules/submissions/routes.ts";
+import { assignmentRoutes } from "./modules/tasks/assignment-routes.ts";
 import { reviewRoutes } from "./modules/tasks/review-routes.ts";
 import { taskRoutes } from "./modules/tasks/task-routes.ts";
 import { versionRoutes } from "./modules/tasks/version-routes.ts";
@@ -226,6 +227,7 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     );
     app.route("/v1", versionRoutes({ clock: deps.clock, rng: deps.rng, storage: deps.storage }));
     app.route("/v1", reviewRoutes({ clock: deps.clock }));
+    app.route("/v1", assignmentRoutes({ clock: deps.clock }));
     app.route("/v1", judgeAdminRoutes({ clock: deps.clock }));
     app.route("/v1", orderRoutes({ clock: deps.clock, rng: deps.rng }));
     app.route("/v1", payoutRoutes({ clock: deps.clock }));

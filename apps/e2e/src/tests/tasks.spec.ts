@@ -77,6 +77,24 @@ async function releaseAsReviewer(browser: Browser, email: string, versionUrl: st
     await expectAccessible(reviewer);
 }
 
+async function assignReviewer(
+    browser: Browser,
+    ownerEmail: string,
+    taskUrl: string,
+    reviewerEmail: string,
+    versionUrl: string,
+) {
+    const stranger = await pageFor(browser, reviewerEmail, true);
+    await stranger.goto(versionUrl);
+    await expect(stranger.getByRole("alert").filter({ hasText: /not found/i })).toBeVisible();
+    const owner = await pageFor(browser, ownerEmail);
+    await owner.goto(taskUrl);
+    await owner.getByLabel("Person to assign").selectOption({ label: "E2E person (reviewer)" });
+    await owner.getByRole("button", { name: "Assign", exact: true }).click();
+    await expect(owner.getByText("Assigned.")).toBeVisible();
+    await expectAccessible(owner);
+}
+
 async function submitAsMember(browser: Browser, email: string, versionUrl: string) {
     // A plain member submits code; there is no judge node here, so the test settles the submission.
     const member = await pageFor(browser, email);
@@ -100,7 +118,9 @@ test("a setter builds a version, a reviewer releases it, and a hostile statement
     const setterEmail = freshEmail();
     const reviewerEmail = freshEmail();
     const memberEmail = freshEmail();
+    const ownerEmail = freshEmail();
     const orgId = await seedTeam("E2E team", [
+        { email: ownerEmail, role: "owner" },
         { email: setterEmail, role: "setter" },
         { email: reviewerEmail, role: "reviewer" },
         { email: memberEmail, role: "member" },
@@ -151,6 +171,12 @@ test("a setter builds a version, a reviewer releases it, and a hostile statement
     expect(dialogs).toEqual([]);
     expect(problems()).toEqual([]);
 
+    // A reviewer sees only tasks they are assigned to: the unassigned one finds nothing, then the
+    // owner assigns them on the task page.
+    const taskUrl = await setter
+        .getByRole("link", { name: "Back to the task" })
+        .getAttribute("href");
+    await assignReviewer(browser, ownerEmail, taskUrl ?? "", reviewerEmail, versionUrl);
     await releaseAsReviewer(browser, reviewerEmail, versionUrl);
     await submitAsMember(browser, memberEmail, versionUrl);
 });
