@@ -34,7 +34,8 @@ trailing slash.
 | `statement/en.md` | required; UTF-8, 1 byte to 64 KiB. Other `statement/<xx>.md` allowed. No `statement/assets/` yet |
 | `tests/<id>.in`, `tests/<id>.ans` | exactly one pair for every test in the spec, nothing else under `tests/` |
 | `checker/checker.cpp` or `checker.py` | required exactly once when the spec's checker is `custom`, forbidden otherwise |
-| `samples/*`, `solutions/*`, `generators/*`, `validator/*` | optional, one level, free-form |
+| `solutions/reference.<ext>`, `solutions/wrong_<name>.<ext>` | optional in the format, required by validation (ADR 0029). `<ext>` is `cpp` or `py`; at most one reference and 20 wrong solutions; any other name under `solutions/` is refused |
+| `samples/*`, `generators/*`, `validator/*` | optional, one level, free-form |
 | anything else (including `env/`) | refused |
 
 ## Result

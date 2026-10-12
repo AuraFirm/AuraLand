@@ -1,5 +1,6 @@
 import { zstdCompressSync } from "node:zlib";
 import { assert } from "@aura/contracts/assert";
+import { BUNDLE_WRONG_SOLUTIONS_MAX } from "@aura/contracts/limits";
 import type { BundleErrorCode } from "./errors.ts";
 import {
     BLOCK,
@@ -80,8 +81,8 @@ function richFiles(): TarFile[] {
         file("checker/checker.py", "print('ok')\n"),
         file("samples/1.in", "1 2\n"),
         file("samples/1.out", "3\n"),
-        file("solutions/ref.cpp", "int main(){}\n"),
-        file("solutions/wa1.py", "print(0)\n"),
+        file("solutions/reference.cpp", "int main(){}\n"),
+        file("solutions/wrong_off_by_one.py", "print(0)\n"),
         file("generators/gen.py", "print(1)\n"),
         file("validator/validator.py", "pass\n"),
     ];
@@ -331,6 +332,42 @@ function orderCases(): CorpusCase[] {
     ];
 }
 
+// The solutions/ naming rule (ADR 0029).
+function solutionCases(): CorpusCase[] {
+    const cases: [string, CorpusCase["expect"], TarFile[]][] = [
+        [
+            "layout-solution-badname",
+            "unexpected_file",
+            [...goldenFiles(), file("solutions/ref.cpp", "x")],
+        ],
+        [
+            "layout-solution-language",
+            "unexpected_file",
+            [...goldenFiles(), file("solutions/reference.rs", "x")],
+        ],
+        [
+            "layout-two-references",
+            "unexpected_file",
+            [
+                ...goldenFiles(),
+                file("solutions/reference.cpp", "x"),
+                file("solutions/reference.py", "x"),
+            ],
+        ],
+        [
+            "layout-too-many-wrong-solutions",
+            "unexpected_file",
+            [
+                ...goldenFiles(),
+                ...Array.from({ length: BUNDLE_WRONG_SOLUTIONS_MAX + 1 }, (_, n) =>
+                    file(`solutions/wrong_${n}.py`, "x"),
+                ),
+            ],
+        ],
+    ];
+    return cases.map(([name, expect, files]) => packed(name, expect, buildTar(files)));
+}
+
 function layoutCases(): CorpusCase[] {
     const spec = (change: Record<string, unknown>) =>
         replaced("task.json", JSON.stringify({ ...SPEC, ...change }));
@@ -404,6 +441,7 @@ export function corpusCases(): CorpusCase[] {
         ...pathCases(),
         ...orderCases(),
         ...layoutCases(),
+        ...solutionCases(),
         packed(
             "tar-golden-with-symlink-first",
             "unsupported_entry",
