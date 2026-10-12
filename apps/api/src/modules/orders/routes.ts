@@ -16,6 +16,7 @@ import type { Clock } from "../../platform/clock.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import type { Rng } from "../../platform/rng.ts";
 import { hasFreshStepUp } from "../../platform/step-up.ts";
+import { manualBilling } from "./billing.ts";
 import {
     addOrderItem,
     cancelOrder,
@@ -23,6 +24,7 @@ import {
     getOrder,
     listOrderItems,
     listOrders,
+    markOrderPaid,
     type OrderRow,
     placeOrder,
     removeOrderItem,
@@ -55,6 +57,7 @@ export function orderRoutes(deps: OrderRouteDeps): Hono<AppEnv> {
     routes.post("/admin/orders/:id/items", (c) => write(c, deps, handleAddItem));
     routes.delete("/admin/orders/:id/items/:versionId", (c) => write(c, deps, handleRemoveItem));
     routes.put("/admin/orders/:id/invoice", (c) => write(c, deps, handleInvoice));
+    routes.post("/admin/orders/:id/paid", (c) => write(c, deps, handlePaid));
     routes.post("/admin/orders/:id/place", (c) => write(c, deps, handlePlace));
     routes.post("/admin/orders/:id/cancel", (c) => write(c, deps, handleCancel));
     routes.post("/admin/deliveries/:id/revoke", (c) => write(c, deps, handleRevoke));
@@ -121,6 +124,10 @@ function orderBody(row: OrderRow, items: Awaited<ReturnType<typeof listOrderItem
         licence_terms: row.licence_terms,
         delivery_days: row.delivery_days,
         invoice_reference: row.invoice_reference,
+        payment_status: manualBilling.paymentStatus({
+            paidAtMs: row.paid_at?.getTime() ?? null,
+            invoiceReference: row.invoice_reference,
+        }),
         state: row.state,
         placed_at: row.placed_at?.toISOString() ?? null,
         created_at: row.created_at.toISOString(),
@@ -233,6 +240,14 @@ async function handleInvoice(c: Context<AppEnv>, admin: Administrator, deps: Ord
         deps.clock.nowUnixMs(),
     );
     await audit(c, admin, "order.invoice_set", orderId, null);
+    return singleOrder(c, orderId, 200);
+}
+
+async function handlePaid(c: Context<AppEnv>, admin: Administrator, deps: OrderRouteDeps) {
+    const orderId = orderIdOf(c);
+    if (orderId === null) return invalid(c);
+    await markOrderPaid(c.get("tx"), orderId, deps.clock.nowUnixMs());
+    await audit(c, admin, "order.paid", orderId, null);
     return singleOrder(c, orderId, 200);
 }
 

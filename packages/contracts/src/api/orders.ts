@@ -68,6 +68,8 @@ export const orderSchema = z
         licence_terms: z.string(),
         delivery_days: z.number().int(),
         invoice_reference: z.string().nullable(),
+        // What the billing adapter knows. The manual adapter knows only what staff recorded.
+        payment_status: z.enum(["unpaid", "paid"]),
         state: orderStateSchema,
         placed_at: z.iso.datetime().nullable(),
         created_at: z.iso.datetime(),

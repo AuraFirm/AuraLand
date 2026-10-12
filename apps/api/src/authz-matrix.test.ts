@@ -19,7 +19,7 @@ interface Row {
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
-    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv" | "sub" | "nod" | "ord" | "dlv";
+    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv" | "sub" | "nod" | "ord" | "dlv" | "pay";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, string | number>;
 }
@@ -309,6 +309,34 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "dlv",
     },
+    {
+        method: "POST",
+        path: "/api/v1/admin/orders/:id/paid",
+        access: "admin",
+        owned: true,
+        object: "ord",
+    },
+    { method: "GET", path: "/api/v1/admin/payouts", access: "admin" },
+    { method: "GET", path: "/api/v1/me/payouts", access: "user" },
+    {
+        method: "POST",
+        path: "/api/v1/admin/payouts",
+        access: "admin",
+        body: {
+            contractor_id: encodeId("usr", SAMPLE_UUID),
+            task_version_id: encodeId("tsv", SAMPLE_UUID),
+            amount_minor: 100,
+            currency: "USD",
+        },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/admin/payouts/:id/paid",
+        access: "admin",
+        owned: true,
+        object: "pay",
+        body: { reference: "wire-1" },
+    },
     { method: "GET", path: "/api/v1/deliveries", access: "user" },
     { method: "GET", path: "/api/v1/deliveries/:id", access: "user", owned: true, object: "dlv" },
     {
@@ -405,6 +433,7 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "nod") return encodeId("nod", SAMPLE_UUID);
     if (row.object === "ord") return encodeId("ord", SAMPLE_UUID);
     if (row.object === "dlv") return encodeId("dlv", SAMPLE_UUID);
+    if (row.object === "pay") return encodeId("pay", SAMPLE_UUID);
     if (row.object !== "pky") return encodeId("ses", sessionId);
     const [created] = await h.db.database.sql<{ id: string }[]>`
         insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)
