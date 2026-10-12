@@ -130,6 +130,7 @@ function InviteForm({
                         <option value="admin">admin</option>
                         <option value="setter">setter</option>
                         <option value="reviewer">reviewer</option>
+                        <option value="buyer">buyer (customer)</option>
                     </select>
                 </>
             )}

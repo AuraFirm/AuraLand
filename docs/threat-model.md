@@ -168,6 +168,36 @@ can read their own submissions; organization owners and admins can read those ma
 organization. Deletion of an account does not yet remove submissions (the purge arrives with the
 deletion job, F24). Judge nodes see source code and test data for the jobs they lease and nothing else.
 
+## STRIDE for the Stage 4A surface (orders, deliveries, payments, authoring workspace, v4)
+| Threat | Surface | Control | Evidence |
+|---|---|---|---|
+| **Spoofing/Elevation**: a customer or setter creates or changes orders | Order routes and tables | Platform-administrator role checked in the route, again in every database function; the application role has no insert or update on the four tables; step-up (fresh passkey) on every change | `http-orders.test.ts`, `orders.test.ts`, authorization matrix |
+| **Information disclosure**: a customer reads another customer's order or delivery | Orders, deliveries, download log | Forced row-level security by the customer organization's role (owner, admin, buyer); strangers get 404 | `orders.test.ts`, `http-deliveries.test.ts`, authorization matrix |
+| Disclosure: the seller's tasks reach a customer's buyer directly | Task tables | A buyer belongs to the customer organization, not the seller's, so task policies show them nothing; they get files only through a delivery | `orders.test.ts` ("does not let a buyer read the seller's task versions") |
+| Disclosure: a bundle is fetched without a right to it | Download links | `issue_delivery_download` decides (member with a buyer, admin or owner role; bundle is in the delivery; delivery ready and not expired or revoked) and logs in one step; the link lives five minutes; a failure to mint it rolls the log row back | `http-deliveries.test.ts` |
+| Disclosure: a leaked statement or pack cannot be traced to its customer | Statements | A per-delivery canary line is inside each delivered statement. **The bundle bytes are not watermarked in 4A**: a leaked bundle is not traceable by content; only the download log (who, when, address) points to a customer. Test-data watermarks come with 4B (F41) | `rules.test.ts` |
+| **Tampering**: edit an order after it is placed, or a delivery after it is built | Order and delivery rows | Triggers: a placed order does not change (except the invoice reference and one payment record); a manifest is set once and must hash to its stored SHA-256, recomputed by the database; revocation is the only later change | `orders.test.ts`, `payouts.test.ts` |
+| Tampering: a customer receives something other than what was ordered | Manifest | The manifest lists every file with its SHA-256 and size and has its own hash, shown in the portal; `tools/verify-delivery-cli.ts` and `shasum` check them | `rules.test.ts`, `verify-delivery.test.ts` |
+| **Repudiation**: "we never downloaded it" or "staff never revoked it" | Download log, audit | Append-only `delivery_access` (who, when, address, which bundle); audit entries for every order, payment, payout, revoke and download | `orders.test.ts`, `http-orders.test.ts`, `http-deliveries.test.ts` |
+| **Denial of service**: link or comment flooding | Routes | 30 links a minute and 20 comments a minute per person; a delivery has at most 100 versions | `http-deliveries.test.ts`, `http-comments.test.ts` |
+| Elevation: the delivery worker reads more than it should | Worker role | The build job reaches data only through two functions (read one pending delivery's inputs, store one manifest); no table privileges on orders or deliveries | `handlers.database.test.ts` |
+| Disclosure: contractor pay is seen by colleagues | Payouts | Only the contractor and platform administrators read a payout; a payout is for the author of a released version and its agreement never changes | `payouts.test.ts`, `http-payouts.test.ts` |
+| Disclosure: a setter or reviewer reads tasks they have no part in | Authoring workspace | Setters see only tasks they made or were assigned, reviewers only assigned tasks, owners and admins all; enforced in policies on tasks, versions, reviews and uploads | `http-assignments.test.ts`, `tasks.test.ts` |
+| Tampering/XSS: script in a comment | Version comments | Markdown rendered by `renderMarkdownSafe` in the API; the page inserts only that HTML through its one audited component; comments never change | `http-comments.test.ts`, `tasks.spec.ts` |
+| Disclosure: node bundle reads are invisible | Judge protocol | Every grant of a bundle link to a leased node is an audit entry; refusals leave none | `http-judge-jobs.test.ts` |
+
+**What is not claimed.** Every delivery says `validation: not performed`: no pack has been validated,
+because validation needs the sandbox, which has never run (F32). The customer is not told a pack is
+correct, only what it is (hashes) and who made it (provenance in the spec). No money moves through the
+system and no card data enters it; payment and payout rows are staff records. A delivered bundle is the
+original bytes, so it is not traceable to a customer by content (F41).
+
+## Privacy review (Stage 4A)
+New personal data: customer organizations' staff names and email (existing identity data) in orders;
+download events with the person's address; contractors' payout amounts and references. Download events
+and payouts are readable by the people named above only. Retention is not yet defined for download
+events or payouts (F40). Deleting an account does not yet remove them (F24).
+
 ## v0 rows (Stage 0, unchanged)
 | Threat | Surface | Control | Evidence |
 |---|---|---|---|

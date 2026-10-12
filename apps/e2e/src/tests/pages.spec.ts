@@ -7,6 +7,7 @@ test("the home page and the sign-in result pages are accessible and violate no p
     const problems = await watchForCspProblems(page);
     for (const path of [
         "/",
+        "/methodology",
         "/auth/done?status=failed&reason=account_exists",
         "/auth/done?status=signed_in",
     ]) {
