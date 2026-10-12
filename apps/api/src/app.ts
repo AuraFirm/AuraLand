@@ -29,6 +29,7 @@ import { judgeAdminRoutes } from "./modules/judge/admin-routes.ts";
 import { judgeRoutes } from "./modules/judge/routes.ts";
 import { deliveryRoutes } from "./modules/orders/delivery-routes.ts";
 import { orderRoutes } from "./modules/orders/routes.ts";
+import { payoutRoutes } from "./modules/payouts/routes.ts";
 import {
     QUEUE_FULL_RETRY_AFTER_S,
     QueueFullError,
@@ -227,6 +228,7 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", reviewRoutes({ clock: deps.clock }));
     app.route("/v1", judgeAdminRoutes({ clock: deps.clock }));
     app.route("/v1", orderRoutes({ clock: deps.clock, rng: deps.rng }));
+    app.route("/v1", payoutRoutes({ clock: deps.clock }));
     app.route(
         "/v1",
         deliveryRoutes({

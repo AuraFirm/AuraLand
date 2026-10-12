@@ -84,6 +84,12 @@ describe("the order lifecycle", () => {
         );
         expect(placed.state).toBe("placed");
         expect(placed.delivery?.state).toBe("pending");
+        expect(placed.payment_status).toBe("unpaid");
+        const paid = orderSchema.parse(
+            await (await send(token, "POST", `orders/${order.id}/paid`)).json(),
+        );
+        expect(paid.payment_status).toBe("paid");
+        expect((await send(token, "POST", `orders/${order.id}/paid`)).status).toBe(404);
         const jobs = await h.db.database.sql`select id from jobs where kind = 'delivery.build'`;
         expect(jobs.length).toBeGreaterThanOrEqual(1);
         const listed = ordersResponseSchema.parse(

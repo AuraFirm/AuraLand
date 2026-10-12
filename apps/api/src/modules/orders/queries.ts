@@ -15,6 +15,7 @@ const orderRowSchema = z.object({
     invoice_reference: z.string().nullable(),
     state: z.enum(["draft", "placed", "cancelled"]),
     placed_at: z.date().nullable(),
+    paid_at: z.date().nullable(),
     created_at: z.date(),
     item_count: z.coerce.number(),
     delivery_id: z.string().nullable(),
@@ -26,7 +27,7 @@ export type OrderRow = z.infer<typeof orderRowSchema>;
 
 const ORDER_COLUMNS = (tx: Transaction) => tx`
     o.id, o.customer_org_id, o.title, o.licence_terms, o.delivery_days, o.invoice_reference, o.state,
-    o.placed_at, o.created_at,
+    o.placed_at, o.paid_at, o.created_at,
     (select count(*) from order_items i where i.order_id = o.id) as item_count,
     d.id as delivery_id, d.state as delivery_state, d.expires_at as delivery_expires_at,
     d.revoked_at as delivery_revoked_at`;
@@ -91,6 +92,10 @@ export async function setOrderInvoice(
     nowMs: number,
 ) {
     await tx`select set_order_invoice(${orderId}, ${reference}, ${new Date(nowMs)})`;
+}
+
+export async function markOrderPaid(tx: Transaction, orderId: string, nowMs: number) {
+    await tx`select mark_order_paid(${orderId}, ${new Date(nowMs)})`;
 }
 
 export async function cancelOrder(tx: Transaction, orderId: string, nowMs: number) {
