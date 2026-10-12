@@ -344,7 +344,17 @@ async function handleBundle(c: Context<AppEnv>, deps: JudgeRouteDeps) {
             work?.bundle_sha256 !== null &&
             work !== null &&
             Buffer.from(work.bundle_sha256 ?? []).toString("hex") === sha.data;
-        return holds ? work.org_id : null;
+        if (!holds) return null;
+        // Every grant of a bundle read is on record: who (which node), what (hash) and for which job.
+        await appendAudit(tx, {
+            actorKind: "worker",
+            actorUserId: null,
+            orgId: work.org_id,
+            action: "bundle.node_download",
+            target: `sha256:${sha.data}`,
+            detail: { node: encodeId("nod", nodeId), job: jobParsed.data },
+        });
+        return work.org_id;
     });
     if (orgId === null) return problemResponse(c, "not_found", "Not found");
     const url = await deps.storage.downloadUrl(
