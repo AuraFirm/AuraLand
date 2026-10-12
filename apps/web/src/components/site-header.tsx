@@ -36,6 +36,9 @@ export function SiteHeader() {
                         <a className="text-accent underline" href="/orgs">
                             Organizations
                         </a>
+                        <a className="text-accent underline" href="/deliveries">
+                            Deliveries
+                        </a>
                         <button
                             type="button"
                             className={`${buttonQuiet} ml-auto`}
