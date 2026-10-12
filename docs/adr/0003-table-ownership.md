@@ -32,6 +32,10 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `submissions` | `modules/submissions` | Source code sent to released task versions and its verdict; owner and organization owners/admins read; created by participants, verdicts written only by the worker role |
 | `verdict_details` | `modules/submissions` | Per-test results of a submission; readable wherever the submission is; written only by the worker role |
 | `judge_nodes` | `modules/judge` | Machines that run untrusted code: name, Ed25519 public key, state; reached only through the worker role; revoking is a platform administrator's function |
+| `orders` | `modules/orders` | A customer organization's purchase of released task versions with licence terms; platform administrators and the customer's owners, admins and buyers read; written only by platform-administrator functions |
+| `order_items` | `modules/orders` | The released task versions in an order; fixed once the order is placed |
+| `deliveries` | `modules/orders` | What was delivered for an order: a manifest with its hash, a watermark id and an expiry; never changes after creation except revocation |
+| `delivery_access` | `modules/orders` | Log of every download link issued for a delivery (who, when, address); append-only |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
