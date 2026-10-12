@@ -363,6 +363,9 @@ describe("bundle downloads", () => {
         expect(ok.status).toBe(302);
         const location = ok.headers.get("location") ?? "";
         expect(h.storage.fetchDownload(location)?.length).toBe(job.task.bundle.bytes);
+        const logged = await h.db.database.sql<{ target: string }[]>`
+            select target from audit_log where action = 'bundle.node_download' and target = ${`sha256:${sha}`}`;
+        expect(logged.length).toBe(1);
         const stranger = await activeNode();
         expect((await call(stranger, "GET", `/bundles/${sha}?job_id=${job.job_id}`)).status).toBe(
             404,
@@ -371,5 +374,9 @@ describe("bundle downloads", () => {
             (await call(node, "GET", `/bundles/${"0".repeat(64)}?job_id=${job.job_id}`)).status,
         ).toBe(404);
         expect((await call(node, "GET", `/bundles/${sha}`)).status).toBe(400);
+        // Refusals leave no entry: only granted reads are logged.
+        const after = await h.db.database
+            .sql`select seq from audit_log where action = 'bundle.node_download'`;
+        expect(after.length).toBe(1);
     });
 });
