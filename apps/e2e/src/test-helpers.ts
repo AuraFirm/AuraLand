@@ -227,3 +227,72 @@ export async function settleLatestSubmission(email: string, verdict: string): Pr
         await database.close(5);
     }
 }
+
+// A delivery to the buyer's organization, built as the worker would build it. The end-to-end
+// environment runs no worker, so this plants a released version, an order and a delivery with a
+// small manifest through the same tables and functions; it exercises the customer screens, not the
+// build. `built: false` leaves the delivery pending. Returns the delivery's public id.
+export async function seedDelivery(buyerEmail: string, built = true): Promise<string> {
+    const url = process.env["AURA_E2E_DATABASE_URL"];
+    if (url === undefined || url === "") throw new Error("AURA_E2E_DATABASE_URL must be set");
+    const database = createDatabase(url, 1);
+    try {
+        const { sql } = database;
+        const slug = randomBytes(4).toString("hex");
+        const [maker] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${`maker-${slug}@example.com`}, now()) returning id`;
+        const [seller] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('company', ${`seller-${slug}`}, 'Seller') returning id`;
+        const [customer] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('ai_lab', ${`lab-${slug}`}, 'Customer Lab') returning id`;
+        const [buyer] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${buyerEmail}, now())
+            on conflict (email) do update set email = excluded.email returning id`;
+        await sql`insert into memberships (org_id, user_id, role) values (${customer?.id ?? ""}, ${buyer?.id ?? ""}, 'buyer')`;
+        const [task] = await sql<{ id: string }[]>`
+            insert into tasks (org_id, slug, kind, visibility, title, created_by)
+            values (${seller?.id ?? ""}, ${`sold-${slug}`}, 'algorithmic', 'private', 'Sum of two numbers', ${maker?.id ?? ""}) returning id`;
+        const bundleHash = createHash("sha256").update(slug).digest();
+        // A second person releases it (no self-release). The guard is switched off only for this one
+        // insert, inside a transaction, so a failure cannot leave it off for the other tests.
+        const [reviewer] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${`reviewer-${slug}@example.com`}, now()) returning id`;
+        const version = await sql.begin(async (tx) => {
+            await tx`alter table task_versions disable trigger task_versions_guard`;
+            const [row] = await tx<{ id: string }[]>`
+                insert into task_versions (org_id, task_id, seq, state, spec, statement, bundle_bytes, bundle_sha256,
+                                           created_by, released_by, released_at, waived, submitted_at)
+                values (${seller?.id ?? ""}, ${task?.id ?? ""}, 1, 'released', '{}'::jsonb, 'Add.', 12, ${bundleHash},
+                        ${maker?.id ?? ""}, ${reviewer?.id ?? ""}, now(), true, now()) returning id`;
+            await tx`alter table task_versions enable trigger task_versions_guard`;
+            return row;
+        });
+        const [order] = await sql<{ id: string }[]>`
+            insert into orders (customer_org_id, title, licence_terms, delivery_days, created_by, created_at, updated_at)
+            values (${customer?.id ?? ""}, 'Evaluation pack', 'Internal use.', 30, ${maker?.id ?? ""}, now(), now()) returning id`;
+        await sql`insert into order_items (order_id, task_version_id, task_org_id, added_at)
+            values (${order?.id ?? ""}, ${version?.id ?? ""}, ${seller?.id ?? ""}, now())`;
+        const [created] = await sql<{ id: string }[]>`
+            with placed as (update orders set state = 'placed', placed_at = now() where id = ${order?.id ?? ""} returning id, customer_org_id)
+            insert into deliveries (order_id, customer_org_id, watermark_id, expires_at, created_at)
+            select id, customer_org_id, ${randomBytes(16).toString("hex")}, now() + interval '30 days', now() from placed
+            returning id`;
+        const deliveryId = created?.id ?? "";
+        if (built) {
+            const manifest = JSON.stringify({
+                items: [
+                    {
+                        task_version_id: `tsv_${version?.id ?? ""}`,
+                        title: "Sum of two numbers",
+                        bundle: { sha256: bundleHash.toString("hex"), bytes: 12 },
+                        validation: "not performed",
+                    },
+                ],
+            });
+            await sql`select complete_delivery(${deliveryId}, ${manifest}, now())`;
+        }
+        return `dlv_${deliveryId}`;
+    } finally {
+        await database.close(5);
+    }
+}
