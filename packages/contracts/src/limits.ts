@@ -122,6 +122,7 @@ export const ORDER_DELIVERY_DAYS_MAX = 365;
 export const DELIVERY_REVOKE_REASON_CHARS_MAX = 500;
 // Download links for delivered bundles live this long; the browser fetches at once.
 export const DELIVERY_LINK_LIFETIME_S = 5 * 60;
+export const DELIVERY_DOWNLOADS_PER_MINUTE_PER_USER_MAX = 30;
 
 // Relationships between limits are checked when the module loads, so a bad edit fails at startup.
 assert(HANDLE_LENGTH_MIN >= 1 && HANDLE_LENGTH_MIN < HANDLE_LENGTH_MAX, "handle length bounds");

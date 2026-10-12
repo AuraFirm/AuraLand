@@ -87,3 +87,29 @@ export function buildManifest(
     });
     return { text, sha256Hex: sha256Hex(text) };
 }
+
+export type DeliveryState = "pending" | "ready" | "revoked";
+export type DeliveryStatus = DeliveryState | "expired";
+
+// What a customer is told. Expiry is derived from the clock, so nothing has to write at expiry time.
+export function deliveryStatus(
+    state: DeliveryState,
+    expiresAtMs: number,
+    nowMs: number,
+): DeliveryStatus {
+    assert(Number.isFinite(expiresAtMs) && Number.isFinite(nowMs), "times are finite numbers");
+    if (state === "ready" && expiresAtMs <= nowMs) return "expired";
+    return state;
+}
+
+// The part of a stored manifest the portal shows; the manifest itself is the source of truth.
+export const manifestSummarySchema = z.object({
+    items: z.array(
+        z.object({
+            task_version_id: z.string(),
+            title: z.string(),
+            bundle: z.object({ sha256: z.string(), bytes: z.number() }),
+            validation: z.string(),
+        }),
+    ),
+});
