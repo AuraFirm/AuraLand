@@ -16,6 +16,7 @@ import {
     cleanupExpired,
     type HandlerContext,
 } from "./modules/maintenance/handlers.ts";
+import { buildDelivery, DELIVERY_BUILD_KIND } from "./modules/orders/handlers.ts";
 import type { Clock } from "./platform/clock.ts";
 import type { Logger } from "./platform/log.ts";
 import type { Rng } from "./platform/rng.ts";
@@ -42,6 +43,7 @@ export function maintenanceHandlers(): Map<string, Handler> {
     return new Map<string, Handler>([
         [CLEANUP_KIND, (_job, context) => cleanupExpired(context)],
         [ABORT_UPLOADS_KIND, (_job, context) => abortExpiredUploads(context)],
+        [DELIVERY_BUILD_KIND, (job, context) => buildDelivery(job.payload, context)],
     ]);
 }
 
