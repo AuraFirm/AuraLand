@@ -91,3 +91,11 @@ First paying customer's contract terms (licence wording, expiry, invoicing detai
 ## 8. Open questions
 Section 2. Anything you answer differently changes slices 1 to 3 (customer model, manifest, watermark
 placement).
+
+## 9. Implementation log (4A)
+Approved with all defaults. Built as pull requests #48 to #56 (see `stage-4a-report.md`). Differences
+from this plan: the manifest builder takes its hash function as a parameter (the rules file may not
+import `node:crypto`); `BillingPort` grew a payment record on the order (`paid_at`) so the manual
+adapter has something true to report; assignments and comments needed a role-aware rewrite of the task
+policies (migration 0024) that is larger than slice 7 suggested; slice 7 was split into 7a (assignments),
+7b (bundle read log) and 7c (comments).
