@@ -1,6 +1,10 @@
 package isolate
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/AuraFirm/AuraLand/judge/internal/sandbox"
+)
 
 // Profile says how to build and run one language. Profiles are data, versioned with the agent; adding
 // a language is adding a profile and its tests, never new control flow.
@@ -15,10 +19,27 @@ type Profile struct {
 	CompileProcesses int
 	RunProcesses     int
 	Environment      []string
-	Version          string
+	// Directories are read-only host paths made visible at the same path in the box.
+	Directories []string
+	Version     string
 }
 
+// NodeRoot is where the node operator installs the pinned Node used to open bundles. Only that tree is
+// visible in the box, read-only.
+const NodeRoot = "/opt/aura/node"
+
 var profiles = map[string]Profile{
+	// The bundle opener (Stage 4B): the TypeScript validator, built into one file, run by a pinned Node.
+	// Not a language a participant can pick: judge.Run refuses sandbox.OpenerLanguage.
+	sandbox.OpenerLanguage: {
+		Language:     sandbox.OpenerLanguage,
+		SourceName:   "main.cjs",
+		Run:          []string{NodeRoot + "/bin/node", "--max-old-space-size=768", "main.cjs"},
+		RunProcesses: 32, // Node starts several helper threads; a process limit of 1 would kill it.
+		Environment:  []string{"PATH=/usr/bin:/bin", "LANG=C"},
+		Directories:  []string{NodeRoot},
+		Version:      "opener-1",
+	},
 	"cpp": {
 		Language:         "cpp",
 		SourceName:       "main.cpp",

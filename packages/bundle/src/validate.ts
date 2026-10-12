@@ -155,7 +155,18 @@ function describe(entries: readonly TarEntry[]): ValidatedFile[] {
     }));
 }
 
+// The validated bundle together with the bytes of every file, for the node-side opener only.
+export interface OpenedBundle {
+    readonly bundle: ValidatedBundle;
+    readonly contents: ReadonlyMap<string, Uint8Array>;
+}
+
 export function validateBundle(packed: Uint8Array): BundleResult<ValidatedBundle> {
+    const opened = openBundle(packed);
+    return opened.ok ? succeed(opened.value.bundle) : opened;
+}
+
+export function openBundle(packed: Uint8Array): BundleResult<OpenedBundle> {
     const tar = unpack(packed);
     if (!tar.ok) return tar;
     const read = readTar(tar.value, {
@@ -171,11 +182,12 @@ export function validateBundle(packed: Uint8Array): BundleResult<ValidatedBundle
     if (!statement.ok) return statement;
     const layout = checkLayout(files, spec.value);
     if (!layout.ok) return layout;
-    return succeed({
+    const bundle = {
         spec: spec.value,
         statement: statement.value,
         files: describe(read.value),
         tarSha256: sha256(tar.value),
         tarBytes: tar.value.length,
-    });
+    };
+    return succeed({ bundle, contents: files });
 }

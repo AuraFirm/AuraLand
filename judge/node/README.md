@@ -21,6 +21,11 @@ production node. Treat anything not listed under "Verified" as unverified, and s
   bomb, was compiled into a loop and never touched the stack; it was rewritten.
 - Positive controls: each of the ten containment probes exits 3 ("escaped") when run unconfined as root
   on the same machine and 0 inside the box, so a pass means contained, not broken.
+- Bundle opener (4B slice 1): pinned Node v24.21.0 (linux-arm64 tarball, SHA-256 checked against
+  nodejs.org's SHASUMS256) unpacked to `/opt/aura/node`; `node tools/build-opener.ts` builds the opener
+  (`packages/bundle/dist/open-bundle.cjs`); `AURA_ISOLATE_BIN=/usr/local/bin/isolate go test -tags isolate
+  ./internal/bundles` passed: a good bundle opened, and the 300 MiB zip bomb, a symlink entry, a missing
+  statement and a badly named solution were refused with the validator's own codes, all from inside a box.
 - Not covered: x86 hardware, KVM, SMT/governor/swap baseline (step 5), the agent as a service (step 3),
   anything an external reviewer would add.
 
@@ -56,6 +61,13 @@ sudo install -d -o aura-judge -m 0700 /etc/aura /var/lib/aura-judge
 Enroll once with a token from an administrator (`docs/runbooks/judge.md` section 3), then install
 `aura-judge.service` from this folder (hardened unit: no new privileges, read-only system, private
 tmp, restricted address families, no capabilities beyond what the isolate helper itself needs).
+
+## 3b. Node for the bundle opener
+The agent opens task bundles with the TypeScript validator under a pinned Node, inside a box. Install the
+Node 24 tarball for your architecture from nodejs.org, check its SHA-256 against `SHASUMS256.txt`, and
+unpack it to `/opt/aura/node` (root-owned; the box sees only that tree, read-only). Build the opener on a
+development machine with `pnpm build:opener` and install `packages/bundle/dist/open-bundle.cjs` next to the
+agent. Run `go test -tags isolate ./internal/bundles` after the escape suite.
 
 ## 4. The escape suite (must pass before the node takes work)
 ```
