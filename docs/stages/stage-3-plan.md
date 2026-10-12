@@ -189,3 +189,7 @@ storage outage during bundle fetch; oversized or malformed result; node reports 
   described as ours, and the person's earlier submissions. The browser test submits as a plain member;
   because the end-to-end environment has no judge node, the test settles the submission in the database
   to exercise the panel. This tests the screen, not judging.
+- **Slice 8:** hardening and report: threat model v3 (including what is not claimed), ASVS mapping for V4
+  and V12 (28 requirements), judge runbook, cutlist F29 to F39, `stage-3-report.md`. The `task.validate`
+  job and the agent's bundle opener were *not* built: both need a sandbox that can only run on Linux
+  (F30, F31). 100,000 `jobs` simulation seeds run locally.

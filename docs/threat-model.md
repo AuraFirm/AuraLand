@@ -131,6 +131,43 @@ organization removes its tasks and versions in the database (cascade) except rel
 trigger protects from person-initiated deletes; object deletion on organization removal is a worker job
 (F24).
 
+## STRIDE for the Stage 3 surface (queue, submissions, judge nodes, v3)
+New trust boundaries: **a judge node is a machine that runs hostile code** and talks to us; participants
+send source code to be run; the queue connects the API, workers and nodes; the worker role holds
+privileges the application role does not.
+
+| Threat | Surface | Control | Evidence |
+|---|---|---|---|
+| **Spoofing**: pretend to be a judge node | `/judge/v1` | Enrollment needs a single-use 256-bit token that only a platform administrator (with a fresh passkey check) can create and that expires in an hour; afterwards every request is an Ed25519 signature over method, path and query, timestamp, single-use nonce and body hash; every failure is the same bare 401 | `http-judge.test.ts`, `signing.test.ts`, Go `sign_test.go` (shared vector) |
+| Spoofing: replay a captured request | Node requests | Timestamps within 60 s, nonces spent in their own committed transaction (a failed request cannot be replayed either), nonces kept 10 minutes | `http-judge.test.ts` (replays, 4xx replays) |
+| Spoofing: a revoked or draining node keeps working | Node state | Revocation is checked on every request; only `active` nodes lease; a failing self-test drains | `http-judge.test.ts`, `http-judge-jobs.test.ts` |
+| **Tampering**: a node forges a result | Complete | The control plane, not the node, computes the verdict from the spec and the per-test results (`summarize`); impossible reports (unknown or duplicate tests, results after a failure) are refused and the job goes to another node; a system error is never shown as a verdict | `rules.test.ts`, `http-judge-jobs.test.ts` |
+| Tampering: a slow or presumed-dead node overwrites a newer result | Fencing | Every heartbeat, result and failure carries the lease epoch and is applied in the same statement that checks it; the old node gets 409 and discards its work | `jobs` simulation (100,000 seeds), equivalence and race tests, `http-judge-jobs.test.ts` |
+| Tampering: edit a finished submission or job | Database | Triggers: finished submissions and jobs never change; source, owner, task and language are fixed; verdict exactly when judged | `http-submissions.test.ts`, `job-store.equivalence.test.ts` |
+| **Information disclosure**: hidden tests or jury answers reach a participant | Submission reads | Responses carry the participant's own source, verdict, score and per-test (id, verdict, time, memory) only; checker messages are stored with control characters stripped and never returned; the bundle goes only to the node holding the lease, through a 5-minute attachment URL | `http-judge-jobs.test.ts`, `http-task-hidden.test.ts` |
+| Disclosure: another person's submission | Submission reads | Row-level security: owner and organization owners/admins only; strangers get 404 | `http-submissions.test.ts`, authorization matrix |
+| **Denial of service**: flood submissions | Create | 6 a minute per person per task, 256 KiB source, load shedding at 1,000 ready jobs (503 with `Retry-After`, nothing left behind) | `http-submissions.test.ts` |
+| DoS: poison submission crashing every node | Queue | Attempts are bounded (5) with exponential backoff, then the job is dead and the submission `failed_system` (not the participant's verdict); an alert on dead jobs is still to be built (F39) | `jobs` simulation, `http-judge-jobs.test.ts` |
+| DoS: long polls exhausting the database | Lease | A waiting lease is a series of short looks, never an open transaction | `job-routes.ts` |
+| **Elevation**: code escapes its sandbox | Judge node | Execution only through the `Sandbox` interface; isolate with cgroup v2, no network, process/memory/time/file limits, fresh box per test; a 15-program escape suite. **Designed and unit-tested at the pure level only; not run in a sandbox yet** | `internal/isolate` tests; F32 |
+| Elevation: a compromised node reaches the control plane | Node identity | The node holds only its own key; the worker role behind the API can read job and submission rows, the spec and bundle columns of task versions, and append worker-kind audit entries; it cannot read statements, users, sessions or keys; a node cannot act as a person | migrations 0015, 0019; `rls-matrix.test.ts` |
+| Elevation: housekeeping functions | `SECURITY DEFINER` | Bounded deletes, executable only by the worker role; they run as the table owner, which must be able to bypass row-level security in production (F29) | `cleanup.test.ts` |
+| Supply chain: Go agent | Dependencies | Standard library only; CI pins the Go toolchain action by commit | `judge/go.mod`, `ci.yml` |
+
+**What is not claimed.** No untrusted code has run anywhere in this stage. The isolate driver has
+never run; the escape suite has never run; nothing here has had the external sandbox review the kit
+requires before public use. Until a Linux judge node passes the suite and the review is done, the judge
+must not be used with real participants. The bundle is unpacked by nobody yet: the agent's bundle opener
+(download by hash, verify, strict unpack inside a box) and the `task.validate` job are not built (F30,
+F31).
+
+## Privacy review (Stage 3)
+New personal data: participants' source code (stored in PostgreSQL for as long as the account exists),
+verdicts and per-test timings. Not collected: anything from the machine that ran the code. Participants
+can read their own submissions; organization owners and admins can read those made in their
+organization. Deletion of an account does not yet remove submissions (the purge arrives with the
+deletion job, F24). Judge nodes see source code and test data for the jobs they lease and nothing else.
+
 ## v0 rows (Stage 0, unchanged)
 | Threat | Surface | Control | Evidence |
 |---|---|---|---|
