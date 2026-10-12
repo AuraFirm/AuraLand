@@ -43,4 +43,10 @@ Nothing here blocks Stage 1 or Stage 2. Ranked by how much it matters; "owner" i
 | F37 | Re-run borderline CPU times up to three times and take the median (kit 4.3) | Needs real timings | engineering |
 | F38 | Contest, exam and Arena submission contexts | Later stages | engineering |
 | F39 | Alerts and dashboards: dead jobs, lease-expiry spikes, node canary failures, queue depth | No deployment, no metrics stack (F1) | engineering |
-
+| F40 | Write the data classification with protection requirements per level, and the logging inventory (ASVS V14.1.x, V16.1.1); ship logs to a separate system (V16.4.3) | Documentation and deployment work; needs the deployment (F1) | security review |
+| F41 | Stage 4B: validation job, mutation testing, difficulty calibration, attacker-agent runs, `ungameability_score`, and test-data watermarks with a proof that verdicts stay equal | Needs the sandbox gate (F32) and the bundle opener (F31) | engineering |
+| F42 | A delivery whose ordered version was retired before the manifest was built never finishes (the build refuses a missing version and the job dies after its attempts); an alert and an administrator action to rebuild or amend are missing | Rare; the failure is loud (dead job) but has no screen (F39) | engineering |
+| F43 | Pages for platform administrators (orders, deliveries, payouts, assignments across tasks); today these are API-only | The first customers are served by staff with the API; a screen is not needed to prove the flow | engineering |
+| F44 | A payment provider adapter behind `BillingPort` (invoices, webhooks) and tax handling | Needs the legal entity (D1) and a provider account | founder |
+| F45 | Remove a person's assignments and comment rights when they leave the organization or change role (today a former setter's assignment row remains but their organization role no longer matches the policy, so access ends; the row is stale) | Harmless for access, untidy for audit | engineering |
+| F46 | Download links for delivered bundles are not bound to the requesting address and live five minutes; consider binding and a per-delivery download count limit | Needs customer feedback on real use | engineering |

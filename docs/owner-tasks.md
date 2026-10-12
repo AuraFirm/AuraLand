@@ -12,7 +12,8 @@ whole class of work until it is done.
 | 1 Identity, tenancy, audit | Approved (2026-10-10) |
 | 2 Tasks and bundles | Approved (2026-10-11) |
 | 3 Queue, submissions, judge | **Built, awaiting your review.** The sandbox has never been run (section 1) |
-| 4 Forge v0 (kit) | Not started; I will not start it before the Stage 3 gate in section 1 is understood and you decide |
+| 4A Forge v0 without the sandbox | **Built, awaiting your review** (`stages/stage-4a-report.md`) |
+| 4B Forge v0 validation | Not started; needs the sandbox gate in section 1 |
 
 ## 1. Stage 3: review, sign-off and the sandbox gate (**BLOCKS** any real use of the judge)
 ### 1.1 Review and sign off (about half a day)
@@ -58,7 +59,8 @@ README). Steps:
 |---|---|---|
 | Single-factor email sign-in (ASVS V6.3.3, V6.3.6) | Enterprise customers may require MFA for everyone | Keep for now; passkey step-up guards every powerful action |
 | Stage 3 delegated decisions (ADR 0027) | You delegated them; they are mine to defend, yours to overrule | See the ADR |
-| Start Stage 4 (Forge v0) | It needs the sandbox gate for validation and calibration | Wait for section 1.2 |
+| Start Stage 4B (validation, calibration, attacker runs) | It needs the sandbox gate | Wait for section 1.2 |
+| Look for a first customer before 4B | Packs can be delivered, labeled "not validated" | Your call; the methodology page says what is true |
 | Waived releases may stay until re-validation exists | Stage 2 decision 5 | Yes; re-validate when F30 is built |
 | Raising the bundle cap from 64 MiB to 512 MiB | Needs the worker to hash off-request | Later (F25) |
 

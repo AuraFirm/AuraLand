@@ -11,4 +11,6 @@ Open items are in [../cutlist.md](../cutlist.md); your manual tasks are the chec
 
 **Stage 3 — Job queue, submissions, judge: all slices merged; report awaiting your review.** Plan: [stage-3-plan.md](stage-3-plan.md). Report: [stage-3-report.md](stage-3-report.md). **The sandbox has never been run: no real use of the judge before the Linux node gate (cutlist F32).**
 
+**Stage 4A — Forge v0 without the sandbox: all slices built, report awaiting your review.** Plan: [stage-4-plan.md](stage-4-plan.md). Report: [stage-4a-report.md](stage-4a-report.md). 4B (validation) waits for the sandbox gate.
+
 **What only you can do, with steps: [../owner-tasks.md](../owner-tasks.md).**
