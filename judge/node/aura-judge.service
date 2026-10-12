@@ -1,0 +1,26 @@
+# Systemd unit for the judge agent (UNVERIFIED). The agent itself never runs submitted code; the isolate
+# helper does. Keep this unit as locked down as the isolate helper permits.
+[Unit]
+Description=Aura judge agent
+After=network-online.target isolate.service
+Wants=network-online.target
+Requires=isolate.service
+
+[Service]
+User=aura-judge
+Group=aura-judge
+ExecStart=/usr/local/bin/aura-judge run --control-plane https://CONTROL-PLANE/api/judge/v1 --node-id NODE-ID --key-file /etc/aura/node.key
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=false
+# isolate is setuid; NoNewPrivileges must stay false until the reviewer confirms delegation-only mode.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/aura-judge /var/local/lib/isolate /run/isolate
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LimitNOFILE=4096
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target
