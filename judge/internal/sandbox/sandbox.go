@@ -5,6 +5,10 @@ package sandbox
 
 import "context"
 
+// OpenerLanguage names the profile that opens task bundles. It is an internal program, never a language
+// a submission may use; the judge refuses it as a submission language.
+const OpenerLanguage = "bundle-opener"
+
 // Limits are the resources one run may use. A zero value is never valid.
 type Limits struct {
 	CPUMS     int

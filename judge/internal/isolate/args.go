@@ -28,7 +28,7 @@ const BoxIDMax = 999
 // fileKiB is the largest file the program may write. A run passes its output limit; a compile passes
 // CompileFileKiBMax, because a linker writes the whole program and a 64 KiB cap would kill it. An
 // empty stderr merges standard error into standard output (compiler diagnostics are on stderr).
-func RunArgs(boxID int, limits sandbox.Limits, fileKiB, processes int, metaPath, stdin, stdout, stderr string, environment, command []string) ([]string, error) {
+func RunArgs(boxID int, limits sandbox.Limits, fileKiB, processes int, metaPath, stdin, stdout, stderr string, environment, directories, command []string) ([]string, error) {
 	if boxID < 0 || boxID > BoxIDMax {
 		return nil, fmt.Errorf("box id %d out of range", boxID)
 	}
@@ -60,6 +60,10 @@ func RunArgs(boxID int, limits sandbox.Limits, fileKiB, processes int, metaPath,
 	}
 	for _, entry := range environment {
 		args = append(args, "--env="+entry)
+	}
+	for _, directory := range directories {
+		// Read-only by isolate's default: no ":rw" is ever added, so a profile cannot ask for a writable mount.
+		args = append(args, "--dir="+directory)
 	}
 	args = append(args, "--run", "--")
 	return append(args, command...), nil

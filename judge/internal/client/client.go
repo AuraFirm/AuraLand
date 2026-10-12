@@ -24,6 +24,9 @@ const ResponseBytesMax = 8 << 20
 
 // ErrStaleLease means the control plane no longer considers this node the holder of the job (HTTP 409):
 // the node must stop working on it and discard its result.
+// BundleBytesMax is the control plane's bundle cap (packages/contracts/src/limits.ts BUNDLE_BYTES_MAX).
+const BundleBytesMax = 64 << 20
+
 var ErrStaleLease = errors.New("the lease is no longer ours")
 
 // Error is any other refusal.
@@ -66,16 +69,9 @@ func (c *Client) do(ctx context.Context, method, path string, signed bool, body 
 	}
 	request.Header.Set("Content-Type", "application/json")
 	if signed {
-		nonce := make([]byte, 18)
-		if _, err := rand.Read(nonce); err != nil {
+		if err := c.signRequest(request, method, target, payload); err != nil {
 			return nil, nil, err
 		}
-		timestamp := c.now().UnixMilli()
-		nonceText := sign.Encode(nonce)
-		request.Header.Set(wire.HeaderNode, c.nodeID)
-		request.Header.Set(wire.HeaderTimestamp, fmt.Sprint(timestamp))
-		request.Header.Set(wire.HeaderNonce, nonceText)
-		request.Header.Set(wire.HeaderSignature, sign.Sign(c.key, method, target, timestamp, nonceText, payload))
 	}
 	response, err := c.http.Do(request)
 	if err != nil {
@@ -98,6 +94,20 @@ func (c *Client) do(ctx context.Context, method, path string, signed bool, body 
 		}
 	}
 	return response, data, nil
+}
+
+func (c *Client) signRequest(request *http.Request, method, target string, payload []byte) error {
+	nonce := make([]byte, 18)
+	if _, err := rand.Read(nonce); err != nil {
+		return err
+	}
+	timestamp := c.now().UnixMilli()
+	nonceText := sign.Encode(nonce)
+	request.Header.Set(wire.HeaderNode, c.nodeID)
+	request.Header.Set(wire.HeaderTimestamp, fmt.Sprint(timestamp))
+	request.Header.Set(wire.HeaderNonce, nonceText)
+	request.Header.Set(wire.HeaderSignature, sign.Sign(c.key, method, target, timestamp, nonceText, payload))
+	return nil
 }
 
 func truncate(text string, max int) string {
@@ -151,4 +161,56 @@ func (c *Client) Fail(ctx context.Context, jobID string, epoch int, reason strin
 	var out wire.Accepted
 	_, _, err := c.do(ctx, http.MethodPost, "/jobs/"+jobID+"/fail", true, wire.FailRequest{LeaseEpoch: epoch, Error: truncate(reason, 2000), Retryable: retryable}, &out)
 	return staleOr(err)
+}
+
+// FetchBundle downloads the packed bundle of a leased job. The control plane answers the signed request
+// with a short-lived storage URL (302); the node's signature goes only to the control plane, never to
+// storage, and neither request follows a redirect on its own. The result is at most want.Bytes long;
+// the caller still checks its SHA-256.
+func (c *Client) FetchBundle(ctx context.Context, jobID string, want wire.Bundle) ([]byte, error) {
+	if want.Bytes <= 0 || want.Bytes > BundleBytesMax {
+		return nil, fmt.Errorf("bundle size %d is outside 1..%d", want.Bytes, BundleBytesMax)
+	}
+	target := c.base.Path + "/bundles/" + want.SHA256 + "?job_id=" + url.QueryEscape(jobID)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base.Scheme+"://"+c.base.Host+target, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.signRequest(request, http.MethodGet, target, nil); err != nil {
+		return nil, err
+	}
+	noRedirect := *c.http
+	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	redirect, err := noRedirect.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	redirect.Body.Close()
+	if redirect.StatusCode == http.StatusConflict {
+		return nil, ErrStaleLease
+	}
+	location, err := redirect.Location()
+	if redirect.StatusCode != http.StatusFound || err != nil {
+		return nil, &Error{Status: redirect.StatusCode, Body: "no storage address for the bundle"}
+	}
+	download, err := http.NewRequestWithContext(ctx, http.MethodGet, location.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	response, err := noRedirect.Do(download)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, &Error{Status: response.StatusCode, Body: "storage refused the bundle download"}
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, want.Bytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > want.Bytes {
+		return nil, errors.New("bundle is larger than the job says")
+	}
+	return data, nil
 }

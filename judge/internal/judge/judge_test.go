@@ -147,3 +147,16 @@ func TestCompare(t *testing.T) {
 		t.Error("custom checkers are not built in")
 	}
 }
+
+// The bundle opener is a program of this node, not a language: a submission naming it must not run.
+func TestTheOpenerIsNotASubmissionLanguage(t *testing.T) {
+	box := &sandbox.Fake{}
+	attempt := job("binary", "exact", "1")
+	attempt.Submission.Language = sandbox.OpenerLanguage
+	if _, err := Run(context.Background(), box, data, attempt); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("got %v", err)
+	}
+	if box.Compiles != 0 || box.Runs != 0 {
+		t.Fatal("nothing may reach the sandbox")
+	}
+}

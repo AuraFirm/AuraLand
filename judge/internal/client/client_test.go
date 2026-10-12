@@ -132,3 +132,33 @@ func TestEveryRequestUsesAFreshNonce(t *testing.T) {
 type roundTrip func(*http.Request) (*http.Response, error)
 
 func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// Goal: the bundle download signs only the request to the control plane, follows the storage address
+// by hand, and never accepts more bytes than the job announced. Method: a control plane that verifies
+// the signature and redirects to a second server that must see no node headers.
+func TestFetchBundleSendsTheSignatureOnlyToTheControlPlane(t *testing.T) {
+	public, private := keys(t)
+	storage := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(wire.HeaderSignature) != "" || r.Header.Get(wire.HeaderNode) != "" {
+			t.Error("the node's signature must never reach storage")
+		}
+		w.Write([]byte("0123456789"))
+	}))
+	defer storage.Close()
+	plane := verifying(t, public, func(w http.ResponseWriter, _ []byte) {
+		w.Header().Set("Location", storage.URL+"/object?sig=x")
+		w.WriteHeader(http.StatusFound)
+	})
+	defer plane.Close()
+	c, _ := New(plane.URL+"/api/judge/v1", "nod_test", private, plane.Client(), time.Now)
+	data, err := c.FetchBundle(context.Background(), "job_x", wire.Bundle{SHA256: "ab", Bytes: 10})
+	if err != nil || string(data) != "0123456789" {
+		t.Fatalf("%q %v", data, err)
+	}
+	if _, err := c.FetchBundle(context.Background(), "job_x", wire.Bundle{SHA256: "ab", Bytes: 9}); err == nil {
+		t.Fatal("a body larger than announced must be refused")
+	}
+	if _, err := c.FetchBundle(context.Background(), "job_x", wire.Bundle{SHA256: "ab", Bytes: 0}); err == nil {
+		t.Fatal("a zero size must be refused")
+	}
+}

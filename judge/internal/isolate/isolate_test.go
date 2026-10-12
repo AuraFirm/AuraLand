@@ -78,7 +78,7 @@ func TestVerdictMapping(t *testing.T) {
 }
 
 func TestRunArgumentsAlwaysIsolate(t *testing.T) {
-	args, err := RunArgs(7, limits, limits.OutputKiB, 1, "/box/meta", "/box/in", "/box/out", "/box/err", []string{"PATH=/usr/bin"}, []string{"./main"})
+	args, err := RunArgs(7, limits, limits.OutputKiB, 1, "/box/meta", "/box/in", "/box/out", "/box/err", []string{"PATH=/usr/bin"}, nil, []string{"./main"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestRunArgumentsAlwaysIsolate(t *testing.T) {
 			t.Errorf("missing %s in %v", required, args)
 		}
 	}
-	merged, err := RunArgs(7, limits, CompileFileKiBMax, 16, "/box/meta", "/box/in", "/box/out", "", nil, []string{"g++"})
+	merged, err := RunArgs(7, limits, CompileFileKiBMax, 16, "/box/meta", "/box/in", "/box/out", "", nil, nil, []string{"g++"})
 	if err != nil || !slices.Contains(merged, "--stderr-to-stdout") || !slices.Contains(merged, "--fsize=32768") {
 		t.Errorf("a compile merges stderr and may write a program: %v %v", merged, err)
 	}
@@ -105,16 +105,16 @@ func TestRunArgumentsAlwaysIsolate(t *testing.T) {
 }
 
 func TestBadArgumentsAreRefused(t *testing.T) {
-	if _, err := RunArgs(-1, limits, 1, 1, "m", "i", "o", "e", nil, []string{"x"}); err == nil {
+	if _, err := RunArgs(-1, limits, 1, 1, "m", "i", "o", "e", nil, nil, []string{"x"}); err == nil {
 		t.Error("negative box id")
 	}
-	if _, err := RunArgs(BoxIDMax+1, limits, 1, 1, "m", "i", "o", "e", nil, []string{"x"}); err == nil {
+	if _, err := RunArgs(BoxIDMax+1, limits, 1, 1, "m", "i", "o", "e", nil, nil, []string{"x"}); err == nil {
 		t.Error("box id too large")
 	}
-	if _, err := RunArgs(1, sandbox.Limits{}, 1, 1, "m", "i", "o", "e", nil, []string{"x"}); err == nil {
+	if _, err := RunArgs(1, sandbox.Limits{}, 1, 1, "m", "i", "o", "e", nil, nil, []string{"x"}); err == nil {
 		t.Error("zero limits must never mean unlimited")
 	}
-	if _, err := RunArgs(1, limits, 1, 0, "m", "i", "o", "e", nil, nil); err == nil {
+	if _, err := RunArgs(1, limits, 1, 0, "m", "i", "o", "e", nil, nil, nil); err == nil {
 		t.Error("no processes / no command")
 	}
 }
@@ -134,6 +134,25 @@ func TestProfiles(t *testing.T) {
 	for _, p := range []Profile{cpp, python} {
 		if !slices.ContainsFunc(p.Environment, func(e string) bool { return strings.HasPrefix(e, "PATH=") }) {
 			t.Errorf("%s: the environment is explicit", p.Language)
+		}
+	}
+}
+
+// Mounts are read-only and only a profile can ask for one: submissions have none, the opener has Node.
+func TestDirectoriesAreMountedReadOnlyAndOnlyForTheOpener(t *testing.T) {
+	args, err := RunArgs(1, limits, 1024, 32, "m", "i", "o", "e", nil, []string{NodeRoot}, []string{"node"})
+	if err != nil || !slices.Contains(args, "--dir="+NodeRoot) {
+		t.Fatalf("%v %v", args, err)
+	}
+	for _, arg := range args {
+		if strings.Contains(arg, ":rw") {
+			t.Errorf("a mount must never be writable: %s", arg)
+		}
+	}
+	for _, language := range []string{"cpp", "python3"} {
+		profile, err := ProfileFor(language)
+		if err != nil || len(profile.Directories) != 0 {
+			t.Errorf("%s must have no extra mounts: %+v %v", language, profile, err)
 		}
 	}
 }

@@ -133,7 +133,7 @@ func (d *boxDir) execute(ctx context.Context, profile Profile, limits sandbox.Li
 		// Compiler diagnostics are the participant's compile error: merge them and keep only a bounded part.
 		fileKiB, processes, stderrFile, outputCapBytes = CompileFileKiBMax, profile.CompileProcesses, "", compileMessageBytesMax
 	}
-	args, err := RunArgs(d.id, limits, fileKiB, processes, metaFile, "stdin", "stdout", stderrFile, profile.Environment, command)
+	args, err := RunArgs(d.id, limits, fileKiB, processes, metaFile, "stdin", "stdout", stderrFile, profile.Environment, profile.Directories, command)
 	if err != nil {
 		return Meta{}, nil, err
 	}
