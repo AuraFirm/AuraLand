@@ -33,6 +33,10 @@ export const BUNDLE_BYTES_MAX = 64 * 1024 * 1024;
 
 // Matches docs/kit/07 section 7: more entries than this is a bomb or a mistake, not a task.
 export const BUNDLE_ENTRIES_MAX = 5_000;
+
+// Validation (Stage 4B) runs each wrong solution in a box against every test; twenty keeps one
+// validation job to a bounded number of runs while still covering the usual wrong-answer families.
+export const BUNDLE_WRONG_SOLUTIONS_MAX = 20;
 export const BUNDLE_TEST_FILE_BYTES_MAX = 64 * 1024 * 1024;
 
 // Decompressed size over compressed size; above this an archive is treated as a bomb.

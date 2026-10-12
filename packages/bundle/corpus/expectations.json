@@ -347,6 +347,22 @@
         "expect": "bad_statement",
         "compressed": true
     },
+    "layout-solution-badname.tar.zst": {
+        "expect": "unexpected_file",
+        "compressed": true
+    },
+    "layout-solution-language.tar.zst": {
+        "expect": "unexpected_file",
+        "compressed": true
+    },
+    "layout-two-references.tar.zst": {
+        "expect": "unexpected_file",
+        "compressed": true
+    },
+    "layout-too-many-wrong-solutions.tar.zst": {
+        "expect": "unexpected_file",
+        "compressed": true
+    },
     "tar-golden-with-symlink-first.tar.zst": {
         "expect": "unsupported_entry",
         "compressed": true

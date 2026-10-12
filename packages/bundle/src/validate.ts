@@ -8,6 +8,7 @@ import {
     BUNDLE_RATIO_FLOOR_BYTES,
     BUNDLE_TEST_FILE_BYTES_MAX,
     BUNDLE_UNCOMPRESSED_BYTES_MAX,
+    BUNDLE_WRONG_SOLUTIONS_MAX,
     SPEC_FILE_BYTES_MAX,
     STATEMENT_BYTES_MAX,
 } from "@aura/contracts/limits";
@@ -72,7 +73,10 @@ function unpack(packed: Uint8Array): BundleResult<Uint8Array> {
 const TEST_FILE = /^tests\/([A-Za-z0-9][A-Za-z0-9_.-]*)\.(in|ans)$/;
 // Parts of the layout that are optional and free-form below their directory (docs/kit/07 section 7).
 // statement/assets and env/ are not accepted yet: images and Tier-2 environments arrive later.
-const FREE_FORM = /^(samples|solutions|generators|validator)\/[^/]+$/;
+const FREE_FORM = /^(samples|generators|validator)\/[^/]+$/;
+// Validation needs to tell the reference from the wrong solutions without reading them, so the names
+// carry the meaning (ADR 0029): one reference, and wrong_<name> files, in a language we can run.
+const SOLUTION_FILE = /^solutions\/(reference|wrong_[A-Za-z0-9][A-Za-z0-9_-]*)\.(cpp|py)$/;
 const STATEMENT_FILE = /^statement\/[a-z]{2}\.md$/;
 const CHECKER_FILE = /^checker\/(checker\.cpp|checker\.py)$/;
 
@@ -86,6 +90,8 @@ function checkLayout(files: ReadonlyMap<string, Uint8Array>, spec: TaskSpec): Bu
     }
     const customChecker = spec.checker.type === "custom";
     let checkerFiles = 0;
+    let referenceFiles = 0;
+    let wrongSolutions = 0;
     for (const path of files.keys()) {
         if (TEST_FILE.test(path)) {
             if (!wanted.has(path)) return fail("unexpected_file", `${path} is not in the spec`);
@@ -93,9 +99,19 @@ function checkLayout(files: ReadonlyMap<string, Uint8Array>, spec: TaskSpec): Bu
             checkerFiles++;
             if (!customChecker)
                 return fail("unexpected_file", `${path} but the checker is built in`);
+        } else if (path.startsWith("solutions/")) {
+            const stem = SOLUTION_FILE.exec(path)?.[1];
+            if (stem === undefined)
+                return fail("unexpected_file", `${path} is not reference or wrong_*`);
+            if (stem !== "reference") wrongSolutions++;
+            else referenceFiles++;
         } else if (path !== "task.json" && !STATEMENT_FILE.test(path) && !FREE_FORM.test(path)) {
             return fail("unexpected_file", path);
         }
+    }
+    if (referenceFiles > 1) return fail("unexpected_file", "solutions/reference in two languages");
+    if (wrongSolutions > BUNDLE_WRONG_SOLUTIONS_MAX) {
+        return fail("unexpected_file", `more than ${BUNDLE_WRONG_SOLUTIONS_MAX} wrong solutions`);
     }
     if (customChecker && checkerFiles !== 1) return fail("missing_file", "checker/checker.cpp|py");
     return succeed(null);
