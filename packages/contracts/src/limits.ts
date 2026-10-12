@@ -120,6 +120,10 @@ export const ORDER_TERMS_CHARS_MAX = 4_000;
 export const ORDER_INVOICE_CHARS_MAX = 200;
 export const ORDER_DELIVERY_DAYS_MAX = 365;
 export const DELIVERY_REVOKE_REASON_CHARS_MAX = 500;
+// Comments on versions: characters per comment and per-person rate (a conversation, not a firehose).
+export const COMMENT_CHARS_MAX = 8_000;
+export const COMMENTS_PER_MINUTE_PER_USER_MAX = 20;
+export const COMMENTS_PAGE_SIZE_MAX = 200;
 // Download links for delivered bundles live this long; the browser fetches at once.
 export const DELIVERY_LINK_LIFETIME_S = 5 * 60;
 export const DELIVERY_DOWNLOADS_PER_MINUTE_PER_USER_MAX = 30;

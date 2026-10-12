@@ -77,6 +77,17 @@ async function releaseAsReviewer(browser: Browser, email: string, versionUrl: st
     await expectAccessible(reviewer);
 }
 
+// The discussion renders Markdown and runs nothing.
+async function commentOnVersion(page: Page) {
+    await page
+        .getByLabel("Add a comment (Markdown)")
+        .fill("**Ready** <script>window.__xss = 9</script>");
+    await page.getByRole("button", { name: "Post", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Comment" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Comment" }).locator("script")).toHaveCount(0);
+    expect(await page.evaluate(() => Reflect.get(window, "__xss"))).toBeUndefined();
+}
+
 async function assignReviewer(
     browser: Browser,
     ownerEmail: string,
@@ -168,6 +179,8 @@ test("a setter builds a version, a reviewer releases it, and a hostile statement
     await setter.getByRole("button", { name: "Submit for review" }).click();
     await expect(setter.getByText("Submitted for review.")).toBeVisible();
     await expect(setter.getByText("someone else has to review")).toBeVisible();
+
+    await commentOnVersion(setter);
     expect(dialogs).toEqual([]);
     expect(problems()).toEqual([]);
 
