@@ -1,4 +1,5 @@
 import { encodeId } from "@aura/contracts/ids";
+import { EXAM_JUDGE_QUEUE_READY_MAX } from "@aura/contracts/limits";
 import { appendAudit } from "@aura/db/audit";
 import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
@@ -35,6 +36,10 @@ export async function advanceExams(context: TickContext): Promise<number> {
             });
         }
         const expired = await tx`select advance_exam_sessions(${now}) as n`;
-        return moves.length + z.object({ n: z.number() }).parse(expired[0]).n;
+        // Answers of sittings that are over go to the judge (priority between contests and practice).
+        const queued =
+            await tx`select queue_exam_answers(${now}, ${EXAM_JUDGE_QUEUE_READY_MAX}) as n`;
+        const count = z.object({ n: z.number() });
+        return moves.length + count.parse(expired[0]).n + count.parse(queued[0]).n;
     });
 }

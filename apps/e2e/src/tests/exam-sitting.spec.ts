@@ -54,6 +54,10 @@ test("a rostered candidate checks, agrees, starts and sees the timer and the sta
     await context.setOffline(false);
     await expect(page.getByText("All changes saved.")).toBeVisible({ timeout: 20_000 });
     await expectAccessible(page);
+
+    await page.getByRole("button", { name: "Hand in my answers" }).click();
+    await page.getByRole("button", { name: "Yes, hand in" }).click();
+    await expect(page.getByText("You have handed in this exam.")).toBeVisible();
 });
 
 test("a person who is not on the roster finds no exam", async ({ browser }) => {

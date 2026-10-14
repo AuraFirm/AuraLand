@@ -52,7 +52,11 @@ export function ExamSitting({ exam }: { exam: ExamItem }) {
             {data?.state === "invited" && <Consent onAgree={() => act("consent")} />}
             {data?.state === "consented" && <Ready exam={exam} onStart={() => act("start")} />}
             {data?.state === "started" && (
-                <Working exam={exam} deadlineAt={data.deadline_at ?? ""} />
+                <Working
+                    exam={exam}
+                    deadlineAt={data.deadline_at ?? ""}
+                    onHandIn={() => act("submit")}
+                />
             )}
             {(data?.state === "submitted" || data?.state === "expired") && (
                 <Notice
@@ -185,7 +189,15 @@ function Ready({ exam, onStart }: { exam: ExamItem; onStart: () => void }) {
 // moments only, so a screen reader is not talking every second.
 const SPOKEN_AT_S = [600, 300, 60];
 
-function Working({ exam, deadlineAt }: { exam: ExamItem; deadlineAt: string }) {
+function Working({
+    exam,
+    deadlineAt,
+    onHandIn,
+}: {
+    exam: ExamItem;
+    deadlineAt: string;
+    onHandIn: () => void;
+}) {
     const now = useServerNow();
     const remainingMs = now === null ? null : Date.parse(deadlineAt) - now;
     const [spoken, setSpoken] = useState("");
@@ -207,7 +219,32 @@ function Working({ exam, deadlineAt }: { exam: ExamItem; deadlineAt: string }) {
                 </p>
             </Section>
             <Problems exam={exam} />
+            <HandIn onHandIn={onHandIn} />
         </>
+    );
+}
+
+// Handing in early is final, so it asks twice.
+function HandIn({ onHandIn }: { onHandIn: () => void }) {
+    const [asking, setAsking] = useState(false);
+    return (
+        <Section id="hand-in" title="Finished?">
+            {asking ? (
+                <>
+                    <p>
+                        Handing in ends your exam now. What is saved is your answer. This cannot be
+                        undone.
+                    </p>
+                    <button type="button" className={`${button} mt-2`} onClick={onHandIn}>
+                        Yes, hand in
+                    </button>
+                </>
+            ) : (
+                <button type="button" className={button} onClick={() => setAsking(true)}>
+                    Hand in my answers
+                </button>
+            )}
+        </Section>
     );
 }
 
