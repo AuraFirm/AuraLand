@@ -5,7 +5,7 @@
 
 import { randomBytes } from "node:crypto";
 import { contestSchema } from "@aura/contracts/api/contests";
-import { scoreboardBodySchema } from "@aura/contracts/api/scoreboard";
+import { scoreboardBodySchema, scoreboardResponseSchema } from "@aura/contracts/api/scoreboard";
 import { submissionSchema } from "@aura/contracts/api/submissions";
 import { decodeId, encodeId } from "@aura/contracts/ids";
 import { withRequestContext } from "@aura/db/context";
@@ -200,5 +200,135 @@ describe("the scoreboard tick", () => {
         const contest = await published();
         expect(await tick()).toBeGreaterThanOrEqual(0);
         expect(await stored(contest.id, "public")).toBeNull();
+    });
+});
+
+const read = async (user: string | null, contest: string, query = "") =>
+    call(user, "GET", `/contests/${contest}/scoreboard${query}`);
+
+// Reads Server-Sent Events from a response until `count` named events arrived or the stream ended.
+async function events(response: Response, count: number, timeoutMs = 5000) {
+    const reader = response.body?.getReader();
+    if (reader === undefined) throw new Error("a stream has a body");
+    const decoder = new TextDecoder();
+    const seen: { event: string; data: string }[] = [];
+    let text = "";
+    const deadline = Date.now() + timeoutMs;
+    while (seen.length < count && Date.now() < deadline) {
+        const chunk = await Promise.race([
+            reader.read(),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 200)),
+        ]);
+        if (chunk === null) continue;
+        if (chunk.done) break;
+        text += decoder.decode(chunk.value);
+        for (const block of text.split("\n\n").slice(0, -1)) {
+            const event = /^event: (.*)$/m.exec(block)?.[1];
+            const data = /^data: (.*)$/m.exec(block)?.[1];
+            if (event !== undefined && data !== undefined) seen.push({ event, data });
+        }
+        text = text.slice(text.lastIndexOf("\n\n") + 2);
+    }
+    return { seen, text, reader };
+}
+
+describe("reading a scoreboard", () => {
+    it("answers with a cacheable snapshot, an etag and 304, and hides the final board from outsiders", async () => {
+        const contest = await runningContest();
+        expect((await read(DAVE, contest.id)).status).toBe(404); // no board before the first tick
+        await tick();
+        const response = await read(null, contest.id);
+        expect(response.status).toBe(200);
+        const board = scoreboardResponseSchema.parse(await response.json());
+        expect(board.version).toBe(1);
+        expect(response.headers.get("etag")).toBe(`"${board.etag}"`);
+        expect(response.headers.get("cache-control")).toContain("s-maxage=1");
+        const again = await call(null, "GET", `/contests/${contest.id}/scoreboard`);
+        expect(again.status).toBe(200);
+        const conditional = await h.request(`/contests/${contest.id}/scoreboard`, {
+            headers: browser(null, { "if-none-match": `"${board.etag}"` }),
+        });
+        expect(conditional.status).toBe(304);
+        expect((await read(DAVE, contest.id, "?view=final")).status).toBe(404); // not staff
+        const staff = await read(ALICE, contest.id, "?view=final");
+        expect(staff.status).toBe(200);
+        expect(staff.headers.get("cache-control")).toBe("private, no-cache");
+        expect((await read(DAVE, contest.id, "?view=other")).status).toBe(400);
+        expect((await read(DAVE, "cst_nope")).status).toBe(400);
+    });
+});
+
+describe("watching a scoreboard", () => {
+    it("pings a new version when the tick stores one, and not the board itself", async () => {
+        const app = h.app();
+        const contest = await runningContest();
+        await tick();
+        const token = (await h.login(DAVE)).token;
+        const response = await app.request(`/api/v1/contests/${contest.id}/scoreboard/stream`, {
+            headers: browser(token),
+        });
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toContain("text/event-stream");
+        const sub = await submit(DAVE, contest.id);
+        const watching = events(response, 2);
+        await judge(sub, "AC");
+        await tick();
+        const { seen, text, reader } = await watching;
+        await reader.cancel();
+        expect(seen.map((e) => e.event)).toEqual(["version", "version"]);
+        expect(JSON.parse(seen[0]?.data ?? "{}")).toMatchObject({ version: 1 });
+        expect(JSON.parse(seen[1]?.data ?? "{}")).toMatchObject({ version: 2 });
+        expect(text).not.toContain("rows"); // a ping, never a board
+    });
+
+    it("refuses what the snapshot refuses and caps the open streams of one person", async () => {
+        const app = h.app();
+        const contest = await runningContest();
+        await tick();
+        const token = (await h.login(DAVE)).token;
+        const open = () =>
+            app.request(`/api/v1/contests/${contest.id}/scoreboard/stream`, {
+                headers: browser(token),
+            });
+        expect(
+            (
+                await app.request(`/api/v1/contests/${contest.id}/scoreboard/stream?view=final`, {
+                    headers: browser(token),
+                })
+            ).status,
+        ).toBe(404);
+        const streams: Response[] = [];
+        for (let i = 0; i < 5; i++) streams.push(await open());
+        expect(streams.map((s) => s.status)).toEqual([200, 200, 200, 200, 200]);
+        const sixth = await open();
+        expect(sixth.status).toBe(429);
+        expect(sixth.headers.get("retry-after")).not.toBeNull();
+        await streams[0]?.body?.cancel();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const again = await open();
+        expect(again.status).toBe(200);
+        for (const s of [...streams.slice(1), again]) await s.body?.cancel();
+    });
+});
+
+describe("a stream's lifetime", () => {
+    it("sends keepalives and closes at its lifetime so the client must come back and be checked again", async () => {
+        const app = h.app({}, undefined, undefined, { heartbeatMs: 40, lifetimeMs: 250 });
+        const contest = await runningContest();
+        await tick();
+        const response = await app.request(`/api/v1/contests/${contest.id}/scoreboard/stream`, {
+            headers: browser((await h.login(DAVE)).token),
+        });
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let text = "";
+        // unbounded: ends when the server closes the stream, which the test is about
+        for (let i = 0; i < 100; i++) {
+            const chunk = await reader?.read();
+            if (chunk === undefined || chunk.done) break;
+            text += decoder.decode(chunk.value);
+        }
+        expect(text).toContain(": keepalive");
+        expect(text.startsWith("retry:") || text.includes("event: version")).toBe(true);
     });
 });

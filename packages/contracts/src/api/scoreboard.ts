@@ -46,3 +46,18 @@ export const scoreboardBodySchema = z
     })
     .strict();
 export type ScoreboardBody = z.infer<typeof scoreboardBodySchema>;
+
+// What the snapshot route answers: the stored board plus the numbers a client needs to know whether
+// anything changed. Never carries a user id.
+export const scoreboardResponseSchema = scoreboardBodySchema.extend({
+    version: z.number().int().min(1),
+    etag: z.string().regex(/^[0-9a-f]{64}$/),
+    updated_at: z.iso.datetime(),
+});
+export type ScoreboardResponse = z.infer<typeof scoreboardResponseSchema>;
+
+// One ping on a stream.
+export const scoreboardPingSchema = z
+    .object({ version: z.number().int().min(0), etag: z.string().nullable() })
+    .strict();
+export type ScoreboardPing = z.infer<typeof scoreboardPingSchema>;

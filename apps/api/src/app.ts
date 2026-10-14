@@ -15,6 +15,12 @@ import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
 import { contestRoutes } from "./modules/contests/routes.ts";
+import { createScoreboardListener } from "./modules/contests/scoreboard-listener.ts";
+import {
+    defaultHub,
+    SCOREBOARD_STREAM_DEFAULTS,
+    scoreboardRoutes,
+} from "./modules/contests/scoreboard-routes.ts";
 import { accountRoutes } from "./modules/identity/account-routes.ts";
 import { adminRoutes } from "./modules/identity/admin-routes.ts";
 import { apiKeyRoutes } from "./modules/identity/api-key-routes.ts";
@@ -68,6 +74,8 @@ export interface AppDeps {
     readonly pingDatabase: () => Promise<void>;
     // Called after an invariant violation, when state may be corrupt: the process should stop.
     readonly onInvariantViolation: () => void;
+    // Scoreboard stream timing; tests shorten it. Production uses the defaults.
+    readonly scoreboardStream?: { readonly heartbeatMs: number; readonly lifetimeMs: number };
 }
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
@@ -261,6 +269,24 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
 
 // Talk about and test a task version: comments and human attacks (Stage 4).
 function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
+    const hub = defaultHub();
+    app.route(
+        "/v1",
+        scoreboardRoutes({
+            sql: deps.database.sql,
+            hub,
+            listener: createScoreboardListener(
+                hub,
+                (channel, onNotify, onListen) =>
+                    deps.database.sql.listen(channel, onNotify, onListen),
+                (payload) =>
+                    deps.logger.warn({ length: payload.length }, "unreadable scoreboard notice"),
+            ),
+            trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+            ...(deps.scoreboardStream ?? SCOREBOARD_STREAM_DEFAULTS),
+            monotonicMs: () => performance.now(),
+        }),
+    );
     app.route(
         "/v1",
         contestSubmissionRoutes({
