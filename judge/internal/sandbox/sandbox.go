@@ -9,6 +9,9 @@ import "context"
 // a submission may use; the judge refuses it as a submission language.
 const OpenerLanguage = "bundle-opener"
 
+// RewriterLanguage names the profile that writes a delivery's watermark into a bundle, in the same way.
+const RewriterLanguage = "bundle-rewriter"
+
 // Limits are the resources one run may use. A zero value is never valid.
 type Limits struct {
 	CPUMS     int
