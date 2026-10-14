@@ -4,6 +4,7 @@
 // no user id is ever stored.
 
 import { randomBytes } from "node:crypto";
+import { gunzipSync } from "node:zlib";
 import { contestSchema } from "@aura/contracts/api/contests";
 import { scoreboardBodySchema, scoreboardResponseSchema } from "@aura/contracts/api/scoreboard";
 import { submissionSchema } from "@aura/contracts/api/submissions";
@@ -283,6 +284,54 @@ describe("exporting for ICPC tools", () => {
             (await call(ALICE, "GET", `/contests/${contest.id}/standings.icpc.json?view=final`))
                 .status,
         ).toBe(200);
+    });
+});
+
+describe("serving a stored board from memory", () => {
+    it("serves the same text to everyone, follows a new board at once, and 304s only for the current one", async () => {
+        const contest = await runningContest();
+        await tick();
+        const first = await read(null, contest.id);
+        const body = await first.text();
+        expect(await (await read(DAVE, contest.id)).text()).toBe(body); // same text for another reader
+        const etag = first.headers.get("etag") ?? "";
+        await judge(await submit(DAVE, contest.id), "AC");
+        await tick();
+        const stale = await h.request(`/contests/${contest.id}/scoreboard`, {
+            headers: browser(null, { "if-none-match": etag }),
+        });
+        expect(stale.status).toBe(200); // the board moved on: the old etag is not good any more
+        expect(await stale.text()).not.toBe(body);
+        expect(stale.headers.get("etag")).not.toBe(etag);
+    });
+
+    it("sends the board gzipped to a client that accepts it, and the same text either way", async () => {
+        const contest = await runningContest();
+        await tick();
+        const path = `/contests/${contest.id}/scoreboard`;
+        const plain = await h.request(path, { headers: browser(null) });
+        const zipped = await h.request(path, {
+            headers: browser(null, { "accept-encoding": "gzip" }),
+        });
+        expect(zipped.headers.get("content-encoding")).toBe("gzip");
+        expect(plain.headers.get("content-encoding")).toBeNull();
+        expect(zipped.headers.get("vary")).toContain("Accept-Encoding");
+        const inflated = gunzipSync(Buffer.from(await zipped.arrayBuffer())).toString();
+        expect(inflated).toBe(await plain.text());
+    });
+
+    it("lets the ICPC export's etag follow the contest's state, not only the board's", async () => {
+        const contest = await runningContest();
+        await tick();
+        const path = `/contests/${contest.id}/standings.icpc.json`;
+        const before = await call(null, "GET", path);
+        const etag = before.headers.get("etag") ?? "";
+        h.clock.advance(6 * HOUR); // past the end: the state changes, the board's content does not
+        await advanceContests(context());
+        await tick();
+        const after = await h.request(path, { headers: browser(null, { "if-none-match": etag }) });
+        expect(after.status).toBe(200);
+        expect(icpcScoreboardSchema.parse(await after.json()).state.ended).not.toBeNull();
     });
 });
 

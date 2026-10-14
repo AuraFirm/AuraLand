@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { scoreboardBodySchema, scoreboardResponseSchema } from "@aura/contracts/api/scoreboard";
 import { decodeId, idSchema } from "@aura/contracts/ids";
 import {
@@ -18,6 +19,7 @@ import { contextFor } from "../../auth-middleware.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import { clientAddress } from "../../request-info.ts";
 import * as q from "./queries.ts";
+import { createRenderCache, type RenderCache } from "./scoreboard-cache.ts";
 import { toIcpcScoreboard } from "./scoreboard-export.ts";
 import {
     createScoreboardHub,
@@ -64,9 +66,10 @@ const viewQuery = z.object({ view: z.enum(["public", "final"]).default("public")
 // decided by the policy of migration 0036; these routes only choose headers and keep the streams bounded.
 export function scoreboardRoutes(deps: ScoreboardRouteDeps): Hono<AppEnv> {
     const routes = new Hono<AppEnv>();
-    routes.get("/contests/:id/scoreboard", handleSnapshot);
+    const cache = createRenderCache();
+    routes.get("/contests/:id/scoreboard", (c) => handleSnapshot(c, cache));
     routes.get("/contests/:id/scoreboard/stream", (c) => handleStream(c, deps));
-    routes.get("/contests/:id/standings.icpc.json", handleIcpcExport);
+    routes.get("/contests/:id/standings.icpc.json", (c) => handleIcpcExport(c, cache));
     return routes;
 }
 
@@ -100,53 +103,109 @@ function cacheControlFor(contest: q.ContestRow, view: ScoreboardViewName): strin
     return shared ? "public, max-age=0, s-maxage=1" : "private, no-cache";
 }
 
-async function handleSnapshot(c: Context<AppEnv>) {
-    const request = parseRequest(c);
-    if (request === null) return problemResponse(c, "invalid_request", "Invalid request");
-    const tx = c.get("tx");
-    const contest = await q.getContest(tx, request.contestId);
-    if (contest === null || !mayRead(c, contest.org_id, request.view)) return notFound(c);
-    const row = await q.getScoreboard(tx, request.contestId, request.view);
-    if (row === null) return notFound(c); // not started, or the first tick has not run yet
-    const quoted = `"${row.etag}"`;
-    c.header("ETag", quoted);
-    c.header("Cache-Control", cacheControlFor(contest, request.view));
-    if (c.req.header("if-none-match") === quoted) return c.body(null, 304);
-    return c.json(
-        scoreboardResponseSchema.parse({
-            ...scoreboardBodySchema.parse(row.body),
-            version: row.version,
-            etag: row.etag,
-            updated_at: row.updated_at.toISOString(),
-        }),
-    );
+// Both readers of a stored board work the same way: check the caller may see the contest and the view, read
+// only the board's stamp, answer 304 if the caller has it, and otherwise serve the text built for that stamp
+// (built once, then kept: see scoreboard-cache.ts).
+interface Reading {
+    readonly contest: q.ContestRow;
+    readonly request: Request;
+    readonly stamp: { version: number; etag: string; updated_at: Date };
 }
 
-// The ICPC Contest API scoreboard of a stored board, for ICPC tools (resolvers, spotlights, archives).
-async function handleIcpcExport(c: Context<AppEnv>) {
+async function readStamp(c: Context<AppEnv>): Promise<Reading | Response> {
     const request = parseRequest(c);
     if (request === null) return problemResponse(c, "invalid_request", "Invalid request");
     const tx = c.get("tx");
     const contest = await q.getContest(tx, request.contestId);
     if (contest === null || !mayRead(c, contest.org_id, request.view)) return notFound(c);
-    if (contest.format !== "icpc") return notFound(c); // see scoreboard-export.ts
-    const row = await q.getScoreboard(tx, request.contestId, request.view);
-    if (row === null) return notFound(c);
-    const quoted = `"${row.etag}"`;
+    const stamp = await q.getScoreboardStamp(tx, request.contestId, request.view);
+    if (stamp === null) return notFound(c); // not started, or the first tick has not run yet
+    return { contest, request, stamp };
+}
+
+async function serveCached(
+    c: Context<AppEnv>,
+    cache: RenderCache,
+    reading: Reading,
+    input: { key: string; etag: string; build: () => Promise<unknown> },
+): Promise<Response> {
+    const quoted = `"${input.etag}"`;
     c.header("ETag", quoted);
-    c.header("Cache-Control", cacheControlFor(contest, request.view));
+    c.header("Cache-Control", cacheControlFor(reading.contest, reading.request.view));
     if (c.req.header("if-none-match") === quoted) return c.body(null, 304);
-    return c.json(
-        toIcpcScoreboard(scoreboardBodySchema.parse(row.body), {
-            startsAt: contest.starts_at,
-            endsAt: contest.ends_at,
-            freezeAt: contest.freeze_at,
-            unfrozenAt: contest.unfrozen_at,
-            finalizedAt: contest.finalized_at,
-            state: contest.state,
-            generatedAt: row.updated_at,
-        }),
-    );
+    let text = cache.get(input.key, input.etag);
+    if (text === null) {
+        text = JSON.stringify(await input.build());
+        cache.set(input.key, input.etag, text);
+    }
+    c.header("Vary", "Accept-Encoding");
+    const compressed = /\bgzip\b/.test(c.req.header("accept-encoding") ?? "")
+        ? cache.gzipped(input.key, input.etag)
+        : null;
+    if (compressed === null) {
+        return c.body(text, 200, { "Content-Type": "application/json; charset=UTF-8" });
+    }
+    return c.body(compressed, 200, {
+        "Content-Type": "application/json; charset=UTF-8",
+        "Content-Encoding": "gzip",
+    });
+}
+
+async function handleSnapshot(c: Context<AppEnv>, cache: RenderCache) {
+    const reading = await readStamp(c);
+    if (reading instanceof Response) return reading;
+    const { contest, request, stamp } = reading;
+    return serveCached(c, cache, reading, {
+        key: `snapshot:${contest.id}:${request.view}`,
+        etag: stamp.etag,
+        build: async () => {
+            const row = await q.getScoreboard(c.get("tx"), contest.id, request.view);
+            if (row === null) throw new Error("a board that had a stamp has a body");
+            return scoreboardResponseSchema.parse({
+                ...scoreboardBodySchema.parse(row.body),
+                version: row.version,
+                etag: row.etag,
+                updated_at: row.updated_at.toISOString(),
+            });
+        },
+    });
+}
+
+// The ICPC Contest API scoreboard of a stored board, for ICPC tools (resolvers, spotlights, archives). Its
+// content also depends on the contest's state and dates, which the board's etag does not cover, so its own
+// etag covers both.
+async function handleIcpcExport(c: Context<AppEnv>, cache: RenderCache) {
+    const reading = await readStamp(c);
+    if (reading instanceof Response) return reading;
+    const { contest, request, stamp } = reading;
+    if (contest.format !== "icpc") return notFound(c); // see scoreboard-export.ts
+    const etag = createHash("sha256")
+        .update(
+            [
+                stamp.etag,
+                contest.state,
+                contest.unfrozen_at?.getTime(),
+                contest.finalized_at?.getTime(),
+            ].join("|"),
+        )
+        .digest("hex");
+    return serveCached(c, cache, reading, {
+        key: `icpc:${contest.id}:${request.view}`,
+        etag,
+        build: async () => {
+            const row = await q.getScoreboard(c.get("tx"), contest.id, request.view);
+            if (row === null) throw new Error("a board that had a stamp has a body");
+            return toIcpcScoreboard(scoreboardBodySchema.parse(row.body), {
+                startsAt: contest.starts_at,
+                endsAt: contest.ends_at,
+                freezeAt: contest.freeze_at,
+                unfrozenAt: contest.unfrozen_at,
+                finalizedAt: contest.finalized_at,
+                state: contest.state,
+                generatedAt: row.updated_at,
+            });
+        },
+    });
 }
 
 function viewerOf(c: Context<AppEnv>, trustEdge: boolean): string {

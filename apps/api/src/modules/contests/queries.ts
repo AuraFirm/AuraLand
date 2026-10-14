@@ -152,12 +152,29 @@ export interface ScoreboardRow {
     readonly updated_at: Date;
 }
 
+const scoreboardStampSchema = z.object({
+    version: z.number().int(),
+    etag: z.string(),
+    updated_at: z.date(),
+});
+
 const scoreboardRowSchema = z.object({
     version: z.number().int(),
     etag: z.string(),
     body: z.unknown(),
     updated_at: z.date(),
 });
+
+// Only what changes when the board does: the cheap read that decides whether anything must be built.
+export async function getScoreboardStamp(
+    tx: Transaction,
+    contestId: string,
+    view: "public" | "final",
+): Promise<Omit<ScoreboardRow, "body"> | null> {
+    const rows = await tx`select version, etag, updated_at from contest_scoreboards
+        where contest_id = ${contestId} and view = ${view}`;
+    return rows[0] === undefined ? null : scoreboardStampSchema.parse(rows[0]);
+}
 
 // The stored board of a view, or null. Row-level security decides whether the caller may see it at all.
 export async function getScoreboard(
