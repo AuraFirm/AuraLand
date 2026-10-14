@@ -3,7 +3,8 @@
 import { contestSchema, registrationResponseSchema } from "@aura/contracts/api/contests";
 import { type FormEvent, useCallback, useState } from "react";
 import { apiGet, apiSend, messageOf } from "../lib/api.ts";
-import { showInstant, stateWords } from "../lib/contest-time.ts";
+import { countdownLabel, showInstant, stateWords } from "../lib/contest-time.ts";
+import { useServerNow } from "../lib/server-clock.ts";
 import { button, buttonQuiet } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
@@ -43,9 +44,8 @@ export function ContestDetail({ contestId }: { contestId: string }) {
                     <dt className="text-muted">Identity checks</dt>
                     <dd>None</dd>
                 </dl>
-                {data.problems.length > 0 && (
-                    <p className="mt-3">Problems: {data.problems.map((p) => p.label).join(", ")}</p>
-                )}
+                <Countdown contest={data} />
+                <Problems contest={data} />
             </Section>
             <Registration contest={data} onChanged={reload} />
             {data.can_manage && <Manage contest={data} onChanged={reload} />}
@@ -54,6 +54,52 @@ export function ContestDetail({ contestId }: { contestId: string }) {
 }
 
 type Contest = ReturnType<typeof contestSchema.parse>;
+
+// Counts by the server's clock, not the browser's. Announced to screen readers only when it is read, not every
+// second (a ticking live region would talk over everything else).
+function Countdown({ contest }: { contest: Contest }) {
+    const now = useServerNow();
+    const live =
+        contest.state === "scheduled" || contest.state === "running" || contest.state === "frozen";
+    if (!live || now === null) return null;
+    const label = countdownLabel(contest, now);
+    return label === null ? null : <p className="mt-3 text-lg font-semibold">{label}</p>;
+}
+
+// Problems are links once the page may show them; the scoreboard is open to everyone while it exists.
+function Problems({ contest }: { contest: Contest }) {
+    const started = contest.state !== "draft" && contest.state !== "scheduled";
+    return (
+        <nav aria-label="Contest pages" className="mt-3 flex flex-col gap-2">
+            {contest.problems.length > 0 && (
+                <ul className="flex flex-wrap gap-3">
+                    {contest.problems.map((p) => (
+                        <li key={p.label}>
+                            {started || contest.can_manage ? (
+                                <a
+                                    className="text-accent underline"
+                                    href={`/arena/contests/${contest.id}/problems/${p.label}`}
+                                >
+                                    Problem {p.label} · {p.points} points
+                                </a>
+                            ) : (
+                                <span>Problem {p.label}</span>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {started && (
+                <a
+                    className="text-accent underline"
+                    href={`/arena/contests/${contest.id}/scoreboard`}
+                >
+                    Scoreboard
+                </a>
+            )}
+        </nav>
+    );
+}
 
 function Registration({ contest, onChanged }: { contest: Contest; onChanged: () => void }) {
     const [message, setMessage] = useState("");
