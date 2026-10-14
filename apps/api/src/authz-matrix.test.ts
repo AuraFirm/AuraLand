@@ -521,6 +521,13 @@ const MATRIX: readonly Row[] = [
         object: "cst",
     },
     { method: "GET", path: "/api/v1/time", access: "public" },
+    { method: "GET", path: "/api/v1/status", access: "public" },
+    {
+        method: "PUT",
+        path: "/api/v1/admin/status",
+        access: "admin",
+        body: { level: "degraded", message: "Judging is slow." },
+    },
     { method: "GET", path: "/api/v1/practice", access: "public" },
     { method: "GET", path: "/api/v1/practice/daily", access: "public" },
     { method: "GET", path: "/api/v1/practice/:id", access: "public", object: "tsv" },

@@ -24,14 +24,19 @@ const SEED_SPEC = {
 type Sql = ReturnType<typeof createDatabase>["sql"];
 
 // A released version of a task of `orgId`, with a real spec and statement.
-async function seedArenaVersion(sql: Sql, orgId: string, slug: string): Promise<string> {
+async function seedArenaVersion(
+    sql: Sql,
+    orgId: string,
+    slug: string,
+    visibility = "private",
+): Promise<string> {
     const [maker] = await sql<{ id: string }[]>`
         insert into users (email, email_verified_at) values (${`maker-${slug}@example.com`}, now()) returning id`;
     const [releaser] = await sql<{ id: string }[]>`
         insert into users (email, email_verified_at) values (${`releaser-${slug}@example.com`}, now()) returning id`;
     const [task] = await sql<{ id: string }[]>`
         insert into tasks (org_id, slug, kind, visibility, title, created_by)
-        values (${orgId}, ${`arena-task-${slug}`}, 'algorithmic', 'private', 'Sum of two numbers', ${maker?.id ?? ""}) returning id`;
+        values (${orgId}, ${`arena-task-${slug}`}, 'algorithmic', ${visibility}, 'Sum of two numbers', ${maker?.id ?? ""}) returning id`;
     const version = await sql.begin(async (tx) => {
         await tx`alter table task_versions disable trigger task_versions_guard`;
         const [row] = await tx<{ id: string }[]>`
@@ -129,6 +134,38 @@ export async function answerLatestClarification(
             { id: string }[]
         >`select created_by as id from contests where id = ${id}`;
         await sql`update contest_clarifications set answer = ${answer}, public = true, answered_by = ${staff?.id ?? ""}, answered_at = now() where id = ${row.id}`;
+    } finally {
+        await database.close(5);
+    }
+}
+
+// A problem in the practice bank: a released version of a public task of a platform organization, listed.
+// Returns its public id and title.
+export async function seedPracticeProblem(): Promise<{ id: string; title: string }> {
+    const database = createDatabase(e2eDatabaseUrl(), 1);
+    try {
+        const { sql } = database;
+        const slug = randomBytes(4).toString("hex");
+        const [org] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('platform', ${`bank-${slug}`}, 'Problem bank') returning id`;
+        const version = await seedArenaVersion(sql, org?.id ?? "", slug, "public");
+        const [maker] = await sql<
+            { id: string }[]
+        >`select created_by as id from task_versions where id = ${version}`;
+        await sql`insert into practice_bank (version_id, task_id, org_id, title, listed_by, listed_at)
+            select v.id, v.task_id, v.org_id, ${`Sum of two numbers ${slug}`}, ${maker?.id ?? ""}, now()
+            from task_versions v where v.id = ${version}`;
+        return { id: `tsv_${version}`, title: `Sum of two numbers ${slug}` };
+    } finally {
+        await database.close(5);
+    }
+}
+
+// Sets (or clears, with level "ok") the platform notice, as an administrator would.
+export async function setPlatformStatus(level: string, message: string): Promise<void> {
+    const database = createDatabase(e2eDatabaseUrl(), 1);
+    try {
+        await database.sql`update platform_status set level = ${level}, message = ${message}, updated_at = now()`;
     } finally {
         await database.close(5);
     }
