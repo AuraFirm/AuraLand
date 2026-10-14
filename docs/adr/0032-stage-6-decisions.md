@@ -64,3 +64,14 @@ Starting with LTI (rejected: needs an LMS we do not have); counting a late save 
 within a grace period (rejected: a rule a person cannot predict); recording keystroke content for replay
 (rejected: edits of the code are enough to replay and anything more is surveillance we cannot justify); an
 LLM-assigned oral score (rejected: kit 08, an LLM is never the sole authority).
+
+## Amendment (slice 3): consent is a condition of sitting
+
+Decision 7 left open whether an exam can run with telemetry off for a person who declines. Decided: **no, in Stage 6.**
+Consent to the current wording is required before the candidate can start; a person who declines arranges another
+way to be assessed with their instructor, outside the product. The wording says so. Reason: a per-person
+"telemetry off" mode makes every integrity signal incomparable between candidates and is a second code path to get wrong;
+the privacy trade is made by the institution (which may choose to run without telemetry-based review) not by the page.
+The telemetry rejection without consent (slice 6) stays as the technical guard. The problem list of an exam is readable
+only in an exam whose sitting the person started (migration 0045); a statement stays readable by version to people who
+have sat that problem.

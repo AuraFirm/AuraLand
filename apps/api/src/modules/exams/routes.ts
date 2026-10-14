@@ -11,6 +11,7 @@ import {
 import { examCreateRequestSchema } from "@aura/contracts/exams";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
 import { appendAudit } from "@aura/db/audit";
+import type { Transaction } from "@aura/db/context";
 import { CHECK_VIOLATION, postgresErrorCode } from "@aura/db/errors";
 import { type Context, Hono } from "hono";
 import type { AppEnv } from "../../app-env.ts";
@@ -69,6 +70,13 @@ function examIdParam(c: Context<AppEnv>): string | null {
     return parsed.success ? decodeId("exm", parsed.data) : null;
 }
 
+// The problem list is the staff's, and a candidate's once their own sitting has started (row-level security
+// returns nothing before that), so for a candidate with nothing to see it is null, not an empty exam.
+async function visibleProblems(tx: Transaction, examId: string, manage: boolean) {
+    const problems = await q.problemsOf(tx, examId);
+    return manage || problems.length > 0 ? problems : null;
+}
+
 // The exam as the caller may see it: problems and the roster size only for the host's staff.
 async function body(c: Context<AppEnv>, row: q.ExamRow) {
     const tx = c.get("tx");
@@ -85,7 +93,7 @@ async function body(c: Context<AppEnv>, row: q.ExamRow) {
         telemetry_retention_days: row.telemetry_retention_days,
         state: row.state,
         grades_released_at: row.grades_released_at?.toISOString() ?? null,
-        problems: manage ? await q.problemsOf(tx, row.id) : null,
+        problems: await visibleProblems(tx, row.id, manage),
         roster_size: manage ? await q.rosterSize(tx, row.id) : null,
         can_manage: manage,
     });

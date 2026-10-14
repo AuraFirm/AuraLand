@@ -20,6 +20,8 @@ India data-protection law). It is updated as slices land; claims below are what 
 fingerprints, location, browsing history, other applications. The telemetry kind list is closed in code
 (`TELEMETRY_KINDS`); adding a kind is a reviewed change to code and to this document.
 
+**Consent.** In Stage 6 consent to the versioned wording is a condition of sitting; a person who declines arranges another assessment with their instructor. The lawful basis for the exam itself is the institution's; consent is the basis for the telemetry. A consent that is a condition of an assessment may not count as freely given in some jurisdictions: **this needs legal review before any real use** (it may need the institution's legitimate interest or an alternative path instead).
+
 ## 2. Automated decisions (GDPR Art. 22)
 No decision about a candidate is made by a program. Flags and similarity scores are evidence with a plain explanation; only a
 person changes an integrity state; the candidate can appeal, and the appeal goes to a different person. An LLM only proposes

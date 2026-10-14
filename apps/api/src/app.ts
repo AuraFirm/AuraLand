@@ -25,6 +25,7 @@ import {
     scoreboardRoutes,
 } from "./modules/contests/scoreboard-routes.ts";
 import { examRoutes } from "./modules/exams/routes.ts";
+import { sessionRoutes } from "./modules/exams/session-routes.ts";
 import { accountRoutes } from "./modules/identity/account-routes.ts";
 import { adminRoutes } from "./modules/identity/admin-routes.ts";
 import { apiKeyRoutes } from "./modules/identity/api-key-routes.ts";
@@ -42,6 +43,7 @@ import { deliveryRoutes } from "./modules/orders/delivery-routes.ts";
 import { orderRoutes } from "./modules/orders/routes.ts";
 import { payoutRoutes } from "./modules/payouts/routes.ts";
 import { contestSubmissionRoutes } from "./modules/submissions/contest-routes.ts";
+import { examProblemRoutes } from "./modules/submissions/exam-routes.ts";
 import { practiceRoutes } from "./modules/submissions/practice-routes.ts";
 import {
     QUEUE_FULL_RETRY_AFTER_S,
@@ -281,6 +283,13 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
 }
 
 // Talk about and test a task version: comments and human attacks (Stage 4).
+// Exams: the instructor's side and the candidate's own sitting.
+function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
+    app.route("/v1", examRoutes({ clock: deps.clock }));
+    app.route("/v1", sessionRoutes({ clock: deps.clock }));
+    app.route("/v1", examProblemRoutes());
+}
+
 function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     // The server's clock, for countdowns on the page: a person's own clock may be minutes off.
     app.get("/v1/time", (c) => {
@@ -290,7 +299,7 @@ function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
             serverTimeSchema.parse({ now: new Date(nowMs).toISOString(), now_ms: nowMs }),
         );
     });
-    app.route("/v1", examRoutes({ clock: deps.clock }));
+    mountExamRoutes(app, deps);
     app.route("/v1", ratingRoutes());
     const hub = defaultHub();
     app.route(

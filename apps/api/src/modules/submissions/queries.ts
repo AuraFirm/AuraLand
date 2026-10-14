@@ -55,6 +55,16 @@ export async function contestProblemView(
     return rows[0] === undefined ? null : contestProblemRowSchema.parse(rows[0]);
 }
 
+// One exam problem for the person sitting it. The join goes through row-level security: the exam's problem
+// list is the staff's, a candidate reads it (and the version's statement) only once their own sitting has
+// started, so for anyone else this is null.
+export async function examProblemView(tx: Transaction, input: { examId: string; label: string }) {
+    const rows = await tx`select p.label, p.points, v.spec, v.statement
+        from exam_problems p join task_versions v on v.id = p.task_version_id
+        where p.exam_id = ${input.examId} and p.label = ${input.label}`;
+    return rows[0] === undefined ? null : contestProblemRowSchema.parse(rows[0]);
+}
+
 const submissionRowSchema = z.object({
     id: z.string(),
     org_id: z.string(),
