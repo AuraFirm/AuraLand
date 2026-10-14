@@ -300,6 +300,32 @@ finalizing needs only one owner or admin (no second approver; ASVS V2.3.5).
 plus the signals above. A person with a second device is invisible to it. The judge is still evidenced on one development
 VM (F32). Similarity compares within one exam only (no course concept yet).
 
+## STRIDE for the Stage 7 surface (Passport, v9; design, built slice by slice)
+| Threat | Surface | Control (ADR 0033) | Evidence |
+|---|---|---|---|
+| **Spoofing**: a forged credential passes as ours | Verify page, JWT | ES256 signature over the JWT checked against the published key set for its `kid`; unknown or revoked `kid` is `invalid`; claims schema is strict | tamper and wrong-key tests, independent verifier (slice 2, 4) |
+| Tampering: a credential's claims edited | JWT | Signature covers header and payload; the page shows only verified claims, never the unverified text | tamper tests (slice 4) |
+| Tampering: signing key stolen | Signer | The application never holds the key; the dev signer refuses outside development and test; the KMS adapter (not run) never exports | refusal test (slice 1); **KMS custody unverified (F62)** |
+| **Repudiation**: we cannot say who issued or revoked | Issuance, revocation, keys | Every issuance, revocation, visibility change and key change is an audit event; credentials hold `kid` and an issue time | audit tests |
+| **Disclosure**: a private credential is found | Verify page, JSON, status list | Private by default; unknown and private look the same (`unknown`); the status list holds bits, no ids; ids are unguessable UUIDs | HTTP tests (slice 4, 6) |
+| Disclosure: a credential carries more than the person agreed | Claims | Strict claim schemas: no email, no per-test results, no integrity evidence; exam points shown as a quarter band only | contract tests (slice 0) |
+| Disclosure: employers see more than consented | Employer search | Invite-only, MFA, `public` only, every view logged and shown to the candidate | HTTP tests (slice 9) |
+| Elevation: someone earns a credential they should not | Issuance | One per (subject, event) by dedupe; exam credentials withheld for a confirmed, un-overturned flag; assurance never above the event's | DST, job tests (slices 5, 7, 8) |
+| Denial of service: verification depends on the database | Verify | Verification needs only the JWT, key set and status file, all static; page degrades to those | database-stopped test (slice 4); real edge untested (F1) |
+| Tampering: status list altered or stale | Revocation | Rebuilt by the worker on every change; a bit is set iff revoked (property tested); stale-ok cache policy documented | golden file, DST (slices 3, 5) |
+
+**Not designed away.** Development credentials are not production credentials (F62). Identity proof comes from a vendor that does
+not exist yet; assurance 1 means the event's own rules, not a verified person. A credential proves an event happened under stated
+conditions; it does not prove a person's skill beyond it.
+
+## Privacy review (Stage 7, draft)
+Credentials are personal data the person controls: private by default, visible only as chosen, revocable by the person (hides) or
+the issuer (status bit). They hold the event title, the host's name, a rank or a quarter band, the AI mode and times; never an email
+or integrity evidence. Employer access is the risk that matters: consent is the person's `public` choice, purpose is hiring
+search, every view is logged and shown to the candidate, accounts are invited and MFA-protected. **Needs legal review per
+jurisdiction before any real employer is invited**, as does the effect of a credential outliving an account (the kit says deletion
+revokes credentials only where required; the policy is the owner's).
+
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;
 download events with the person's address; contractors' payout amounts and references. Download events

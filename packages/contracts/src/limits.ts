@@ -248,3 +248,11 @@ export const ORAL_ANSWER_CHARS_MAX = 2_000;
 // The judge queue may hold this many ready jobs before exam answers wait for the next tick. Between contests
 // (10,000) and practice (1,000): an exam's answers are judged before practice and after a contest's runs.
 export const EXAM_JUDGE_QUEUE_READY_MAX = 5_000;
+
+// Passport credentials (Stage 7, ADR 0033).
+export const STATUS_LIST_ENTRIES = 131_072; // bits per published list: the W3C minimum for herd privacy
+export const EXAM_CREDENTIAL_VALID_YEARS = 5; // placeholder the owner may change; contest credentials do not expire
+export const CREDENTIAL_JWT_BYTES_MAX = 8_192;
+export const SHARE_LINK_DAYS_DEFAULT = 7;
+export const SHARE_LINK_DAYS_MAX = 30;
+export const CREDENTIAL_ISSUE_BATCH = 100; // events turned into credentials per tick
