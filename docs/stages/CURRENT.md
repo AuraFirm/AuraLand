@@ -17,6 +17,6 @@ Open items are in [../cutlist.md](../cutlist.md); your manual tasks are the chec
 
 **Stage 4C — per-delivery watermarks and the leak trace: approved on 2026-10-14.** Plan: [stage-4c-plan.md](stage-4c-plan.md). Report: [stage-4c-report.md](stage-4c-report.md). With 4A, 4B and 4C the Stage 4 build list is done except model calibration and agent attack runs (need a provider account). **Reports and re-checks come from one development VM (F32).**
 
-**Stage 5 — Contests, Arena, ratings: plan drafted, awaiting your approval.** Plan: [stage-5-plan.md](stage-5-plan.md). Nothing of it is built.
+**Stage 5 — Contests, Arena, ratings: built, awaiting your review.** Plan: [stage-5-plan.md](stage-5-plan.md). Report: [stage-5-report.md](stage-5-report.md). Runbook: [../runbooks/contests.md](../runbooks/contests.md). **Not met: the kit's 5,000-in-10-seconds load target on one process, and anything that needs a deployment, an edge or a production judge fleet (F1, F32, F49).**
 
 **What only you can do, with steps: [../owner-tasks.md](../owner-tasks.md).**
