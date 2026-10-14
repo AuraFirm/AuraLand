@@ -1,7 +1,7 @@
 // Goal: the control plane derives every check from raw observations and rejects reports that cannot be
 // true. Method: build runs by hand, change one thing at a time.
 import type { TestVerdict } from "@aura/contracts/judging";
-import type { ValidationResult } from "@aura/contracts/validation";
+import { VALIDATION_ATTACKERS, type ValidationResult } from "@aura/contracts/validation";
 import { describe, expect, it } from "vitest";
 import { evaluateValidation, mutationKillRate } from "./rules.ts";
 
@@ -16,9 +16,12 @@ const run = (solution: string, verdicts: Verdicts, repeat = 1, compileOk = true)
         ? verdicts.map((verdict, index) => ({ test_id: String(index + 1), verdict, cpu_ms: 5 }))
         : [],
 });
+const rejected = () =>
+    VALIDATION_ATTACKERS.map((name) => ({ name, passed: 0, total: spec.length }));
 const good = (): ValidationResult => ({
     bundle: { opens: true },
     mutants: [],
+    attackers: rejected(),
     runs: [
         run("reference.cpp", ["AC", "AC"]),
         run("reference.cpp", ["AC", "AC"], 2),
@@ -43,6 +46,7 @@ describe("evaluateValidation", () => {
             "reference_deterministic",
             "wrong_solutions_present",
             "wrong_fails:wrong_a.py",
+            ...VALIDATION_ATTACKERS.map((name) => `attacker_rejected:${name}`),
         ]);
         expect(failedNames(good())).toEqual([]);
     });
@@ -51,6 +55,7 @@ describe("evaluateValidation", () => {
         const refused: ValidationResult = {
             bundle: { opens: false, refusal: "unexpected_file" },
             mutants: [],
+            attackers: [],
             runs: [],
         };
         const evaluation = evaluateValidation(spec, refused);
@@ -172,5 +177,37 @@ describe("mutants", () => {
         const result = good();
         result.mutants = [mutant(false, true)];
         expect(evaluateValidation(spec, result).ok).toBe(false);
+    });
+});
+
+describe("attackers", () => {
+    it("fails a task that a trivial program passes, naming the attacker", () => {
+        const result = good();
+        result.attackers = result.attackers.map((a) =>
+            a.name === "constant_yes" ? { ...a, passed: a.total } : a,
+        );
+        expect(failedNames(result)).toEqual(["attacker_rejected:constant_yes"]);
+    });
+
+    it("rejects reports that skip an attacker, repeat one, or miscount", () => {
+        const reject = (change: (r: ValidationResult) => void) => {
+            const result = good();
+            change(result);
+            expect(evaluateValidation(spec, result).ok).toBe(false);
+        };
+        reject((r) => r.attackers.pop());
+        reject((r) => {
+            r.attackers[1] = { ...r.attackers[0], name: "sample_lookup", passed: 0, total: 2 };
+        });
+        reject((r) => {
+            r.attackers[0] = { name: "sample_lookup", passed: 0, total: 5 };
+        });
+        reject((r) => {
+            r.attackers[0] = { name: "sample_lookup", passed: 3, total: 2 };
+        });
+        reject((r) => {
+            r.bundle = { opens: false };
+            r.runs = [];
+        });
     });
 });

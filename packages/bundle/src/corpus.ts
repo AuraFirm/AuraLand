@@ -74,6 +74,13 @@ function solvedFiles(): TarFile[] {
     ];
 }
 
+// The same task with every test public: a program that only looks the samples up passes all of it, so
+// validation must flag it (the weak-task case in the kit's acceptance criteria).
+function weakFiles(): TarFile[] {
+    const weak = { ...SPEC, tests: SPEC.tests.map((test) => ({ ...test, is_sample: true })) };
+    return [...solvedFiles().filter((f) => f.path !== "task.json"), specFile(weak)];
+}
+
 // The smallest valid bundle's files.
 export function goldenFiles(): TarFile[] {
     return [
@@ -157,6 +164,7 @@ function archiveCases(): CorpusCase[] {
         packed("golden-minimal", "ok", golden),
         packed("golden-rich", "ok", buildTar(richFiles())),
         packed("golden-solved", "ok", buildTar(solvedFiles())),
+        packed("golden-weak-samples", "ok", buildTar(weakFiles())),
         raw("empty-input", "empty", new Uint8Array(0)),
         raw("not-zstd", "bad_compression", enc("this is not a compressed bundle at all")),
         raw("truncated-zstd", "bad_compression", compress(golden).subarray(0, 20)),

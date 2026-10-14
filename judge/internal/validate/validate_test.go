@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AuraFirm/AuraLand/judge/internal/attack"
 	"github.com/AuraFirm/AuraLand/judge/internal/bundles"
 	"github.com/AuraFirm/AuraLand/judge/internal/judge"
 	"github.com/AuraFirm/AuraLand/judge/internal/sandbox"
@@ -105,8 +106,8 @@ func TestRunReportsEverySolutionOnEveryTest(t *testing.T) {
 	if len(wrong.Tests) != 2 || wrong.Tests[0].Verdict != "WA" || wrong.Tests[1].Verdict != "WA" {
 		t.Fatalf("a wrong solution is run on every test: %+v", wrong)
 	}
-	if box.compiles != 2 {
-		t.Fatalf("each solution is compiled once, got %d", box.compiles)
+	if want := 2 + len(attack.Names); box.compiles != want {
+		t.Fatalf("each solution and each attacker is compiled once: want %d, got %d", want, box.compiles)
 	}
 }
 

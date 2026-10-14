@@ -1,5 +1,9 @@
 import { assert } from "@aura/contracts/assert";
-import type { ValidationCheck, ValidationResult } from "@aura/contracts/validation";
+import {
+    VALIDATION_ATTACKERS,
+    type ValidationCheck,
+    type ValidationResult,
+} from "@aura/contracts/validation";
 
 // Turns what a judge node observed into the checks of a validation report. Pure: no I/O. The node
 // reports raw verdicts per solution and test; every conclusion is drawn here, so a node cannot say
@@ -98,6 +102,32 @@ export function mutationKillRate(result: ValidationResult): number | null {
     return compiled.filter((mutant) => mutant.killed).length / compiled.length;
 }
 
+function attackersProblem(testIds: readonly string[], result: ValidationResult): string | null {
+    const names = result.attackers.map((attacker) => attacker.name).sort();
+    const wanted = [...VALIDATION_ATTACKERS].sort();
+    if (!result.bundle.opens)
+        return names.length === 0 ? null : "attackers reported for a bundle that did not open";
+    if (names.join() !== wanted.join())
+        return "the built-in attackers were not all reported exactly once";
+    const misreported = result.attackers.some(
+        (attacker) => attacker.total !== testIds.length || attacker.passed > attacker.total,
+    );
+    return misreported ? "an attacker's counts do not fit the spec" : null;
+}
+
+function attackerChecks(result: ValidationResult): ValidationCheck[] {
+    const order = new Map(VALIDATION_ATTACKERS.map((name, index) => [name, index]));
+    return [...result.attackers]
+        .sort((a, b) => (order.get(a.name) ?? 0) - (order.get(b.name) ?? 0))
+        .map((attacker) =>
+            check(
+                `attacker_rejected:${attacker.name}`,
+                attacker.passed < attacker.total,
+                attacker.passed < attacker.total ? "" : "passed every test",
+            ),
+        );
+}
+
 function mutantsProblem(result: ValidationResult): string | null {
     // A mutant that did not compile cannot have been killed by a test.
     return result.mutants.some((mutant) => mutant.killed && !mutant.compile_ok)
@@ -111,19 +141,23 @@ export function evaluateValidation(
 ): Evaluation {
     assert(testIds.length > 0, "a spec has at least one test");
     if (!result.bundle.opens) {
-        if (result.runs.length > 0)
-            return { ok: false, reason: "runs reported for a bundle that did not open" };
+        if (result.runs.length + result.mutants.length + result.attackers.length > 0)
+            return { ok: false, reason: "observations reported for a bundle that did not open" };
         return {
             ok: true,
             checks: [check("bundle_opens", false, result.bundle.refusal ?? "refused")],
         };
     }
-    const problem = runsProblem(testIds, result.runs) ?? mutantsProblem(result);
+    const problem =
+        runsProblem(testIds, result.runs) ??
+        mutantsProblem(result) ??
+        attackersProblem(testIds, result);
     if (problem !== null) return { ok: false, reason: problem };
     const checks = [
         check("bundle_opens", true),
         ...referenceChecks(result.runs),
         ...wrongChecks(result.runs),
+        ...attackerChecks(result),
     ];
     assert(
         checks.length >= 3,

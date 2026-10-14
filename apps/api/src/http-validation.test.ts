@@ -9,7 +9,7 @@ import {
     leaseResponseSchema,
     validationLeaseResponseSchema,
 } from "@aura/contracts/judge-protocol";
-import type { ValidationResult } from "@aura/contracts/validation";
+import { VALIDATION_ATTACKERS, type ValidationResult } from "@aura/contracts/validation";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ALICE, BOB, browser, createHarness, type Harness } from "./http-harness.ts";
 import { newKey, signedRequest, type TestKey } from "./http-judge-support.ts";
@@ -120,11 +120,13 @@ const run = (solution: string, verdict: "AC" | "WA", repeat = 1) => ({
 const SOUND: ValidationResult = {
     bundle: { opens: true },
     mutants: [{ operator: "+ to -", line: 3, compile_ok: true, killed: true }],
+    attackers: VALIDATION_ATTACKERS.map((name) => ({ name, passed: 0, total: 1 })),
     runs: [run("reference.cpp", "AC"), run("reference.cpp", "AC", 2), run("wrong_a.cpp", "WA")],
 };
 const WEAK: ValidationResult = {
     bundle: { opens: true },
     mutants: [{ operator: "+ to -", line: 3, compile_ok: true, killed: true }],
+    attackers: VALIDATION_ATTACKERS.map((name) => ({ name, passed: 0, total: 1 })),
     runs: [run("reference.cpp", "AC"), run("reference.cpp", "AC", 2), run("wrong_a.cpp", "AC")],
 };
 
@@ -216,6 +218,7 @@ describe("the node side, reports", () => {
         const impossible: ValidationResult = {
             bundle: { opens: true },
             mutants: [],
+            attackers: [],
             runs: [run("reference.cpp", "AC")].map((r) => ({ ...r, tests: [] })),
         };
         const refused = await report(first, job?.job_id ?? "", job?.lease_epoch ?? 0, impossible);
