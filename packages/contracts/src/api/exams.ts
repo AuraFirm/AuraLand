@@ -8,9 +8,11 @@ import {
 } from "../exams.ts";
 import { idSchema } from "../ids.ts";
 import {
+    APPEAL_NOTE_CHARS_MAX,
     EXAM_DRAFT_BYTES_MAX,
     EXAM_ROSTER_CSV_BYTES_MAX,
     EXAM_TITLE_CHARS_MAX,
+    INTEGRITY_NOTE_CHARS_MAX,
 } from "../limits.ts";
 
 // API shapes for exams (Stage 6, slice 2): allowlists, parsed strictly on both sides.
@@ -309,6 +311,70 @@ export const similarityResponseSchema = z
                     shared: z.number().int(),
                     spans_a: z.array(spanSchema),
                     spans_b: z.array(spanSchema),
+                })
+                .strict(),
+        ),
+    })
+    .strict();
+
+// Integrity flags, their review and appeals (Stage 6, slice 9). Staff see the evidence; a candidate sees only the
+// plain explanation of a flag that a person confirmed, and may appeal it.
+export const INTEGRITY_KINDS = ["similarity", "large_paste", "many_focus_losses"] as const;
+export const integrityDecisionSchema = z.enum(["clear", "needs_review", "confirmed", "dismissed"]);
+export const integrityFlagSchema = z
+    .object({
+        flag_id: idSchema("ifl"),
+        session_id: idSchema("exs"),
+        name: z.string(),
+        email: z.string(),
+        label: z.string(),
+        kind: z.enum(INTEGRITY_KINDS),
+        rule_version: z.number().int(),
+        evidence: z.record(z.string(), z.unknown()),
+        explanation: z.string(),
+        state: z.enum(["unreviewed", "clear", "needs_review", "confirmed", "dismissed"]),
+        decided_at: z.iso.datetime().nullable(),
+        decision_note: z.string(),
+        appeal: z
+            .object({
+                appeal_id: idSchema("apl"),
+                note: z.string(),
+                state: z.enum(["open", "upheld", "overturned"]),
+                review_note: z.string(),
+            })
+            .strict()
+            .nullable(),
+    })
+    .strict();
+export const integrityListSchema = z.object({ flags: z.array(integrityFlagSchema) }).strict();
+export const integrityScanResponseSchema = z.object({ raised: z.number().int() }).strict();
+export const integrityDecideRequestSchema = z
+    .object({
+        state: integrityDecisionSchema,
+        note: z.string().max(INTEGRITY_NOTE_CHARS_MAX).default(""),
+    })
+    .strict();
+export const integrityAppealRequestSchema = z
+    .object({ note: z.string().min(1).max(APPEAL_NOTE_CHARS_MAX) })
+    .strict();
+export const integrityReviewRequestSchema = z
+    .object({
+        outcome: z.enum(["upheld", "overturned"]),
+        note: z.string().max(INTEGRITY_NOTE_CHARS_MAX).default(""),
+    })
+    .strict();
+export const myIntegrityFlagsSchema = z
+    .object({
+        flags: z.array(
+            z
+                .object({
+                    flag_id: idSchema("ifl"),
+                    label: z.string(),
+                    kind: z.enum(INTEGRITY_KINDS),
+                    explanation: z.string(),
+                    rule_version: z.number().int(),
+                    decided_at: z.iso.datetime().nullable(),
+                    appeal_state: z.enum(["open", "upheld", "overturned"]).nullable(),
                 })
                 .strict(),
         ),

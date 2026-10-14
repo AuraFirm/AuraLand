@@ -16,6 +16,7 @@ import { useServerNow } from "../lib/server-clock.ts";
 import { button } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { ExamEditor } from "./exam-editor.tsx";
+import { ExamFlags } from "./exam-flags.tsx";
 import { ExamResult } from "./exam-result.tsx";
 import { SafeHtml } from "./safe-html.tsx";
 import { Notice, Section } from "./section.tsx";
@@ -64,6 +65,9 @@ export function ExamSitting({ exam }: { exam: ExamItem }) {
                 (data?.state === "submitted" || data?.state === "expired") && (
                     <ExamResult examId={exam.id} />
                 )}
+            {(data?.state === "submitted" || data?.state === "expired") && (
+                <ExamFlags examId={exam.id} />
+            )}
             {(data?.state === "submitted" || data?.state === "expired") && (
                 <Notice
                     text={

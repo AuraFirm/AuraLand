@@ -96,6 +96,10 @@ function Manage({ exam, onChanged }: { exam: Exam; onChanged: () => void }) {
                     ·{" "}
                     <a className="text-accent underline" href={`/exams/${exam.id}/similarity`}>
                         Similar answers
+                    </a>{" "}
+                    ·{" "}
+                    <a className="text-accent underline" href={`/exams/${exam.id}/integrity`}>
+                        Integrity review
                     </a>
                 </p>
             )}
