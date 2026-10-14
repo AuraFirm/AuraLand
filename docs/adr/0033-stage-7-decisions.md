@@ -18,7 +18,8 @@ credential says no more than the event proved; and a verifier must be able to ch
    would not share our mistakes. No custom cryptography. Exact versions are pinned in `docs/adr/deps.json` when each is installed.
 4. **Signer port.** `Signer { keyId, alg, sign(bytes) }`; the application holds a key id and asks for signatures. Adapters: a
    **development signer** (key in process memory; the process refuses to construct it unless the environment is development
-   or test) and an **AWS KMS adapter** written to the documented API and **not run** until a KMS account exists (F1, F62).
+   or test) (amended in slice 1: the **AWS KMS adapter is not written** until a KMS account exists to run it against; unrun code is a
+claim without observation, so it waits with F1 and F62).
    Credentials signed by the development signer carry `"environment": "development"` in the issuer metadata and are never
    called production credentials.
 5. **Issuer.** One platform issuer, `did:web:<host>`, issues for the event host; the host organization is named in the claim.
