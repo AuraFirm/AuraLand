@@ -436,3 +436,43 @@ export async function seedReleasedVersion(orgPublicId: string): Promise<string> 
         await database.close(5);
     }
 }
+
+// A person with a public profile and two rated contests behind a rating, for the profile page. Returns the
+// handle. The rating job itself is tested elsewhere; this plants its output.
+export async function seedRatedProfile(): Promise<string> {
+    const url = process.env["AURA_E2E_DATABASE_URL"];
+    if (url === undefined || url === "") throw new Error("AURA_E2E_DATABASE_URL must be set");
+    const database = createDatabase(url, 1);
+    try {
+        const { sql } = database;
+        const handle = `rated_${randomBytes(4).toString("hex")}`;
+        const [user] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${`${handle}@example.com`}, now()) returning id`;
+        const userId = user?.id ?? "";
+        await sql`insert into profiles (user_id, handle, display_name, visibility)
+            values (${userId}, ${handle}, 'Rated Person', 'public')`;
+        const [org] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('university', ${`uni-${randomBytes(4).toString("hex")}`}, 'U') returning id`;
+        const steps: [string, number, number][] = [
+            ["Autumn Round", 1500, 1561.4],
+            ["Winter Round", 1561.4, 1688],
+        ];
+        for (const [index, [title, before, after]] of steps.entries()) {
+            const start = Date.UTC(2026, 0, 1 + index);
+            const [contest] = await sql<{ id: string }[]>`insert into contests
+                (org_id, slug, title, format, rules, starts_at, ends_at, created_by, rated)
+                values (${org?.id ?? ""}, ${`c-${randomBytes(4).toString("hex")}-${index}`}, ${title}, 'icpc', ${sql.json({ format: "icpc" })},
+                        ${new Date(start)}, ${new Date(start + 5 * 3_600_000)}, ${userId}, true) returning id`;
+            for (const state of ["scheduled", "running", "ended"]) {
+                await sql`update contests set state = ${state} where id = ${contest?.id ?? ""}`;
+            }
+            await sql`insert into rating_events (user_id, contest_id, dimension, rank, mu_before, mu_after, sigma_after, performance, created_at)
+                values (${userId}, ${contest?.id ?? ""}, 'contest', ${index + 1}, ${before}, ${after}, 150, ${after + 30}, now())`;
+        }
+        await sql`insert into ratings (user_id, dimension, mu, sigma, contests, updated_at)
+            values (${userId}, 'contest', 1688, 150, 2, now())`;
+        return handle;
+    } finally {
+        await database.close(5);
+    }
+}

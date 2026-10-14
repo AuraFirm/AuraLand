@@ -123,6 +123,13 @@ export const contestCreateRequestSchema = z
                 });
             }
         }
+        if (contest.rated && contest.visibility !== "public") {
+            context.addIssue({
+                code: "custom",
+                path: ["rated"],
+                message: "a rated contest is public",
+            });
+        }
         const labels = contest.problems.map((problem) => problem.label);
         if (new Set(labels).size !== labels.length) {
             context.addIssue({
