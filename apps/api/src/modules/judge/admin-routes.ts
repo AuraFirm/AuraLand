@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
-import { enrollmentCreatedSchema } from "@aura/contracts/judge-protocol";
+import { enrollmentCreatedSchema, enrollmentRequestSchema } from "@aura/contracts/judge-protocol";
 import { NODE_ENROLLMENT_TTL_S } from "@aura/contracts/limits";
 import { appendAudit } from "@aura/db/audit";
 import { postgresErrorCode } from "@aura/db/errors";
@@ -38,15 +38,27 @@ function administrator(c: Context<AppEnv>, deps: JudgeAdminDeps) {
     return actor;
 }
 
+function parseJson(text: string): unknown {
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
+}
+
 async function handleCreate(c: Context<AppEnv>, deps: JudgeAdminDeps) {
     const actor = administrator(c, deps);
     if (actor instanceof Response) return actor;
+    // No body means a development node: the safer default; production must be asked for by name.
+    const text = await c.req.text();
+    const body = enrollmentRequestSchema.safeParse(text === "" ? {} : parseJson(text));
+    if (!body.success) return problemResponse(c, "invalid_request", "Invalid request");
     // 256 random bits; only their SHA-256 is stored, and the token is shown once, here.
     const token = randomBytes(32).toString("base64url");
     const nowMs = deps.clock.nowUnixMs();
     const tx = c.get("tx");
     try {
-        await tx`select create_node_enrollment(${createHash("sha256").update(token).digest()}, ${new Date(nowMs)}, ${`${NODE_ENROLLMENT_TTL_S} seconds`}::interval)`;
+        await tx`select create_node_enrollment(${createHash("sha256").update(token).digest()}, ${new Date(nowMs)}, ${`${NODE_ENROLLMENT_TTL_S} seconds`}::interval, ${body.data.attestation})`;
     } catch (error) {
         if (postgresErrorCode(error) === INSUFFICIENT_PRIVILEGE)
             return problemResponse(c, "not_found", "Not found");
@@ -57,12 +69,14 @@ async function handleCreate(c: Context<AppEnv>, deps: JudgeAdminDeps) {
         actorUserId: actor.userId,
         orgId: null,
         action: "admin.node_enrollment_created",
+        detail: { attestation: body.data.attestation },
     });
     c.header("Cache-Control", "no-store");
     return c.json(
         enrollmentCreatedSchema.parse({
             token,
             expires_at: new Date(nowMs + NODE_ENROLLMENT_TTL_S * 1000).toISOString(),
+            attestation: body.data.attestation,
         }),
         201,
     );

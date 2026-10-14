@@ -4,6 +4,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { problemSchema } from "@aura/contracts/errors";
+import { decodeId } from "@aura/contracts/ids";
 import {
     enrollmentCreatedSchema,
     enrollResponseSchema,
@@ -35,24 +36,30 @@ const post = (
     headers: Record<string, string> = { "content-type": "application/json" },
 ) => h.app().request(`${JUDGE}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 
-async function newEnrollmentToken(): Promise<string> {
+async function newEnrollmentToken(attestation?: string): Promise<string> {
     const { token } = await h.login(ALICE);
     const response = await h.request("/admin/judge-nodes/enrollments", {
         method: "POST",
-        headers: browser(token),
+        headers:
+            attestation === undefined
+                ? browser(token)
+                : { ...browser(token), "content-type": "application/json" },
+        ...(attestation === undefined ? {} : { body: JSON.stringify({ attestation }) }),
     });
     expect(response.status).toBe(201);
     return enrollmentCreatedSchema.parse(await response.json()).token;
 }
 
 let counter = 0;
-async function enrolled(): Promise<{ nodeId: string; key: TestKey; name: string }> {
+async function enrolled(
+    attestation?: string,
+): Promise<{ nodeId: string; key: TestKey; name: string }> {
     // Enrollment is limited per address and minute; moving on keeps one test from starving the next.
     h.clock.advance(61_000);
     const key = newKey();
     const name = `node-${++counter}`;
     const response = await post("/enroll", {
-        token: await newEnrollmentToken(),
+        token: await newEnrollmentToken(attestation),
         name,
         public_key: key.publicKey.toString("base64url"),
         agent_version: "0.1.0",
@@ -307,5 +314,35 @@ describe("the signature fixture", () => {
     it("matches what the control plane verifies, so the Go agent can check itself against it", () => {
         const fixture = JSON.parse(readFileSync(SIGNATURE_FIXTURE_PATH, "utf8"));
         expect(fixture).toEqual(signatureFixture());
+    });
+});
+
+describe("attestation", () => {
+    it("is development unless the administrator names production, and never changes", async () => {
+        const plain = await enrolled();
+        const production = await enrolled("production");
+        const kindOf = async (nodeId: string) =>
+            (
+                await h.db.database.sql<{ attestation: string }[]>`
+                select attestation from judge_nodes where id = ${decodeId("nod", nodeId)}`
+            )[0]?.attestation;
+        expect(await kindOf(plain.nodeId)).toBe("development");
+        expect(await kindOf(production.nodeId)).toBe("production");
+        await expect(
+            h.db.database
+                .sql`update judge_nodes set attestation = 'production' where id = ${decodeId("nod", plain.nodeId)}`,
+        ).rejects.toThrow(/keeps its name, key and attestation/);
+    });
+
+    it("refuses an unknown attestation and an unknown field", async () => {
+        const { token } = await h.login(ALICE);
+        for (const body of [{ attestation: "staging" }, { attestations: "production" }]) {
+            const response = await h.request("/admin/judge-nodes/enrollments", {
+                method: "POST",
+                headers: { ...browser(token), "content-type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            expect(response.status).toBe(400);
+        }
     });
 });

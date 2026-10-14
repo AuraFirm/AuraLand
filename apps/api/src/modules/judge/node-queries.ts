@@ -50,16 +50,17 @@ export async function enrollNode(
 ): Promise<EnrollResult> {
     const at = new Date(input.nowMs);
     const tokens = await tx`
-        select id from node_enrollments
+        select id, attestation from node_enrollments
         where token_hash = ${input.tokenHash} and used_at is null and expires_at > ${at} for update`;
     if (tokens[0] === undefined) return { kind: "invalid_token" };
-    const tokenId = z.object({ id: z.string() }).parse(tokens[0]).id;
+    const token = z.object({ id: z.string(), attestation: z.string() }).parse(tokens[0]);
+    const tokenId = token.id;
     const taken =
         await tx`select 1 from judge_nodes where name = ${input.name} or public_key = ${input.publicKey}`;
     if (taken.length > 0) return { kind: "conflict" };
     const created = await tx`
-        insert into judge_nodes (name, public_key, tiers, agent_version, created_at, last_seen_at)
-        values (${input.name}, ${input.publicKey}, ${input.tiers}, ${input.agentVersion}, ${at}, ${at}) returning id`;
+        insert into judge_nodes (name, public_key, tiers, agent_version, attestation, created_at, last_seen_at)
+        values (${input.name}, ${input.publicKey}, ${input.tiers}, ${input.agentVersion}, ${token.attestation}, ${at}, ${at}) returning id`;
     const id = z.object({ id: z.string() }).parse(created[0]).id;
     await tx`update node_enrollments set used_at = ${at}, used_by = ${id} where id = ${tokenId}`;
     return { kind: "enrolled", id };

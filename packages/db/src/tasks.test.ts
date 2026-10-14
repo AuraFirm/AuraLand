@@ -91,6 +91,32 @@ const move = (userId: string, versionId: string, changes: Record<string, unknown
         as(userId),
         (tx) => tx`update task_versions set ${tx(changes)} where id = ${versionId} returning id`,
     );
+// Validation is started and settled only through functions (migration 0026). A node and a passing
+// report are planted so the tests about other rules can move a version through those states.
+const startValidation = (userId: string, versionId: string) =>
+    inRole(
+        db.database,
+        "aura_app",
+        as(userId),
+        (tx) => tx`select request_validation(${versionId}, now(), 100)`,
+    );
+let plantedNode = "";
+async function passValidation(versionId: string) {
+    if (plantedNode === "") {
+        const [node] = await db.database.sql<{ id: string }[]>`
+            insert into judge_nodes (name, public_key, state, created_at)
+            values ('planted', ${randomBytes(32)}, 'active', now()) returning id`;
+        plantedNode = node?.id ?? "";
+    }
+    const checks = [{ name: "reference_passes", ok: true, detail: "" }];
+    return inRole(
+        db.database,
+        "aura_worker",
+        { actorKind: "worker", userId: null, orgIds: [] },
+        (tx) =>
+            tx`select settle_validation(${versionId}, ${plantedNode}, ${tx.json(checks)}, ${tx.json({})}, now())`,
+    );
+}
 const BUNDLE = () => ({ bundle_bytes: 1000, bundle_sha256: randomBytes(32) });
 const CONTENT = { spec: { spec_version: 1 }, statement: "Add two numbers." };
 
@@ -354,8 +380,8 @@ describe("versions: review and release", () => {
         const second = await draft();
         await toReview(second.versionId);
         await review(REVIEWER, second.versionId);
-        expect((await move(REVIEWER, second.versionId, { state: "validating" })).length).toBe(1);
-        expect((await move(REVIEWER, second.versionId, { state: "validated" })).length).toBe(1);
+        expect((await startValidation(REVIEWER, second.versionId)).length).toBe(1);
+        expect((await passValidation(second.versionId)).length).toBe(1);
         await fails(release(REVIEWER, second.versionId, true), /waived exactly when/);
         expect((await release(REVIEWER, second.versionId, false)).length).toBe(1);
     });
@@ -430,13 +456,13 @@ describe("versions: frozen and unique", () => {
     it("lets only one version of a task be validated at a time", async () => {
         const { taskId, versionId } = await draft();
         await toReview(versionId);
-        await move(REVIEWER, versionId, { state: "validating" });
+        await startValidation(REVIEWER, versionId);
         const [next] = await createVersion(SETTER, taskId, 2);
         const nextId = next?.id ?? "";
         await move(SETTER, nextId, { state: "uploaded", ...BUNDLE() });
         await move(SETTER, nextId, { ...CONTENT });
         await move(SETTER, nextId, { state: "in_review" });
-        await fails(move(REVIEWER, nextId, { state: "validating" }), /one_validating/);
+        await fails(startValidation(REVIEWER, nextId), /one_validating/);
     });
 });
 
