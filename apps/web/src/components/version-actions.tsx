@@ -55,7 +55,9 @@ export function VersionActions(props: Props) {
                 <Notice text="You made this version, so someone else has to review and release it." />
             )}
             {reviewing && <ReviewForm run={run} />}
+            <ValidationControls version={version} reviewer={reviewer} run={run} />
             {reviewing && <ReleaseForm run={run} />}
+            {reviewer && !own && version.state === "validated" && <ReleaseValidated run={run} />}
             {reviewer && version.state === "released" && (
                 <button
                     type="button"
@@ -132,8 +134,8 @@ function ReleaseForm({ run }: { run: Run }) {
         <form onSubmit={submit} className="flex flex-col gap-2">
             <h3 className="font-semibold">Release without sandbox validation</h3>
             <p className="text-sm text-muted">
-                There is no sandbox yet, so a release is a recorded waiver. Approve the version
-                first. You will be asked to confirm with your passkey.
+                A release without validation is a recorded waiver. Prefer asking for validation
+                first. Approve the version first. You will be asked to confirm with your passkey.
             </p>
             <label htmlFor="waiver-reason">
                 Why is it safe to release? (at least 10 characters)
@@ -151,5 +153,46 @@ function ReleaseForm({ run }: { run: Run }) {
                 Release this version
             </button>
         </form>
+    );
+}
+
+// Asking for validation, and what to say while it runs.
+function ValidationControls({
+    version,
+    reviewer,
+    run,
+}: {
+    version: VersionItem;
+    reviewer: boolean;
+    run: Run;
+}) {
+    return (
+        <>
+            {reviewer && version.state === "in_review" && (
+                <button
+                    type="button"
+                    className={`${button} mb-4`}
+                    onClick={() => run("validate", undefined, false, "Validation requested.")}
+                >
+                    Request validation
+                </button>
+            )}
+            {version.state === "validating" && (
+                <Notice text="Validation is running or waiting for a judge node." />
+            )}
+        </>
+    );
+}
+
+// A validated version is released without a waiver: the report is the evidence.
+function ReleaseValidated({ run }: { run: Run }) {
+    return (
+        <button
+            type="button"
+            className={button}
+            onClick={() => run("release", {}, true, "Released.")}
+        >
+            Release this validated version
+        </button>
     );
 }

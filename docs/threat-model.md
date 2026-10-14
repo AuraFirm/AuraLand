@@ -195,6 +195,31 @@ correct, only what it is (hashes) and who made it (provenance in the spec). No m
 system and no card data enters it; payment and payout rows are staff records. A delivered bundle is the
 original bytes, so it is not traceable to a customer by content (F41).
 
+## STRIDE for the Stage 4B surface (validation, v5)
+| Threat | Surface | Control | Evidence |
+|---|---|---|---|
+| **Spoofing/Elevation**: a node claims a task is good, or claims to be a production node | Validation result, node attestation | A node reports raw verdicts only; `evaluateValidation` and the score are computed by the control plane. The attestation is declared by a platform administrator at enrollment, copied to the node row, immutable, and read from that row inside `settle_validation`; no caller supplies it | `rules.test.ts`, `score.test.ts`, `validation.test.ts` (db), `http-judge.test.ts` |
+| **Tampering**: mark a version validated without evidence | Task version state | The application role cannot set `validating` or `validated` (policy); `request_validation` and `settle_validation` are the only doors; a trigger refuses `validated` without a passing report; the report's `passed` must agree with its checks | `validation.test.ts` (db) |
+| Tampering: change or delete a report | `validation_reports` | Update and delete triggers; rows go only with their version or organization | `validation.test.ts` (db) |
+| Tampering: a report that cannot be true (missing tests, duplicate runs, skipped attackers, a mutant that never compiled but was killed) | Node result | Rejected, the job goes to another node; nothing is recorded | `rules.test.ts`, `http-validation.test.ts` |
+| **Disclosure**: the bundle or hidden tests reach the wrong place | Node bundle download, opener | A node downloads only the bundle of a job it holds; every grant is audited; the opener runs the validator in a box and only `tests/` and `solutions/` come out as a flat stream the node parses strictly; reports show conclusions, not observations | `http-validation.test.ts`, `opener_isolate_test.go`, `bundles_test.go` |
+| Disclosure: unreviewed validation sold as validated | Delivery manifest, portal | Plain "validated" only for a `production` report; a development report says "development sandbox only"; no report says "not performed" | `rules.test.ts` (orders), `handlers.database.test.ts`, `version-validation.tsx` |
+| **Denial of service**: validation floods the judge | Queue and node | 100 ready jobs at most; 20 wrong solutions, 40 mutants, 10 attackers per job; per-run limits; a dead job returns its version to `uploaded` | `validation.test.ts` (db), `http-validation.test.ts` |
+| Elevation: the opener runs hostile code on the host | Node | The archive is parsed only by the validator inside a box; the box sees a read-only Node tree and nothing else; the node parses a flat, hash-checked stream | `opener_isolate_test.go` (zip bomb, symlink, bad names) |
+
+**What is not claimed.**
+- All sandbox evidence comes from one development VM (aarch64, isolate 2.1.1, cgroup v2). There is no
+  production node and no external review (F32). Reports from it are `development` reports.
+- A task passes the harness if its own solutions behave and ten trivial programs fail; that is not
+  proof the statement is clear, the difficulty right or the tests free of mistakes. Models and people
+  have not attacked any task (F41, human-attack queue and model calibration not built).
+- Mutants are textual swaps in C++ and Python references; a surviving mutant may be an equivalent one.
+  A task whose real answer is trivially computable (a sum of numbers) is rejected by the sum attacker.
+- Custom checkers and interactive tasks are not validated here (the node refuses them).
+
+## Privacy review (Stage 4B)
+No new personal data. Reports hold task content derivatives (verdicts, scores) and node ids.
+
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;
 download events with the person's address; contractors' payout amounts and references. Download events

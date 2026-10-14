@@ -30,6 +30,15 @@ export const buildInputSchema = z.object({
                 bundle_sha256: z.string().regex(/^[0-9a-f]{64}$/),
                 bundle_bytes: z.number().int().min(1),
                 waived: z.boolean(),
+                // The latest passing validation report, if there is one (migration 0029).
+                validation: z
+                    .object({
+                        report_id: z.uuid(),
+                        attestation: z.enum(["development", "production"]),
+                        score: z.number().min(0).max(100).nullable(),
+                        score_version: z.number().int().min(1).nullable(),
+                    })
+                    .nullable(),
             }),
         )
         .max(ORDER_ITEMS_MAX),
@@ -51,6 +60,23 @@ export function deliveryCanary(
 // Hashing is passed in so this file stays free of I/O and library imports.
 export type Sha256Hex = (text: string) => string;
 
+// What a customer is told about validation. Plain "validated" is reserved for a report produced on a
+// reviewed production node (ADR 0029, invariant 4); a development node's report says so in the same
+// breath, and no report at all says "not performed". The report id lets a person find the evidence.
+function validationStatement(item: BuildInput["items"][number]): string {
+    const report = item.validation;
+    if (report === null)
+        return item.waived ? "waived by a reviewer; not performed" : "not performed";
+    const score =
+        report.score === null
+            ? ""
+            : `, score ${report.score}/100 (formula v${report.score_version})`;
+    const evidence = `, report ${encodeId("vrp", report.report_id)}`;
+    return report.attestation === "production"
+        ? `validated (production sandbox)${score}${evidence}`
+        : `validated on a development sandbox only${score}${evidence}; the sandbox has not been independently reviewed`;
+}
+
 const isoTime = (text: string) => new Date(text).toISOString();
 
 // The manifest, as the exact text that is stored and hashed. Keys are in a fixed order on purpose.
@@ -71,8 +97,7 @@ export function buildManifest(
         spec: item.spec,
         statement: `${item.statement}\n\n---\nDelivery reference: ${deliveryCanary(input.watermark_id, item.task_version_id, sha256Hex)}`,
         bundle: { sha256: item.bundle_sha256, bytes: item.bundle_bytes },
-        // Honest status: validation needs the sandbox, which does not exist yet (cutlist F32).
-        validation: item.waived ? "waived by a reviewer; not performed" : "not performed",
+        validation: validationStatement(item),
     }));
     const text = JSON.stringify({
         manifest_version: MANIFEST_VERSION,

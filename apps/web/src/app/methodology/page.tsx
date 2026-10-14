@@ -23,15 +23,40 @@ export default function MethodologyPage() {
             </section>
             <section aria-labelledby="validated" className="flex flex-col gap-2">
                 <h2 id="validated" className="text-lg font-semibold">
-                    What has not been done yet
+                    How a task is validated, and what that does not prove
                 </h2>
                 <p>
-                    We do not yet run a task's reference solution and wrong solutions in a sandbox,
-                    mutate its tests, measure its difficulty with models or attack it with agents
-                    and people. Every delivery says <strong>validation: not performed</strong>
-                    for that reason. We will not call a pack validated, and we will not publish an
-                    ungameability score, until those steps run and their results are stored with the
-                    pack.
+                    A reviewer can ask for validation. A judge node then runs the task's own
+                    solutions in a sandbox: the reference must pass every test, twice with the same
+                    verdicts, and every wrong solution must fail at least one. The node also changes
+                    the reference in up to forty small ways (a swapped operator, a number off by
+                    one) and sees whether the tests notice, and runs ten deliberately lazy programs
+                    (look the samples up, echo the input, print a constant) to see whether the tests
+                    accept any of them. The node only reports what it saw; our servers draw the
+                    conclusions and store an unchangeable report.
+                </p>
+                <p>
+                    The <strong>ungameability score</strong> (formula version 1) is 40 points for
+                    the share of changed references the tests caught, 30 for the share of lazy
+                    programs they rejected, 20 for the share of consistency checks that passed and
+                    10 for the share of test groups holding at least two tests. A task needs at
+                    least 70, and every consistency check, to count as validated. A task that a
+                    program ignorant of its statement can solve completely does not pass, even if it
+                    is a perfectly good exercise.
+                </p>
+                <p>
+                    <strong>What it does not prove.</strong> It does not show that the statement is
+                    clear, that the difficulty is right, that no clever solution exists, or that the
+                    tests are free of mistakes beyond those the wrong solutions expose. We have not
+                    yet measured difficulty with models or attacked tasks with agents and people.
+                </p>
+                <p>
+                    <strong>Which sandbox.</strong> Every report records the kind of machine that
+                    produced it. Until a production judge node has been independently reviewed, a
+                    pack can be at most <strong>validated on a development sandbox only</strong>,
+                    and its delivery says exactly that. We will use the plain word “validated” only
+                    for a report from a reviewed production node. A pack with no report still says
+                    <strong> validation: not performed</strong>.
                 </p>
             </section>
             <section aria-labelledby="delivery" className="flex flex-col gap-2">

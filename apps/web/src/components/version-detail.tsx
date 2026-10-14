@@ -14,6 +14,7 @@ import { VersionActions } from "./version-actions.tsx";
 import { VersionBundle } from "./version-bundle.tsx";
 import { VersionComments } from "./version-comments.tsx";
 import { VersionContent } from "./version-content.tsx";
+import { VersionValidation } from "./version-validation.tsx";
 
 // One version of a task: its statement, spec and bundle while they can be edited, and the steps that
 // move it toward release. The controls shown depend on the caller's role and on the version's state;
@@ -60,6 +61,9 @@ export function VersionDetail({ versionId }: { versionId: string }) {
             )}
             {current.state === "released" && current.spec !== null && (
                 <SubmitPanel versionId={current.id} languages={current.spec.languages} />
+            )}
+            {(canWriteTasks(role) || canReviewTasks(role)) && (
+                <VersionValidation versionId={current.id} state={current.state} />
             )}
             {(canWriteTasks(role) || canReviewTasks(role)) && (
                 <VersionComments versionId={current.id} />
