@@ -12,6 +12,7 @@ import { orderSchema } from "@aura/contracts/api/orders";
 import { encodeId } from "@aura/contracts/ids";
 import { withRequestContext } from "@aura/db/context";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { plantDelivered } from "./delivery-test-support.ts";
 import { ALICE, BOB, browser, createHarness, type Harness } from "./http-harness.ts";
 import { SPEC } from "./http-task-support.ts";
 import { buildDelivery } from "./modules/orders/handlers.ts";
@@ -73,7 +74,10 @@ const as = async (userId: string, method: string, path: string, body?: unknown) 
 };
 
 // An order with one version, placed by the platform administrator and (optionally) built by the worker.
-async function delivery(build = true): Promise<string> {
+async function delivery(
+    build = true,
+    marked: ReadonlyMap<string, Buffer> = new Map(),
+): Promise<string> {
     const created = await as(ALICE, "POST", "/admin/orders", {
         customer_org_id: encodeId("org", customer),
         title: "Pack",
@@ -90,6 +94,7 @@ async function delivery(build = true): Promise<string> {
     const id = placed.delivery?.id ?? "";
     if (build) {
         const raw = id.slice("dlv_".length);
+        await plantDelivered(h.db.database.sql, raw, marked);
         await buildDelivery(
             { delivery_id: raw },
             {
@@ -140,6 +145,29 @@ describe("reading deliveries", () => {
 });
 
 describe("download links", () => {
+    it("points a marked bundle's link at the delivery's own copy and never at the original", async () => {
+        const copy = new TextEncoder().encode("bundle-one, marked for this delivery");
+        const copySha = createHash("sha256").update(copy).digest();
+        const id = await delivery(true, new Map([[version, copySha]]));
+        const issued = downloadSchema.parse(await (await link(id)).json());
+        const [row] = await h.db.database.sql<
+            { customer_org_id: string }[]
+        >`select customer_org_id from deliveries where id = ${id.slice("dlv_".length)}`;
+        h.storage.write(
+            `bundles/${seller}/${createHash("sha256").update("bundle-one").digest("hex")}`,
+            new TextEncoder().encode("bundle-one"),
+        );
+        expect(h.storage.fetchDownload(issued.url)).toBeUndefined(); // the original is not what the link names
+        h.storage.write(
+            `deliveries/${row?.customer_org_id}/${id.slice("dlv_".length)}/${copySha.toString("hex")}`,
+            copy,
+        );
+        const again = downloadSchema.parse(await (await link(id)).json());
+        expect(new TextDecoder().decode(h.storage.fetchDownload(again.url))).toBe(
+            "bundle-one, marked for this delivery",
+        );
+    });
+
     it("issues a short-lived link for a bundle in the delivery, and logs it", async () => {
         const id = await delivery();
         const before = await logRows();
@@ -155,7 +183,9 @@ describe("download links", () => {
         expect(h.storage.fetchDownload(issued.url)).toBeUndefined();
         expect(await logRows()).toBe(before + 1);
     });
+});
 
+describe("download links, refusals", () => {
     it("refuses another customer, an unknown version and a version that is not in the delivery", async () => {
         const id = await delivery();
         const before = await logRows();

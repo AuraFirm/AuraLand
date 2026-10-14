@@ -13,7 +13,7 @@ import {
 import { appendAudit } from "@aura/db/audit";
 import { type Context, Hono } from "hono";
 import type { AppEnv } from "../../app-env.ts";
-import { bundleKey, type ObjectStorage } from "../../platform/object-storage.ts";
+import { bundleKey, deliveryBundleKey, type ObjectStorage } from "../../platform/object-storage.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import type { RateLimitRule } from "../../platform/rate-limit.ts";
 import {
@@ -121,7 +121,9 @@ async function handleDownload(c: Context<AppEnv>, deps: DeliveryRouteDeps) {
     // The key is built from ids the database vouched for; if the link cannot be made, the request
     // fails and the transaction rolls the log row back, so a log row always means a link was issued.
     const url = await deps.storage.downloadUrl(
-        bundleKey(decision.task_org_id, decision.bundle_sha256),
+        decision.is_original
+            ? bundleKey(decision.task_org_id, decision.bundle_sha256)
+            : deliveryBundleKey(decision.customer_org_id, deliveryId, decision.bundle_sha256),
         DELIVERY_LINK_LIFETIME_S,
     );
     await appendAudit(tx, {

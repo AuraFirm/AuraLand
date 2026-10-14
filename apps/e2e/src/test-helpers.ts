@@ -278,6 +278,7 @@ export async function seedDelivery(buyerEmail: string, built = true): Promise<st
             select id, customer_org_id, ${randomBytes(16).toString("hex")}, now() + interval '30 days', now() from placed
             returning id`;
         const deliveryId = created?.id ?? "";
+        await plantDeliveredBundle(sql, deliveryId, bundleHash);
         if (built) {
             const manifest = JSON.stringify({
                 items: [
@@ -382,4 +383,23 @@ export async function settleValidationAsDevelopmentNode(versionId: string): Prom
     } finally {
         await database.close(5);
     }
+}
+
+// The delivered bundle of the one version: the original, as a watermark job records it when there is
+// nothing safe to mark (the end-to-end environment runs no judge node).
+async function plantDeliveredBundle(
+    sql: ReturnType<typeof createDatabase>["sql"],
+    deliveryId: string,
+    bundleHash: Buffer,
+): Promise<void> {
+    const [node] = await sql<{ id: string }[]>`
+        insert into judge_nodes (name, public_key, state, created_at)
+        values (${`seed-${deliveryId}`}, ${randomBytes(32)}, 'active', now()) returning id`;
+    await sql`insert into delivery_bundles
+        (delivery_id, customer_org_id, task_version_id, task_org_id, tag, source_sha256, sha256, bytes,
+         answers_marked, solutions_marked, verdicts_checked, node_id, attestation, created_at)
+        select d.id, d.customer_org_id, i.task_version_id, i.task_org_id,
+               delivery_tag(d.watermark_id, i.task_version_id), ${bundleHash}, ${bundleHash}, 12, false,
+               false, true, ${node?.id ?? ""}, 'development', now()
+        from deliveries d join order_items i on i.order_id = d.order_id where d.id = ${deliveryId}`;
 }
