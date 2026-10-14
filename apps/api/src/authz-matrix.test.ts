@@ -19,9 +19,20 @@ interface Row {
     // The path addresses an object owned by one person; another person must get 404, not 403.
     readonly owned?: true;
     // What kind of object `:id` names. Defaults to a session.
-    readonly object?: "pky" | "org" | "usr" | "tsk" | "tsv" | "sub" | "nod" | "ord" | "dlv" | "pay";
+    readonly object?:
+        | "pky"
+        | "org"
+        | "usr"
+        | "tsk"
+        | "tsv"
+        | "sub"
+        | "nod"
+        | "ord"
+        | "dlv"
+        | "pay"
+        | "cst";
     // A valid request body for rows that need one, so the check reaches authorization.
-    readonly body?: Record<string, string | number>;
+    readonly body?: Record<string, unknown>;
 }
 
 const SAMPLE_UUID = "018f0000-0000-7000-8000-0000000000ee";
@@ -403,6 +414,66 @@ const MATRIX: readonly Row[] = [
         object: "tsv",
         body: { outcome: "held", method: "tried the samples" },
     },
+    { method: "GET", path: "/api/v1/contests", access: "public" },
+    { method: "GET", path: "/api/v1/contests/:id", access: "public", object: "cst" },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/contests",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: {
+            slug: "matrix-contest",
+            title: "Matrix",
+            rules: { format: "icpc" },
+            starts_at: "2030-01-01T10:00:00Z",
+            ends_at: "2030-01-01T15:00:00Z",
+        },
+    },
+    {
+        method: "PATCH",
+        path: "/api/v1/contests/:id",
+        access: "user",
+        owned: true,
+        object: "cst",
+        body: { title: "x" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/contests/:id/problems",
+        access: "user",
+        owned: true,
+        object: "cst",
+        body: { label: "A", task_version_id: "tsv_018f0000-0000-7000-8000-000000000001" },
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/contests/:id/problems/:label",
+        access: "user",
+        owned: true,
+        object: "cst",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/contests/:id/publish",
+        access: "user",
+        owned: true,
+        object: "cst",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/contests/:id/finalize",
+        access: "user",
+        owned: true,
+        object: "cst",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/contests/:id/registrations",
+        access: "user",
+        owned: true,
+        object: "cst",
+    },
     { method: "GET", path: "/api/v1/deliveries", access: "user" },
     { method: "GET", path: "/api/v1/deliveries/:id", access: "user", owned: true, object: "dlv" },
     {
@@ -440,7 +511,8 @@ const concrete = (row: Row) =>
         .replace(":userId", encodeId("usr", SAMPLE_UUID))
         .replace(":keyId", encodeId("key", SAMPLE_UUID))
         .replace(":invitationId", encodeId("inv", SAMPLE_UUID))
-        .replace(":versionId", encodeId("tsv", SAMPLE_UUID));
+        .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
+        .replace(":label", "A");
 const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
 
@@ -484,6 +556,21 @@ async function victimSubmission(): Promise<string> {
 }
 
 // An object owned by the victim that the row's path can name.
+// A draft contest of an organization only the victim belongs to: nobody else can even see it.
+async function victimContest(): Promise<string> {
+    const { sql } = h.db.database;
+    const [org] = await sql<{ id: string }[]>`
+        insert into orgs (kind, slug, name) values ('university', ${`victim-${randomBytes(4).toString("hex")}`}, 'Victim uni')
+        returning id`;
+    await sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${ALICE}, 'owner')`;
+    const [contest] = await sql<{ id: string }[]>`
+        insert into contests (org_id, slug, title, format, rules, starts_at, ends_at, created_by)
+        values (${org?.id ?? ""}, ${`c-${randomBytes(4).toString("hex")}`}, 'Victim contest', 'icpc',
+                ${sql.json({ format: "icpc" })}, '2030-01-01T10:00:00Z', '2030-01-01T15:00:00Z', ${ALICE})
+        returning id`;
+    return contest?.id ?? "";
+}
+
 async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "org") {
         const [org] = await h.db.database.sql<{ id: string }[]>`
@@ -493,6 +580,7 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
             .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${ALICE}, 'owner')`;
         return encodeId("org", org?.id ?? "");
     }
+    if (row.object === "cst") return encodeId("cst", await victimContest());
     if (row.object === "tsk") return encodeId("tsk", (await victimTask()).task);
     if (row.object === "tsv") return encodeId("tsv", (await victimTask()).version);
     if (row.object === "sub") return encodeId("sub", await victimSubmission());
@@ -558,7 +646,8 @@ describe("generated checks", () => {
                     .replace(":userId", encodeId("usr", ALICE))
                     .replace(":keyId", encodeId("key", SAMPLE_UUID))
                     .replace(":invitationId", encodeId("inv", SAMPLE_UUID))
-                    .replace(":versionId", encodeId("tsv", SAMPLE_UUID));
+                    .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
+                    .replace(":label", "A");
                 const hasBody =
                     row.method === "PATCH" || row.method === "PUT" || row.body !== undefined;
                 const response = await h.app().request(path, {

@@ -14,6 +14,7 @@ import type { AppEnv } from "./app-env.ts";
 import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
+import { contestRoutes } from "./modules/contests/routes.ts";
 import { accountRoutes } from "./modules/identity/account-routes.ts";
 import { adminRoutes } from "./modules/identity/admin-routes.ts";
 import { apiKeyRoutes } from "./modules/identity/api-key-routes.ts";
@@ -259,6 +260,14 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
 
 // Talk about and test a task version: comments and human attacks (Stage 4).
 function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
+    app.route(
+        "/v1",
+        contestRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            key: loginTokenKey(deps.config),
+        }),
+    );
     app.route(
         "/v1",
         commentRoutes({

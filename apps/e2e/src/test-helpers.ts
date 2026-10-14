@@ -403,3 +403,36 @@ async function plantDeliveredBundle(
                false, true, ${node?.id ?? ""}, 'development', now()
         from deliveries d join order_items i on i.order_id = d.order_id where d.id = ${deliveryId}`;
 }
+
+// A released version in an organization (a release needs a review stint this test is not about),
+// planted the way the other end-to-end seeds plant theirs. Returns the version's public id.
+export async function seedReleasedVersion(orgPublicId: string): Promise<string> {
+    const url = process.env["AURA_E2E_DATABASE_URL"];
+    if (url === undefined || url === "") throw new Error("AURA_E2E_DATABASE_URL must be set");
+    const database = createDatabase(url, 1);
+    try {
+        const { sql } = database;
+        const orgId = orgPublicId.replace("org_", "");
+        const slug = randomBytes(4).toString("hex");
+        const [maker] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${`maker-${slug}@example.com`}, now()) returning id`;
+        const [releaser] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${`releaser-${slug}@example.com`}, now()) returning id`;
+        const [task] = await sql<{ id: string }[]>`
+            insert into tasks (org_id, slug, kind, visibility, title, created_by)
+            values (${orgId}, ${`contest-task-${slug}`}, 'algorithmic', 'private', 'Sum of two numbers', ${maker?.id ?? ""}) returning id`;
+        const version = await sql.begin(async (tx) => {
+            await tx`alter table task_versions disable trigger task_versions_guard`;
+            const [row] = await tx<{ id: string }[]>`
+                insert into task_versions (org_id, task_id, seq, state, spec, statement, bundle_bytes, bundle_sha256,
+                                           created_by, released_by, released_at, waived, submitted_at)
+                values (${orgId}, ${task?.id ?? ""}, 1, 'released', '{}'::jsonb, 'Add.', 12, ${randomBytes(32)},
+                        ${maker?.id ?? ""}, ${releaser?.id ?? ""}, now(), true, now()) returning id`;
+            await tx`alter table task_versions enable trigger task_versions_guard`;
+            return row;
+        });
+        return `tsv_${version?.id ?? ""}`;
+    } finally {
+        await database.close(5);
+    }
+}
