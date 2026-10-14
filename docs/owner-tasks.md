@@ -12,9 +12,9 @@ whole class of work until it is done.
 | 1 Identity, tenancy, audit | Approved (2026-10-10) |
 | 2 Tasks and bundles | Approved (2026-10-11) |
 | 3 Queue, submissions, judge | **Built, awaiting your review.** The sandbox has never been run (section 1) |
-| 4A Forge v0 without the sandbox | **Built, awaiting your review** (`stages/stage-4a-report.md`) |
-| 4C Per-delivery watermarks and leak trace | **Built, awaiting your review** (`stages/stage-4c-report.md`) |
-| 4B Forge v0 validation | **Core built, awaiting your review** (`stages/stage-4b-report.md`); remainder needs your provider account and the production node |
+| 4A Forge v0 without the sandbox | Approved (2026-10-14) |
+| 4C Per-delivery watermarks and leak trace | Approved (2026-10-14) |
+| 4B Forge v0 validation | Approved (2026-10-14); model calibration and agent attack runs wait for your provider account; reports stay `development` until the production node exists |
 
 ## 1. Stage 3: review, sign-off and the sandbox gate (**BLOCKS** any real use of the judge)
 ### 1.1 Review and sign off (about half a day)
