@@ -36,6 +36,7 @@ const WORK_S = Number(flags["work-seconds"]);
 const SAVE_S = Number(flags["save-seconds"]);
 const REQUEST_TIMEOUT_MS = 30_000;
 const TELEMETRY_EVERY_SAVES = 3;
+const JITTER_STRIDE_MS = 7919; // a prime, so people spread evenly across the save interval
 const QUEUE_WAIT_S_MAX = 120; // the run fails, not hangs, if the queue never drains
 const SPEC = {
     spec_version: 1,
@@ -221,7 +222,8 @@ async function work(world: World, acked: Map<string, number>): Promise<void> {
         world.sessions.map(async (session, i) => {
             const email = world.emails[i] ?? "";
             const base = `/api/v1/exams/${world.exam}`;
-            await sleep(Math.floor(Math.random() * SAVE_S * 1000));
+            // Spread the first saves out so they do not all land together: a fixed stride, no randomness (a seeded run repeats).
+            await sleep((i * JITTER_STRIDE_MS) % (SAVE_S * 1000));
             let content = "int main() {\n";
             for (let seq = 1; performance.now() < until; seq++) {
                 content += `    // step ${seq} of ${email}\n`;
