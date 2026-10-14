@@ -1,5 +1,6 @@
 import { jobScenario } from "./jobs.sim.ts";
 import { loginScenario } from "./login.sim.ts";
+import { ratingScenario } from "./rating.sim.ts";
 import type { Scenario } from "./runner.ts";
 import { scoreboardScenario } from "./scoreboard.sim.ts";
 import { boundedQueueScenario } from "./selftest.sim.ts";
@@ -15,4 +16,5 @@ export const SCENARIOS: readonly Scenario[] = [
     taskVersionScenario(),
     jobScenario(),
     scoreboardScenario(),
+    ratingScenario(),
 ];

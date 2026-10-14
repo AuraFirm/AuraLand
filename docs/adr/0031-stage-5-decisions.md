@@ -101,3 +101,20 @@ specification itself defines the object, not a file name. ICPC contests only: th
 per-problem time for every positive score, which an IOI cell does not record. Ranks are duplicated on ties
 of solved count and total time; the specification is silent on the unit of `total_time`, so we use minutes
 as its example does. The kit's stream path `/contests/{id}/stream` is `/contests/:id/scoreboard/stream` here.
+
+## Amendment (slice 9): what the rating is
+
+`rateContest` (`modules/contests/rating.ts`) is **Elo-MMR style, not a port of Elo-MMR**: from each person's
+rank it fits a performance (the strength at which their expected wins against this field equal their actual
+wins, logistic win probabilities, ties half a win), then moves their Gaussian belief toward it by the
+posterior, so an unsure rating moves more. Parameters are a versioned object (`RATING_PARAMETERS_V1`), the
+version stored with every run. There is no independent implementation here to take golden vectors from, so it
+is tested by properties (finite, change within the cap, monotone in rank, equal ranks equal results, input
+order irrelevant, a replay of the season reproduces the store) and the numbers are ours. Do not call it
+"Elo-MMR" in the product without that caveat; whether it is a good rating is for the calibration the owner
+tasks leave open (real contests).
+
+The job: the worker rates the oldest finalized rated contest not yet rated, one per tick, in one transaction
+holding an advisory lock, so priors cannot change under it and a contest is rated once (`contest_ratings`).
+Eligible: people who submitted, at least 20 of them, at most 20,000 (otherwise the run is recorded as skipped).
+Ties are equal solved count and penalty (ICPC) or equal points (IOI), as the scoreboard defines them.

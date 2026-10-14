@@ -1,4 +1,5 @@
 import { assert } from "@aura/contracts/assert";
+import { RATING_TICK_MS, rateNextContest } from "./modules/contests/rating-tick.ts";
 import {
     createPostgresScoreboardPort,
     refreshScoreboards,
@@ -168,11 +169,23 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
             await new Promise((resolve) => setTimeout(resolve, CONTEST_TICK_MS));
         }
     })();
+    // Rating is slow and rare, so it has its own loop: a long rating must not delay the contest clock.
+    const ratings = (async () => {
+        // unbounded: the rating loop runs until the process is told to stop
+        while (!stopping) {
+            try {
+                await rateNextContest(deps.context, deps.context.clock);
+            } catch (error) {
+                deps.logger.error({ err: error }, "rating error");
+            }
+            await new Promise((resolve) => setTimeout(resolve, RATING_TICK_MS));
+        }
+    })();
     return {
         async stop() {
             assert(!stopping, "stop is called once");
             stopping = true;
-            await Promise.all([loop, ticks]);
+            await Promise.all([loop, ticks, ratings]);
         },
     };
 }
