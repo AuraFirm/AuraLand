@@ -476,3 +476,10 @@ export async function seedRatedProfile(): Promise<string> {
         await database.close(5);
     }
 }
+
+// The database the end-to-end run set up. Lives here, the one e2e file allowed to read the environment.
+export function e2eDatabaseUrl(): string {
+    const url = process.env["AURA_E2E_DATABASE_URL"];
+    if (url === undefined || url === "") throw new Error("AURA_E2E_DATABASE_URL must be set");
+    return url;
+}
