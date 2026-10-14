@@ -520,6 +520,8 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "cst",
     },
+    { method: "GET", path: "/api/v1/users/:handle", access: "public" },
+    { method: "GET", path: "/api/v1/users/:handle/ratings", access: "public" },
     { method: "GET", path: "/api/v1/contests/:id/scoreboard", access: "public", object: "cst" },
     {
         method: "GET",
@@ -573,6 +575,7 @@ const concrete = (row: Row) =>
         .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
         .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
         .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
+        .replace(":handle", "nobody_here")
         .replace(":label", "A");
 const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
@@ -715,6 +718,7 @@ describe("generated checks", () => {
                     .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
                     .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
                     .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
+                    .replace(":handle", "nobody_here")
                     .replace(":label", "A");
                 const hasBody =
                     row.method === "PATCH" || row.method === "PUT" || row.body !== undefined;

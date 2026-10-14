@@ -15,6 +15,7 @@ import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
 import { clarificationRoutes } from "./modules/contests/clarification-routes.ts";
+import { ratingRoutes } from "./modules/contests/rating-routes.ts";
 import { contestRoutes } from "./modules/contests/routes.ts";
 import { createScoreboardListener } from "./modules/contests/scoreboard-listener.ts";
 import {
@@ -270,6 +271,7 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
 
 // Talk about and test a task version: comments and human attacks (Stage 4).
 function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
+    app.route("/v1", ratingRoutes());
     const hub = defaultHub();
     app.route(
         "/v1",

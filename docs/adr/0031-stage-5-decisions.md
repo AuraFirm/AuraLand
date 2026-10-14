@@ -118,3 +118,11 @@ The job: the worker rates the oldest finalized rated contest not yet rated, one 
 holding an advisory lock, so priors cannot change under it and a contest is rated once (`contest_ratings`).
 Eligible: people who submitted, at least 20 of them, at most 20,000 (otherwise the run is recorded as skipped).
 Ties are equal solved count and penalty (ICPC) or equal points (IOI), as the scoreboard defines them.
+
+## Amendment (slice 10): profiles and rated contests
+
+`GET /users/:handle` and `GET /users/:handle/ratings` answer only for a **public** profile (or to its owner);
+an unlisted, private or missing person is the same 404. Ratings are shown rounded, with a tier whose **name**
+carries the meaning (the color is decoration) and a "still settling" note below 5 contests. A rated contest
+must be **public** (contract and a database check), because a rating history names its contests and ranks to
+anyone who can read the profile. Tier names and thresholds are ours (`RATING_TIERS`), not another site's.

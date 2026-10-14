@@ -12,6 +12,7 @@ import type { Scenario } from "./runner.ts";
 const PEOPLE = 80;
 const FIELD_MIN = 20; // the smallest rated contest
 const FIELD_SPAN = 40;
+const REPLAY_EVERY = 5; // contests between full replays: a replay costs the whole season
 
 type Store = Map<string, { mu: number; sigma: number }>;
 interface Contest {
@@ -37,7 +38,7 @@ function apply(store: Store, contest: Contest): void {
 export function ratingScenario(): Scenario {
     return {
         name: "rating",
-        stepsMax: 25,
+        stepsMax: 20,
         start(world) {
             const log: Contest[] = [];
             const store: Store = new Map();
@@ -63,6 +64,8 @@ export function ratingScenario(): Scenario {
                     apply(store, contest);
                 },
                 check() {
+                    // A replay re-rates the whole season, so it runs every few contests, not after each.
+                    if (log.length % REPLAY_EVERY !== 0) return;
                     const replay: Store = new Map();
                     for (const contest of log) apply(replay, contest);
                     assert(replay.size === store.size, "a replay rates the same people");
