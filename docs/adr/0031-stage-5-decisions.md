@@ -61,3 +61,13 @@ Only members of the host organization take part (no open Arena; rejected: it is 
 `aura_app` role insert contest submissions under a policy (rejected: the policy cannot see the injected
 clock, and a stalled worker would keep a contest open); showing per-test verdicts during the contest
 (rejected: test probing).
+
+## Amendment (slice 5): rebuild from the log, not from a delta
+
+Decision 10 said the tick folds "the delta since the last sequence number". Judging finishes out of order
+and a rejudge rewrites old verdicts, so a delta can miss a change. The tick instead rebuilds a contest's
+board from its judged log whenever the contest's input stamp (state, judged count, newest `updated_at`)
+differs from the stored board's stamp, and writes a row only when its etag changes. The fold is
+order independent and tested to equal incremental application, so a delta can replace the rebuild if a
+contest ever outgrows it; until then the simpler design is always correct. The public view keeps hiding
+what follows the freeze even after the contest ends, until slice 7 adds the unfreeze.
