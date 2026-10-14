@@ -134,7 +134,7 @@ async function settle(
     const work = await readValidationWork(tx, payloadSchema.parse(job.payload).task_version_id);
     if (work === null || work.state !== "validating" || work.spec === null) return "stale" as const;
     const evaluation = evaluateValidation(
-        work.spec.tests.map((test) => test.id),
+        work.spec.tests.map((test) => ({ id: test.id, group: test.group })),
         body.result,
     );
     if (!evaluation.ok) {
@@ -157,6 +157,7 @@ async function settle(
         nodeId,
         checks: evaluation.checks,
         observations: body.result,
+        score: evaluation.score,
         nowMs: deps.clock.nowUnixMs(),
     });
     if (report === null) throw new LeaseLostError();
@@ -168,6 +169,7 @@ async function settle(
         target: encodeId("tsv", work.id),
         detail: {
             passed: evaluation.checks.every((check) => check.ok),
+            score: evaluation.score?.value ?? null,
             node: encodeId("nod", nodeId),
         },
     });

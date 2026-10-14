@@ -37,12 +37,14 @@ export async function settleValidation(
         nodeId: string;
         checks: readonly ValidationCheck[];
         observations: ValidationResult;
+        score: { readonly value: number; readonly version: number } | null;
         nowMs: number;
     },
 ): Promise<string | null> {
     const rows = await tx`
         select settle_validation(${input.versionId}, ${input.nodeId}, ${tx.json([...input.checks])},
-            ${tx.json(input.observations)}, ${new Date(input.nowMs)}) as report`;
+            ${tx.json(input.observations)}, ${input.score?.value ?? null}, ${input.score?.version ?? null},
+            ${new Date(input.nowMs)}) as report`;
     const report = z.object({ report: z.string().nullable() }).parse(rows[0]).report;
     return report;
 }

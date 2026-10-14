@@ -103,7 +103,7 @@ const settle = (
             tx<
                 { settle_validation: string | null }[]
             >`select settle_validation(${versionId}, ${node},
-                ${tx.json(checks)}, ${tx.json(observations)}, now())`,
+                ${tx.json(checks)}, ${tx.json(observations)}, 88.5, 1, now())`,
     ).then((rows) => rows[0]?.settle_validation ?? null);
 const stateOf = async (versionId: string) =>
     (
