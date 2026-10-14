@@ -1,5 +1,6 @@
 // Goal: the simulation harness must be deterministic and must surface bugs with a replayable seed.
 import { describe, expect, it, vi } from "vitest";
+import { examSavesScenario } from "./exam-saves.sim.ts";
 import { jobScenario } from "./jobs.sim.ts";
 import { loginScenario } from "./login.sim.ts";
 import { ratingScenario } from "./rating.sim.ts";
@@ -118,6 +119,13 @@ describe("scoreboard scenario", () => {
 describe("rating scenario", () => {
     it("passes on 150 seeds", async () => {
         const failures = await runSeeds(ratingScenario(), 0, 150);
+        expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
+    });
+});
+
+describe("exam saves scenario", () => {
+    it("passes on 150 seeds", async () => {
+        const failures = await runSeeds(examSavesScenario(), 0, 150);
         expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
     });
 });

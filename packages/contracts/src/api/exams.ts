@@ -7,7 +7,11 @@ import {
     rubricItemSchema,
 } from "../exams.ts";
 import { idSchema } from "../ids.ts";
-import { EXAM_ROSTER_CSV_BYTES_MAX, EXAM_TITLE_CHARS_MAX } from "../limits.ts";
+import {
+    EXAM_DRAFT_BYTES_MAX,
+    EXAM_ROSTER_CSV_BYTES_MAX,
+    EXAM_TITLE_CHARS_MAX,
+} from "../limits.ts";
 
 // API shapes for exams (Stage 6, slice 2): allowlists, parsed strictly on both sides.
 
@@ -120,5 +124,38 @@ export const examProblemViewSchema = z
         memory_limit_kib: z.number().int(),
         languages: z.array(z.string()),
         statement_html: z.string(),
+    })
+    .strict();
+
+// Autosave. The page sends the whole file with an increasing sequence number; the answer says the newest one
+// the server holds. A refusal carries a detail the page acts on: "over" (the time is up) or "last:N".
+export const draftSaveRequestSchema = z
+    .object({
+        seq: z.number().int().min(1),
+        language: z.string().regex(/^[a-z][a-z0-9_+.-]{0,31}$/),
+        // PostgreSQL text cannot hold a NUL, so it is refused here, as a plain bad request.
+        content: z
+            .string()
+            .max(EXAM_DRAFT_BYTES_MAX)
+            .refine((text) => !text.includes("\0"), "text contains a NUL byte"),
+    })
+    .strict();
+
+export const draftSaveResponseSchema = z
+    .object({ acked_seq: z.number().int(), deadline_at: z.iso.datetime() })
+    .strict();
+
+export const draftsResponseSchema = z
+    .object({
+        drafts: z.array(
+            z
+                .object({
+                    label: z.string(),
+                    seq: z.number().int(),
+                    language: z.string(),
+                    content: z.string(),
+                })
+                .strict(),
+        ),
     })
     .strict();

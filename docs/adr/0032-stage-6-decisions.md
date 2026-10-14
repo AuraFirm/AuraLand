@@ -75,3 +75,14 @@ the privacy trade is made by the institution (which may choose to run without te
 The telemetry rejection without consent (slice 6) stays as the technical guard. The problem list of an exam is readable
 only in an exam whose sitting the person started (migration 0045); a statement stays readable by version to people who
 have sat that problem.
+
+## Amendment (slice 4): the save protocol is "greater than", not "exactly one more"
+
+Decision 4 said the server accepts a save only if `seq` is exactly one above the last. Every save is a full snapshot of the
+file, so a gap loses nothing and a client that sends only its newest state needs no queue of intermediates. The rule is now:
+a save is stored if its `seq` is **greater** than the last stored for that problem; the same `seq` with the same content as the
+last is acknowledged again (a repeated request); anything else is a conflict naming the last `seq`, and the client continues
+from above it (last write wins between two tabs). Unchanged: acknowledged only after the commit, refused at or after the
+deadline (the database's clock check), at most 60 saves a minute per session and 20,000 per problem, 256 KiB of text each,
+and a saved draft is never changed or removed. The client's pure sync rules live in `@aura/contracts` so the simulation and the
+page run the same code.

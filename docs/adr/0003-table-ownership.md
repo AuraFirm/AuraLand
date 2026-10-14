@@ -56,6 +56,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `exam_problems` | `modules/exams` | The released versions an exam uses, with points and rubric; fixed once the exam is published |
 | `exam_roster` | `modules/exams` | Who may sit an exam (email, name, extra minutes); replaced as a whole before it opens |
 | `exam_sessions` | `modules/exams` | One person's sitting: consent, start, deadline, state; written only by the exam functions |
+| `exam_drafts` | `modules/exams` | A candidate's saved snapshots per problem with a sequence number; append-only; written only by `save_exam_draft` |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |

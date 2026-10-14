@@ -2,6 +2,7 @@
 
 import {
     consentTextSchema,
+    draftsResponseSchema,
     type ExamItem,
     examProblemViewSchema,
     examSchema,
@@ -13,6 +14,7 @@ import { countdownText, showInstant } from "../lib/contest-time.ts";
 import { useServerNow } from "../lib/server-clock.ts";
 import { button } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
+import { ExamEditor } from "./exam-editor.tsx";
 import { SafeHtml } from "./safe-html.tsx";
 import { Notice, Section } from "./section.tsx";
 
@@ -212,21 +214,33 @@ function Working({ exam, deadlineAt }: { exam: ExamItem; deadlineAt: string }) {
 function Problems({ exam }: { exam: ExamItem }) {
     const reload = useCallback(() => apiGet(`/exams/${exam.id}`, examSchema), [exam.id]);
     const { data } = useLoad(reload);
+    const loadDrafts = useCallback(
+        () => apiGet(`/exams/${exam.id}/drafts`, draftsResponseSchema),
+        [exam.id],
+    );
+    const drafts = useLoad(loadDrafts);
+    if (data === null || drafts.data === null) return null;
     return (
         <>
-            {data?.problems?.map((p) => (
+            {data.problems?.map((p) => (
                 <ProblemStatement
                     key={p.label}
                     examId={exam.id}
                     label={p.label}
                     points={p.points}
+                    initial={drafts.data?.drafts.find((d) => d.label === p.label) ?? null}
                 />
             ))}
         </>
     );
 }
 
-function ProblemStatement(props: { examId: string; label: string; points: number }) {
+function ProblemStatement(props: {
+    examId: string;
+    label: string;
+    points: number;
+    initial: { seq: number; language: string; content: string } | null;
+}) {
     const load = useCallback(
         () => apiGet(`/exams/${props.examId}/problems/${props.label}`, examProblemViewSchema),
         [props.examId, props.label],
@@ -242,6 +256,12 @@ function ProblemStatement(props: { examId: string; label: string; points: number
                 {data.time_limit_ms} ms · {Math.round(data.memory_limit_kib / 1024)} MiB
             </p>
             <SafeHtml html={data.statement_html} label={`Problem ${props.label}`} />
+            <ExamEditor
+                examId={props.examId}
+                label={props.label}
+                languages={data.languages}
+                initial={props.initial}
+            />
         </Section>
     );
 }

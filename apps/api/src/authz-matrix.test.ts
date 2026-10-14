@@ -623,6 +623,15 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "exm",
     },
+    {
+        method: "PUT",
+        path: "/api/v1/exams/:id/problems/:label/draft",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: { seq: 1, language: "cpp", content: "x" },
+    },
+    { method: "GET", path: "/api/v1/exams/:id/drafts", access: "user", owned: true, object: "exm" },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {
