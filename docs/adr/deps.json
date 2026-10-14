@@ -29,7 +29,9 @@
             "katex": "0026",
             "markdown-it": "0026",
             "pino": "0001",
-            "zod": "0001"
+            "zod": "0001",
+            "jose": "0033",
+            "did-jwt": "0033"
         },
         "apps/web": {
             "next": "0005",

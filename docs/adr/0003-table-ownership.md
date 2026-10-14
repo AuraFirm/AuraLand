@@ -63,6 +63,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `integrity_appeals` | `modules/exams` | A candidate's appeal of a confirmed flag, reviewed by staff other than the decider; created and reviewed only by functions, never deleted |
 | `oral_defences` | `modules/exams` | Questions a model proposed about one answer, the candidate's written answers and a person's score; the score is set only by `score_oral_defence` (staff); never deleted |
 | `signing_keys` | `modules/passport` | Public keys and the lifecycle of credential signing keys (active, retired, revoked); the private key is never stored here; written only by `register_signing_key` (worker) and the administrator functions `rotate_signing_key` and `revoke_signing_key` |
+| `credentials` | `modules/passport` | A signed credential and its holder's controls; one per (person, kind, event); recorded only by `insert_credential` (worker), never deleted, what was signed never changes |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
