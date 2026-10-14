@@ -15,6 +15,7 @@ import { useServerNow } from "../lib/server-clock.ts";
 import { button } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
 import { ExamEditor } from "./exam-editor.tsx";
+import { ExamResult } from "./exam-result.tsx";
 import { SafeHtml } from "./safe-html.tsx";
 import { Notice, Section } from "./section.tsx";
 
@@ -58,6 +59,10 @@ export function ExamSitting({ exam }: { exam: ExamItem }) {
                     onHandIn={() => act("submit")}
                 />
             )}
+            {exam.state === "released" &&
+                (data?.state === "submitted" || data?.state === "expired") && (
+                    <ExamResult examId={exam.id} />
+                )}
             {(data?.state === "submitted" || data?.state === "expired") && (
                 <Notice
                     text={

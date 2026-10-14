@@ -639,6 +639,36 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "exm",
     },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/grading",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/answers/:session_id/:label",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "PUT",
+        path: "/api/v1/exams/:id/grades/:session_id/:label",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: { rubric_scores: {}, comment: "" },
+    },
+    { method: "GET", path: "/api/v1/exams/:id/result", access: "user", owned: true, object: "exm" },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/grades.csv",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {
@@ -725,6 +755,7 @@ const concrete = (row: Row) =>
         .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
         .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
         .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
+        .replace(":session_id", encodeId("exs", SAMPLE_UUID))
         .replace(":handle", "nobody_here")
         .replace(":label", "A");
 const call = (row: Row, headers: Record<string, string>) =>
@@ -879,6 +910,7 @@ describe("generated checks", () => {
                     .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
                     .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
                     .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
+                    .replace(":session_id", encodeId("exs", SAMPLE_UUID))
                     .replace(":handle", "nobody_here")
                     .replace(":label", "A");
                 const hasBody =

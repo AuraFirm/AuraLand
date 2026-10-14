@@ -1,4 +1,5 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
+import { seedClosedExam } from "../arena-seeds.ts";
 import {
     expectAccessible,
     freshEmail,
@@ -57,4 +58,36 @@ test("an instructor creates an exam, uploads a roster and publishes it", async (
     await owner.getByRole("button", { name: "Publish" }).click();
     await expect(owner.getByText("scheduled", { exact: true })).toBeVisible();
     await expectAccessible(owner);
+});
+
+test("staff grade a rubric, release the grades, and the candidate reads their result", async ({
+    browser,
+}) => {
+    const staff = freshEmail();
+    const candidate = freshEmail();
+    const exam = await seedClosedExam(staff, candidate);
+
+    const owner = await pageFor(browser, staff);
+    await owner.goto(`/exams/${exam}/grading`);
+    await expect(owner.getByText("automatic 70 of 100 points", { exact: false })).toBeVisible();
+    await owner.getByRole("button", { name: "Show the answer" }).click();
+    await expect(owner.getByText("int main() { return 0; }")).toBeVisible();
+    await owner.getByLabel(/^Readable code/).fill("25");
+    await owner.getByLabel("Comment for the candidate").fill("Clear and tidy.");
+    await owner.getByRole("button", { name: "Save grade" }).click();
+    await expect(owner.getByText("Saved.")).toBeVisible();
+    await expect(owner.getByText("total 95", { exact: false })).toBeVisible();
+    await expectAccessible(owner);
+
+    await owner.goto(`/exams/${exam}`);
+    await owner.getByRole("button", { name: "Release grades" }).click();
+    await expect(owner.getByText("Grades released.")).toBeVisible();
+
+    const student = await pageFor(browser, candidate);
+    await student.goto(`/exams/${exam}`);
+    await expect(
+        student.getByRole("heading", { name: "Your result: 95 of 100 points" }),
+    ).toBeVisible();
+    await expect(student.getByText("Comment: Clear and tidy.")).toBeVisible();
+    await expectAccessible(student);
 });

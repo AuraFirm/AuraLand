@@ -88,6 +88,13 @@ function Manage({ exam, onChanged }: { exam: Exam; onChanged: () => void }) {
                     </button>
                 )}
             </div>
+            {(exam.state === "closed" || exam.state === "released") && (
+                <p className="mt-2">
+                    <a className="text-accent underline" href={`/exams/${exam.id}/grading`}>
+                        Grading and results
+                    </a>
+                </p>
+            )}
             {(exam.state === "draft" || exam.state === "scheduled") && (
                 <RosterUpload examId={exam.id} onChanged={onChanged} />
             )}
