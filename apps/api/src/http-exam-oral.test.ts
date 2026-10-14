@@ -219,7 +219,9 @@ describe("answering and scoring", () => {
             score: 80,
             answers: ["a", "b", "c"],
         });
-        expect(JSON.stringify(await mine(CAROL, exam))).not.toContain("80"); // the score is not part of what they read
+        const own = JSON.stringify(await mine(CAROL, exam));
+        expect(own).not.toContain('"score"'); // the score is not part of what they read
+        expect(own).not.toContain("Understood the choices"); // nor the reviewer's note
         expect((await call(DAVE, "GET", `/exams/${exam}/oral/mine`)).status).toBe(404);
         expect((await call(CAROL, "GET", `/exams/${exam}/oral`)).status).toBe(404);
     });

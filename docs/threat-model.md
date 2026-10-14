@@ -277,25 +277,28 @@ port of a published system, and has not been calibrated on real contests. Java a
 one development VM. A contest cannot be extended or cancelled once published (no such feature), and
 finalizing needs only one owner or admin (no second approver; ASVS V2.3.5).
 
-## STRIDE for the Stage 6 surface (exams and integrity, v8; design only so far)
-| Threat | Surface | Control (designed in ADR 0032; built and tested slice by slice) | Evidence |
+## STRIDE for the Stage 6 surface (exams and integrity, v8, built)
+| Threat | Surface | Control (as built) | Evidence |
 |---|---|---|---|
-| **Tampering**: a candidate's answer is lost or changed after they were told it was saved | Autosave | Server `seq`, content hash, idempotent repeats, acknowledgement only after commit; the client deletes nothing until acknowledged | exam DST: no acknowledged save lost (slice 4) |
-| Tampering: saving or submitting after the deadline | Autosave, submit | A definer function with the injected clock refuses at or after `deadline_at`; the exam state alone is not trusted | db tests, DST (slices 1, 4) |
-| **Disclosure**: a candidate reads other candidates' work, grades or per-test results | Sessions, submissions | RLS on every exam table: a candidate sees only their own session; results appear when the exam is `released` | RLS matrix, HTTP tests (slices 1, 5) |
-| Disclosure: telemetry collected without consent, or more than the closed list | Telemetry ingest | `consent_at` and the consent text version required before a batch is accepted; closed kind list; bounded size and rate; no keystroke content beyond the code, no media | consent gate tests (slice 6) |
-| Information: telemetry kept too long or for the wrong people | Telemetry store | Monthly partitions dropped at the institution's retention; readable by that course's instructors only; deleted with the account | partition and retention tests (slice 6) |
-| **Repudiation**: an integrity decision cannot be explained or challenged | Flags, decisions, appeals | Each flag stores kind, evidence, plain explanation and rule version; decisions and appeals are audited; an appeal is reviewed by a different person | state-machine simulation, HTTP tests (slice 9) |
-| Elevation: a program, not a person, decides a case | Integrity, oral defence | States change only by a person; the LLM only proposes questions and scores nothing; **no AI-text detector** is used | design; tests that no automatic path sets `confirmed` (slice 9) |
-| Tampering: hostile candidate code or answers steer the LLM | Oral-defence prompts | Code and answers are untrusted text in a separate user message; strict output schema; no tools or secrets; output validated and bounded; fake provider in tests | prompt-injection tests (slice 10) |
-| Disclosure: another tenant's hidden material sent to a provider | LLM calls | Only the candidate's own code and the question text; per-institution switch; calls logged redacted | tests (slice 10) |
-| Denial of service: a start-of-exam stampede or autosave flood | Sessions, saves | Per-session save rate and size caps; the request gate from Stage 5; batched telemetry | scaled load run (slice 12) |
-| Tampering: a roster upload poisons accounts or invitations | CSV roster | Whole-file validation before any write; row and byte caps; invitations only through the existing flow; emails lower-cased | HTTP tests (slice 2) |
-| Disclosure: similarity results shown to the wrong people | Similarity | Pairs visible only to instructors of the course; never to candidates; a score is a signal with spans, not a verdict | HTTP tests (slice 8) |
+| **Tampering**: a candidate's answer is lost or changed after they were told it was saved | Autosave | Server `seq` with a greater-than rule, content hash, idempotent repeats, acknowledgement only after commit; the client deletes nothing until acknowledged | `exam-saves` simulation 500/500 (mutation-checked: fails if the deadline check or the commit-before-ack is removed); `save-rules.database.test.ts` 1,500 random requests, SQL equal to the pure rule; load run: 2,000 people, 0 lost acknowledged saves |
+| Tampering: saving or submitting after the deadline | Autosave, submit | `save_exam_draft` and `submit_exam_session` take the injected clock and refuse at or after `deadline_at`; the exam state alone is not trusted; a stopped worker cannot extend an exam | `http-exam-saves.test.ts`, the simulation, `exams.test.ts` |
+| **Disclosure**: a candidate reads other candidates' work, grades or per-test results | Sessions, submissions, grades | Forced RLS on every exam table; a candidate sees only their own session; a problem is readable only during their own sitting; results only when `released`; the exam problem view and the result are separate allow-listed shapes | RLS matrix, `http-exam-session.test.ts`, `http-exam-grading.test.ts` |
+| Disclosure: telemetry collected without consent, or beyond the closed list | Telemetry ingest | `ingest_telemetry` requires a started sitting with consent; closed kinds, counts and durations only, no text; 200 events per batch, 400 per 10 s; times clamped to the sitting | `http-exam-telemetry.test.ts` |
+| Information: telemetry kept too long or read by the wrong people | Telemetry store | Monthly partitions; `purge_exam_telemetry` deletes by the exam's retention (1 to 365 days) and is the only deleter; staff of the host read through policy; updates and other deletes refused by a guard | `http-exam-telemetry.test.ts` |
+| **Repudiation**: an integrity decision cannot be explained or challenged | Flags, decisions, appeals | A flag stores kind, evidence (staff only), a plain explanation (candidate-safe) and the rule version; each decision and appeal is audited; the appeal is reviewed by someone other than the decider, **enforced in SQL** | `integrity-rules.database.test.ts` (400 flags x 8 random operations equal to the pure rules; mutation-checked), `http-exam-integrity.test.ts` |
+| Elevation: a program, not a person, decides a case | Integrity, oral defence | Flag states change only through staff-only functions; the model writes questions and nothing else; `score` is set only by `score_oral_defence`; **no AI-text detector** exists in the code | same tests; `http-exam-oral.test.ts` (a model reply carrying a `score` is rejected) |
+| Tampering: hostile candidate code steers the model | Oral-defence prompts | Code only in the user part, inside one block it cannot close, cut at 20,000 characters; constant instructions; the reply must match a strict schema (3 to 5 questions, no extra fields, no links, no control characters); model calls outside transactions; no tools, no secrets | `oral-prompt.test.ts`, `http-exam-oral.test.ts`. **Verified with a scripted model only: no real provider has been called (F41)** |
+| Disclosure: other material sent to a provider | LLM calls | Only the candidate's own code goes to the port; audit rows hold counts only | `oral-tick.ts` review; a real adapter and a per-institution switch are not built (F41) |
+| Denial of service: a start-of-exam stampede or autosave flood | Sessions, saves | Per-session save cap (60 a minute, 20,000 a problem, 256 KiB), batched telemetry, the request gate from Stage 5, bounded batches in the tick | Load run at 2,000 people (`stage-6-load-2000.json`): no errors; hand-in surge p50 about 2.1 s, queueing the whole class for judging took 19 s |
+| Tampering: a roster upload poisons accounts | CSV roster | Whole-file validation before any write; row and byte caps; emails lower-cased; invitation only through the join flow | `http-exams.test.ts` |
+| Disclosure: similarity results shown to the wrong people | Similarity | Pairs only to the host's staff; authorization before query validation; never to candidates; the explanation a candidate reads names no one | `http-exam-similarity.test.ts`, `http-exam-integrity.test.ts` |
+| Disclosure: a spreadsheet formula in a name or email runs when staff open an export | Grade export | Cells starting with `= + - @`, tab or CR get a leading apostrophe | `http-exam-grading.test.ts` |
+| Elevation: one admin decides and reviews their own case | Appeals | The reviewer must differ from the decider; a host with one admin cannot review (documented in the runbook) | tests above |
 
-**Not designed away.** No identity proof, webcam, screen recording or lockdown browser (assurance level 1 only): an exam
-here is as strong as an open-book exam at a computer the candidate controls plus the signals above. The judge is still
-evidenced on one development VM (F32).
+**Not designed away.** No identity proof, webcam, screen recording or lockdown browser (assurance level 1 only; see
+`docs/security/seb-lockdown-note.md`): an exam here is as strong as an open-book exam at a computer the candidate controls
+plus the signals above. A person with a second device is invisible to it. The judge is still evidenced on one development
+VM (F32). Similarity compares within one exam only (no course concept yet).
 
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;

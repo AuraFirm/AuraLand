@@ -116,6 +116,19 @@ mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRU
    calibrated on real contests (F50).
 5. Approve or change the Java allowances (1 s extra time, 64 MiB reserved) after seeing real tasks (F51).
 
+### 3.8 Stage 6 (exams): what only you can do
+1. **Legal review** of `docs/security/privacy-impact-assessment-exams.md`, the consent text (`CONSENT_TEXTS` in
+   `packages/contracts/src/exams.ts`; agreeing is a condition of sitting) and `docs/security/dpa-template-exams.md`, for each
+   jurisdiction in kit 15 item 33. Nothing about exams should go to real people before this.
+2. **A pilot institution and course**, and what they want from the attainment report (outcome mapping, threshold) (F59).
+3. **An LLM provider account and budget** (F41/F56) if you want oral defence for real; until then it works only with the scripted
+   fake and requests stay pending. Decide the per-institution switch and zero-retention terms with the provider.
+4. **Decide cross-exam similarity** (F55): do exams belong to a course or series? Today similarity compares within one exam.
+5. **Name two staff per exam host** (appeals need a reviewer other than the decider) and who decides a confirmed case before any
+   consequence outside the product.
+6. **A human accessibility audit** of the candidate screens (timer, editor, forms); axe passes, but axe is not an audit.
+7. The same blockers as contests for any real exam: deployment and edge (F1, F33), a reviewed judge node (F32).
+
 ## 4. Routine
 - [ ] Weekly: `pnpm audit:verify`; keep the printed audit-chain head outside the database (until F8).
 - [ ] Within 72 hours of a high or critical Next.js advisory: update (ADR 0005); CI shows it.
@@ -133,6 +146,7 @@ mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRU
 | Bundle opening on nodes; `task.validate`; re-validating waived releases | Need the sandbox | F30, F31 |
 | TLS/mTLS edge, deployment, alerts and dashboards | No cloud account yet | F1, F33, F39 |
 | Real GitHub/Google sign-in tested; production mail | Accounts missing | F11, F12 |
-| Exams, credentials | Later stages | `docs/kit/12` |
+| Credentials | Later stages | `docs/kit/12` |
+| A real exam with real people; identity proof, proctoring or a lockdown browser; a real LLM provider call | Need review, a deployment and accounts; assurance above level 1 is not built | F32, F41, F55 to F61 |
 | Contest pilot with real people, the scoreboard at kit load, a calibrated rating | Need a deployment, an edge and a reviewed judge fleet | F1, F32, F49, F50 |
 | Platform-administrator screens (nodes, orgs) | API only for now | F13 |

@@ -36,6 +36,16 @@ export function OrgExams({ org }: { org: OrgItem }) {
                         </li>
                     ))}
                 </ul>
+                {canManageContests(org.role) && (
+                    <p className="mt-3">
+                        <a
+                            className="text-accent underline"
+                            href={`/orgs/${org.id}/exam-dashboard`}
+                        >
+                            Exam dashboard
+                        </a>
+                    </p>
+                )}
             </Section>
             {canManageContests(org.role) && <CreateExam orgId={org.id} />}
         </>

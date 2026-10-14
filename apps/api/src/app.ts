@@ -28,6 +28,7 @@ import { gradingRoutes } from "./modules/exams/grading-routes.ts";
 import { integrityRoutes } from "./modules/exams/integrity-routes.ts";
 import { oralRoutes } from "./modules/exams/oral-routes.ts";
 import { replayRoutes } from "./modules/exams/replay-routes.ts";
+import { reportRoutes } from "./modules/exams/report-routes.ts";
 import { examRoutes } from "./modules/exams/routes.ts";
 import { sessionRoutes } from "./modules/exams/session-routes.ts";
 import { accountRoutes } from "./modules/identity/account-routes.ts";
@@ -295,6 +296,7 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", replayRoutes());
     app.route("/v1", integrityRoutes({ clock: deps.clock }));
     app.route("/v1", oralRoutes({ clock: deps.clock }));
+    app.route("/v1", reportRoutes());
     app.route("/v1", examProblemRoutes());
 }
 
