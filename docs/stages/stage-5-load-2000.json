@@ -1,0 +1,72 @@
+{
+    "when": "2026-10-14T16:31:12.485Z",
+    "node": "v26.11.1",
+    "users": 2000,
+    "rate": 100,
+    "rateSeconds": 60,
+    "accepted": 6000,
+    "lost": 0,
+    "boardVersions": 54,
+    "table": [
+        {
+            "kind": "GET /api/v1/contests/:contest",
+            "count": 2000,
+            "errors": 0,
+            "statuses": "200",
+            "p50": 8,
+            "p95": 130,
+            "p99": 173,
+            "max": 191
+        },
+        {
+            "kind": "GET /api/v1/contests/:contest/problems/A",
+            "count": 2000,
+            "errors": 0,
+            "statuses": "200",
+            "p50": 8,
+            "p95": 114,
+            "p99": 174,
+            "max": 191
+        },
+        {
+            "kind": "GET /api/v1/contests/:contest/scoreboard",
+            "count": 2000,
+            "errors": 0,
+            "statuses": "200",
+            "p50": 8,
+            "p95": 121,
+            "p99": 170,
+            "max": 190
+        },
+        {
+            "kind": "POST /api/v1/contests/:contest/problems/A/submissions",
+            "count": 2000,
+            "errors": 0,
+            "statuses": "201",
+            "p50": 9,
+            "p95": 15,
+            "p99": 27,
+            "max": 48
+        },
+        {
+            "kind": "POST /api/v1/contests/:contest/problems/B/submissions",
+            "count": 2000,
+            "errors": 0,
+            "statuses": "201",
+            "p50": 9,
+            "p95": 16,
+            "p99": 35,
+            "max": 84
+        },
+        {
+            "kind": "POST /api/v1/contests/:contest/problems/C/submissions",
+            "count": 2000,
+            "errors": 0,
+            "statuses": "201",
+            "p50": 10,
+            "p95": 19,
+            "p99": 40,
+            "max": 69
+        }
+    ]
+}

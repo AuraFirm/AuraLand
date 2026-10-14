@@ -1,8 +1,9 @@
 import { type ScopedContext, withRequestContext } from "@aura/db/context";
-import type { Context, MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler, Next } from "hono";
 import type { AppDeps } from "./app.ts";
 import type { Actor, AppEnv } from "./app-env.ts";
 import { usesSecureCookies } from "./config.ts";
+import { BUSY_RETRY_AFTER_S, HANDLER_SHARE_OF_POOL, REQUESTS_WAITING_MAX } from "./limits.ts";
 import { bearerKeyFrom, parseApiKey, secretMatches } from "./modules/identity/api-key.ts";
 import { findKeyByPrefix, touchKey } from "./modules/identity/api-key-queries.ts";
 import { CSRF_HEADER_NAME } from "./modules/identity/limits.ts";
@@ -19,6 +20,7 @@ import {
     sessionCookieName,
 } from "./modules/identity/rules.ts";
 import { validateSession } from "./modules/identity/service.ts";
+import { createGate } from "./platform/gate.ts";
 import { problemResponse } from "./platform/problem-response.ts";
 
 // The three request-scoped steps that sit between the edge middleware and the route handlers, in
@@ -154,21 +156,40 @@ class RollbackRequest extends Error {}
 // or above rolls it back, so a failed request leaves no half-written state behind. Flows that must
 // persist something even when they fail (failed-login counters) use their own transaction.
 export function dbContext(deps: AppDeps): MiddlewareHandler<AppEnv> {
+    // Half the pool at most inside handlers: a handler may need a second connection while it holds its own
+    // (the rate limiter), and a full pool of holders each waiting for another would never move again. Found
+    // by the contest load run (a few seconds of load wedged the API for good), not by reasoning.
+    const gate = createGate(
+        Math.max(1, Math.floor(deps.database.connectionsMax * HANDLER_SHARE_OF_POOL)),
+        REQUESTS_WAITING_MAX,
+    );
     return async (c, next) => {
         // The sign-in and passkey ceremony endpoints run their own transactions as `aura_auth`.
         if (OWN_TRANSACTION_PREFIXES.some((prefix) => c.req.path.startsWith(prefix))) return next();
-        const actor = c.get("actor");
-        const context = contextFor(actor);
+        const place = await gate.enter();
+        if (place === null) {
+            c.header("Retry-After", String(BUSY_RETRY_AFTER_S));
+            return problemResponse(c, "unavailable", "Busy; try again in a moment");
+        }
         try {
-            await withRequestContext(deps.database.sql, context, async (tx) => {
-                c.set("tx", tx);
-                await next();
-                if (c.res.status >= 400) throw new RollbackRequest();
-            });
-        } catch (error) {
-            if (!(error instanceof RollbackRequest)) throw error;
+            await inTransaction(c, next, deps);
+        } finally {
+            place.release();
         }
     };
+}
+
+async function inTransaction(c: Context<AppEnv>, next: Next, deps: AppDeps): Promise<void> {
+    const context = contextFor(c.get("actor"));
+    try {
+        await withRequestContext(deps.database.sql, context, async (tx) => {
+            c.set("tx", tx);
+            await next();
+            if (c.res.status >= 400) throw new RollbackRequest();
+        });
+    } catch (error) {
+        if (!(error instanceof RollbackRequest)) throw error;
+    }
 }
 
 export function contextFor(actor: Actor): ScopedContext {

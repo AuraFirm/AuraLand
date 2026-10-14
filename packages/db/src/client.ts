@@ -11,6 +11,8 @@ export type Sql = postgres.Sql;
 
 export interface Database {
     readonly sql: Sql;
+    // The pool's size: callers that hold one connection while asking for another must know it.
+    readonly connectionsMax: number;
     close(timeoutS: number): Promise<void>;
 }
 
@@ -27,5 +29,5 @@ export function createDatabase(url: string, connectionsMax = POOL_CONNECTIONS_MA
         // Server notices are not errors; ignoring them keeps migrations quiet and logs clean.
         onnotice: () => undefined,
     });
-    return { sql, close: (timeoutS) => sql.end({ timeout: timeoutS }) };
+    return { sql, connectionsMax, close: (timeoutS) => sql.end({ timeout: timeoutS }) };
 }
