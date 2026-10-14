@@ -23,12 +23,16 @@ type plane struct {
 	staleBeats  bool
 	completeErr error
 	canary      []bool
+	state       string // what heartbeats answer; empty means active
 }
 
 func (p *plane) Heartbeat(_ context.Context, r wire.HeartbeatRequest) (wire.HeartbeatResponse, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.canary = append(p.canary, r.CanaryOK)
+	if p.state != "" {
+		return wire.HeartbeatResponse{State: p.state}, nil
+	}
 	return wire.HeartbeatResponse{State: "active"}, nil
 }
 
@@ -179,5 +183,44 @@ func TestTheSelfTestResultIsReported(t *testing.T) {
 	}
 	if len(p.canary) != 2 || p.canary[0] || !p.canary[1] {
 		t.Fatalf("canary reports %v", p.canary)
+	}
+}
+
+// Goal: the node takes work only while the control plane calls it active, and stops when told to.
+func TestServeLeasesOnlyWhileActive(t *testing.T) {
+	for state, wantJobs := range map[string]int{"": 0, "draining": 1, "revoked": 1} {
+		p := &plane{jobs: []*wire.LeasedJob{sampleJob(30)}, state: state}
+		if state == "" {
+			p.state = "" // active
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+		newAgent(p, &sandbox.Fake{}, &bundles{}).Serve(ctx, 20*time.Millisecond, 5*time.Millisecond)
+		cancel()
+		left := len(p.jobs)
+		if state == "" && left != 0 {
+			t.Errorf("an active node must take the job, %d left", left)
+		}
+		if state != "" && left != wantJobs {
+			t.Errorf("%s node must take nothing, %d left", state, left)
+		}
+	}
+}
+
+func TestServeStopsWhenAskedAndAnsweredJobsAreDone(t *testing.T) {
+	p := &plane{jobs: []*wire.LeasedJob{sampleJob(30)}}
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		newAgent(p, &sandbox.Fake{}, &bundles{}).Serve(ctx, 20*time.Millisecond, 5*time.Millisecond)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Serve did not stop")
+	}
+	if len(p.completed) != 1 {
+		t.Fatalf("the job must be judged once, got %d", len(p.completed))
 	}
 }

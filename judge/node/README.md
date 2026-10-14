@@ -58,7 +58,9 @@ cd judge && go build -o /usr/local/bin/aura-judge ./cmd/aura-judge
 sudo useradd --system --home /var/lib/aura-judge --shell /usr/sbin/nologin aura-judge
 sudo install -d -o aura-judge -m 0700 /etc/aura /var/lib/aura-judge
 ```
-Enroll once with a token from an administrator (`docs/runbooks/judge.md` section 3), then install
+Build with `GOOS=linux go build -o /usr/local/bin/aura-judge ./cmd/aura-judge`; the agent then runs as
+`aura-judge run --control-plane URL --node-id ID --key-file F --opener-file /usr/local/lib/aura/open-bundle.cjs`
+(its health canary is only a compile-and-run smoke test, not the escape suite). Enroll once with a token from an administrator (`docs/runbooks/judge.md` section 3), then install
 `aura-judge.service` from this folder (hardened unit: no new privileges, read-only system, private
 tmp, restricted address families, no capabilities beyond what the isolate helper itself needs).
 
