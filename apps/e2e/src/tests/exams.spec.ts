@@ -110,3 +110,14 @@ test("staff watch the monitor and replay an answer; the candidate cannot", async
     await student.goto(`/exams/${exam}/monitor`);
     await expect(student.getByText("There is nothing to monitor here.")).toBeVisible();
 });
+
+test("staff open the similar-answers page; with one answer nothing stands out", async ({
+    browser,
+}) => {
+    const staff = freshEmail();
+    const exam = await seedClosedExam(staff, freshEmail());
+    const owner = await pageFor(browser, staff);
+    await owner.goto(`/exams/${exam}/similarity`);
+    await expect(owner.getByText("No pairs among 1 answers stood out.")).toBeVisible();
+    await expectAccessible(owner);
+});

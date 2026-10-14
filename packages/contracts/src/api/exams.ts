@@ -289,3 +289,28 @@ export const replaySchema = z
         ),
     })
     .strict();
+
+// Similarity between the answers to one problem (Stage 6, slice 8). A signal for staff to read, never shown to
+// candidates and never a verdict; the spans are character ranges in each answer's source.
+const personRefSchema = z
+    .object({ session_id: idSchema("exs"), name: z.string(), email: z.string() })
+    .strict();
+const spanSchema = z.object({ start: z.number().int(), end: z.number().int() }).strict();
+export const similarityResponseSchema = z
+    .object({
+        label: z.string(),
+        answers: z.number().int(),
+        pairs: z.array(
+            z
+                .object({
+                    a: personRefSchema,
+                    b: personRefSchema,
+                    score: z.number(),
+                    shared: z.number().int(),
+                    spans_a: z.array(spanSchema),
+                    spans_b: z.array(spanSchema),
+                })
+                .strict(),
+        ),
+    })
+    .strict();

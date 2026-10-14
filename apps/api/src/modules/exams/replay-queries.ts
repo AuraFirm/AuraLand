@@ -66,3 +66,17 @@ export async function eventsBetween(
         order by ts, seq limit 5000`;
     return rows.map((row) => eventSchema.parse(row));
 }
+
+const answerSourceSchema = z.object({ session_id: z.string(), source: z.string() });
+
+// The source of every handed-in answer to one problem, in a fixed order. The caller has already proved the person
+// is staff of the host (the policies on submissions say the same).
+export async function answerSources(tx: Transaction, input: { examId: string; label: string }) {
+    const rows = await tx`select ea.session_id, sub.source
+        from exam_answers ea
+        join exam_sessions s on s.id = ea.session_id
+        join submissions sub on sub.id = ea.submission_id
+        where s.exam_id = ${input.examId} and ea.problem_label = ${input.label}
+        order by ea.session_id limit ${EXAM_ROSTER_MAX}`;
+    return rows.map((row) => answerSourceSchema.parse(row));
+}
