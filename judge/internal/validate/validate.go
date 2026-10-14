@@ -12,6 +12,7 @@ import (
 
 	"github.com/AuraFirm/AuraLand/judge/internal/bundles"
 	"github.com/AuraFirm/AuraLand/judge/internal/judge"
+	"github.com/AuraFirm/AuraLand/judge/internal/mutate"
 	"github.com/AuraFirm/AuraLand/judge/internal/sandbox"
 	"github.com/AuraFirm/AuraLand/judge/internal/wire"
 )
@@ -36,12 +37,12 @@ func (r *Runner) Run(ctx context.Context, job wire.ValidationJob) (wire.Validati
 	files, err := r.Open.OpenFiles(ctx, job.JobID, job.Task.Bundle)
 	var refused *bundles.Refused
 	if errors.As(err, &refused) {
-		return wire.ValidationResult{Bundle: wire.ValidationBundle{Opens: false, Refusal: refused.Code}, Runs: []wire.ValidationRun{}}, nil
+		return wire.ValidationResult{Bundle: wire.ValidationBundle{Opens: false, Refusal: refused.Code}, Runs: []wire.ValidationRun{}, Mutants: []wire.ValidationMutant{}}, nil
 	}
 	if err != nil {
 		return wire.ValidationResult{}, fmt.Errorf("open bundle: %w", err)
 	}
-	result := wire.ValidationResult{Bundle: wire.ValidationBundle{Opens: true}, Runs: []wire.ValidationRun{}}
+	result := wire.ValidationResult{Bundle: wire.ValidationBundle{Opens: true}, Runs: []wire.ValidationRun{}, Mutants: []wire.ValidationMutant{}}
 	for _, path := range files.Paths() {
 		if !strings.HasPrefix(path, "solutions/") {
 			continue
@@ -52,7 +53,78 @@ func (r *Runner) Run(ctx context.Context, job wire.ValidationJob) (wire.Validati
 		}
 		result.Runs = append(result.Runs, runs...)
 	}
+	mutants, err := r.mutate(ctx, files, spec, result.Runs)
+	if err != nil {
+		return wire.ValidationResult{}, fmt.Errorf("mutation: %w", err)
+	}
+	result.Mutants = mutants
 	return result, nil
+}
+
+// mutate changes the reference one place at a time and sees whether any test fails. It only makes sense
+// when the reference itself passes every test: otherwise a failing mutant proves nothing.
+func (r *Runner) mutate(ctx context.Context, files *bundles.Files, spec wire.Spec, runs []wire.ValidationRun) ([]wire.ValidationMutant, error) {
+	mutants := []wire.ValidationMutant{}
+	name, ok := passingReference(runs)
+	if !ok {
+		return mutants, nil
+	}
+	language, err := languageOf(name)
+	if err != nil {
+		return nil, err
+	}
+	source, _ := files.Get("solutions/" + name)
+	changes, err := mutate.Generate(language, string(source), mutate.MaxPerSolution)
+	if err != nil {
+		return nil, err
+	}
+	for _, change := range changes {
+		observed, err := r.tryMutant(ctx, files, spec, language, change)
+		if err != nil {
+			return nil, fmt.Errorf("line %d (%s): %w", change.Line, change.Operator, err)
+		}
+		mutants = append(mutants, observed)
+	}
+	return mutants, nil
+}
+
+func passingReference(runs []wire.ValidationRun) (string, bool) {
+	for _, run := range runs {
+		if run.Repeat != 1 || !strings.HasPrefix(run.Solution, "reference.") || !run.CompileOK {
+			continue
+		}
+		for _, test := range run.Tests {
+			if test.Verdict != "AC" {
+				return "", false
+			}
+		}
+		return run.Solution, true
+	}
+	return "", false
+}
+
+func (r *Runner) tryMutant(ctx context.Context, files *bundles.Files, spec wire.Spec, language string, change mutate.Mutant) (wire.ValidationMutant, error) {
+	observed := wire.ValidationMutant{Operator: change.Operator, Line: change.Line}
+	compiled, err := r.Box.Compile(ctx, language, change.Source, judge.CompileLimits)
+	if err != nil {
+		return observed, fmt.Errorf("compile: %w", err)
+	}
+	if !compiled.OK {
+		return observed, nil
+	}
+	defer compiled.Program.Release()
+	observed.CompileOK = true
+	// The first failing test is enough to kill it, and stopping there bounds the time a looping mutant costs.
+	results, err := judge.RunTests(ctx, r.Box, files.TestData(), compiled.Program, spec, true)
+	if err != nil {
+		return observed, err
+	}
+	for _, result := range results {
+		if result.Verdict != "AC" {
+			observed.Killed = true
+		}
+	}
+	return observed, nil
 }
 
 func languageOf(name string) (string, error) {

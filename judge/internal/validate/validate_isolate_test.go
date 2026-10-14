@@ -62,6 +62,9 @@ func TestRealSandboxObservesEverySolution(t *testing.T) {
 		{"wrong_off_by_one.cpp", 1}:   {"WA", "WA"},
 		{"wrong_python.py", 1}:        {"WA", "WA"},
 	}
+	if len(result.Mutants) != 1 || result.Mutants[0].Operator != "+ to -" || !result.Mutants[0].CompileOK || !result.Mutants[0].Killed {
+		t.Errorf("the only change to the sum program is + to -, and the tests catch it: %+v", result.Mutants)
+	}
 	if !result.Bundle.Opens || len(result.Runs) != len(want) {
 		t.Fatalf("%+v", result)
 	}
