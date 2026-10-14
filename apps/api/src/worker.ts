@@ -5,6 +5,7 @@ import {
     refreshScoreboards,
 } from "./modules/contests/scoreboard-tick.ts";
 import { advanceContests, CONTEST_TICK_MS } from "./modules/contests/tick.ts";
+import { advanceExams } from "./modules/exams/tick.ts";
 import { HEARTBEAT_INTERVAL_MS } from "./modules/jobs/limits.ts";
 import type { JobRecord } from "./modules/jobs/rules.ts";
 import {
@@ -160,6 +161,11 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
                 await advanceContests(deps.context);
             } catch (error) {
                 deps.logger.error({ err: error }, "contest tick error");
+            }
+            try {
+                await advanceExams(deps.context);
+            } catch (error) {
+                deps.logger.error({ err: error }, "exam tick error");
             }
             try {
                 await refreshScoreboards(scoreboards, deps.context.clock);

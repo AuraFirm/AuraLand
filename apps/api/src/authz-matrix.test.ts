@@ -30,7 +30,8 @@ interface Row {
         | "ord"
         | "dlv"
         | "pay"
-        | "cst";
+        | "cst"
+        | "exm";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, unknown>;
 }
@@ -520,6 +521,83 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "cst",
     },
+    { method: "GET", path: "/api/v1/exams", access: "user" },
+    { method: "GET", path: "/api/v1/exams/:id", access: "user", owned: true, object: "exm" },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/exams",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: {
+            title: "Lab",
+            mode: "ai_free",
+            duration_s: 3600,
+            window_start: "2030-01-01T09:00:00Z",
+            window_end: "2030-01-01T13:00:00Z",
+            problems: [
+                {
+                    label: "A",
+                    task_version_id: `tsv_${SAMPLE_UUID}`,
+                    points: 100,
+                    auto_percent: 100,
+                    rubric: [],
+                },
+            ],
+        },
+    },
+    {
+        method: "PATCH",
+        path: "/api/v1/exams/:id",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: { title: "x" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/exams/:id/problems",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: {
+            label: "B",
+            task_version_id: `tsv_${SAMPLE_UUID}`,
+            points: 100,
+            auto_percent: 100,
+            rubric: [],
+        },
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/exams/:id/problems/:label",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "PUT",
+        path: "/api/v1/exams/:id/roster",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: { csv: "email,name\na@example.com,A\n" },
+    },
+    { method: "GET", path: "/api/v1/exams/:id/roster", access: "user", owned: true, object: "exm" },
+    {
+        method: "POST",
+        path: "/api/v1/exams/:id/publish",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/exams/:id/release-grades",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {
@@ -671,6 +749,16 @@ async function victimContest(): Promise<string> {
     return contest?.id ?? "";
 }
 
+// A draft exam of the same organization, a draft nobody else can see.
+async function victimExam(): Promise<string> {
+    await victimContest(); // makes sure the organization exists
+    const [exam] = await h.db.database.sql<{ id: string }[]>`
+        insert into exams (org_id, title, mode, duration_s, window_start, window_end, created_by)
+        values (${victimUniversity}, 'Victim exam', 'ai_free', 3600, '2030-01-01T09:00:00Z', '2030-01-01T13:00:00Z', ${ALICE})
+        returning id`;
+    return exam?.id ?? "";
+}
+
 async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "org") {
         const [org] = await h.db.database.sql<{ id: string }[]>`
@@ -681,6 +769,7 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
         return encodeId("org", org?.id ?? "");
     }
     if (row.object === "cst") return encodeId("cst", await victimContest());
+    if (row.object === "exm") return encodeId("exm", await victimExam());
     if (row.object === "tsk") return encodeId("tsk", (await victimTask()).task);
     if (row.object === "tsv") return encodeId("tsv", (await victimTask()).version);
     if (row.object === "sub") return encodeId("sub", await victimSubmission());
