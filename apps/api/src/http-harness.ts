@@ -55,6 +55,7 @@ export interface Harness {
         env?: Record<string, string>,
         mail?: MailPort,
         oauthProviders?: AppDeps["oauthProviders"],
+        scoreboardStream?: AppDeps["scoreboardStream"],
     ): ReturnType<typeof createApp>;
     asIdentity<T>(work: (deps: SessionDeps) => Promise<T>): Promise<T>;
     login(userId: string, privileged?: boolean): ReturnType<typeof createSession>;
@@ -98,6 +99,7 @@ export async function createHarness(): Promise<Harness> {
         env: Record<string, string> = {},
         sender: MailPort = mail,
         oauthProviders: AppDeps["oauthProviders"] = new Map(),
+        scoreboardStream?: AppDeps["scoreboardStream"],
     ) =>
         createApp({
             config: parseConfig({ ...BASE_ENV, ...env }),
@@ -110,6 +112,7 @@ export async function createHarness(): Promise<Harness> {
             oauthProviders,
             pingDatabase: async () => undefined,
             onInvariantViolation,
+            ...(scoreboardStream === undefined ? {} : { scoreboardStream }),
         });
     const asIdentity = <T>(work: (deps: SessionDeps) => Promise<T>) =>
         withRequestContext(sql, IDENTITY_CONTEXT, (tx) =>

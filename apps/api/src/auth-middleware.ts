@@ -171,7 +171,7 @@ export function dbContext(deps: AppDeps): MiddlewareHandler<AppEnv> {
     };
 }
 
-function contextFor(actor: Actor): ScopedContext {
+export function contextFor(actor: Actor): ScopedContext {
     if (actor.kind === "user") {
         const orgIds = actor.orgs.map((membership) => membership.orgId);
         return { role: "aura_app", actorKind: "user", userId: actor.userId, orgIds };

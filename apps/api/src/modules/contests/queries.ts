@@ -141,3 +141,28 @@ export async function register(
     const rows = await tx`select register_for_contest(${contestId}, ${new Date(nowMs)}) as status`;
     return z.object({ status: z.enum(["registered", "already"]) }).parse(rows[0]).status;
 }
+
+export interface ScoreboardRow {
+    readonly version: number;
+    readonly etag: string;
+    readonly body: unknown;
+    readonly updated_at: Date;
+}
+
+const scoreboardRowSchema = z.object({
+    version: z.number().int(),
+    etag: z.string(),
+    body: z.unknown(),
+    updated_at: z.date(),
+});
+
+// The stored board of a view, or null. Row-level security decides whether the caller may see it at all.
+export async function getScoreboard(
+    tx: Transaction,
+    contestId: string,
+    view: "public" | "final",
+): Promise<ScoreboardRow | null> {
+    const rows = await tx`select version, etag, body, updated_at from contest_scoreboards
+        where contest_id = ${contestId} and view = ${view}`;
+    return rows[0] === undefined ? null : scoreboardRowSchema.parse(rows[0]);
+}

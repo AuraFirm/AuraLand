@@ -489,6 +489,13 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "cst",
     },
+    { method: "GET", path: "/api/v1/contests/:id/scoreboard", access: "public", object: "cst" },
+    {
+        method: "GET",
+        path: "/api/v1/contests/:id/scoreboard/stream",
+        access: "public",
+        object: "cst",
+    },
     { method: "GET", path: "/api/v1/deliveries", access: "user" },
     { method: "GET", path: "/api/v1/deliveries/:id", access: "user", owned: true, object: "dlv" },
     {

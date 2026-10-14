@@ -71,3 +71,14 @@ differs from the stored board's stamp, and writes a row only when its etag chang
 order independent and tested to equal incremental application, so a delta can replace the rebuild if a
 contest ever outgrows it; until then the simpler design is always correct. The public view keeps hiding
 what follows the freeze even after the contest ends, until slice 7 adds the unfreeze.
+
+## Amendment (slice 6): streams carry pings, not boards, and need no ring buffer
+
+The plan called for SSE with a bounded ring buffer. A stream instead carries only "version n exists" pings
+(`{version, etag}`); the board is fetched from the cacheable snapshot (`ETag`, `s-maxage=1` for the public
+board of a public contest). Missed pings collapse into the newest one, so each stream holds one slot and a
+client that missed anything reads the snapshot, which is always the truth: a ring buffer would only replay
+what the snapshot already gives. Bounds: 5,000 streams per instance, 3,000 per contest, 5 per signed-in
+person, 20 per address for anyone else, a 15 s keepalive, and a 30 min lifetime after which the client
+reconnects and is authorized again. `NOTIFY` is sent by the storing function with contest, view, version
+and etag only; when the listener's connection is re-established every open stream re-reads as its caller.

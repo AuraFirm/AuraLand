@@ -191,3 +191,12 @@ export const CONTEST_JUDGE_QUEUE_READY_MAX = 10_000;
 // Submissions one person may send to contests per minute, over all problems (the per-problem interval in
 // the rules is the finer limit).
 export const CONTEST_SUBMISSIONS_PER_MINUTE_PER_USER_MAX = 30;
+
+// Scoreboard streams (Stage 5, slice 6). A stream carries only "version n is out" pings; the board itself
+// is fetched from the cacheable snapshot, so a stream costs one socket and almost no bytes.
+export const SCOREBOARD_STREAMS_PER_INSTANCE_MAX = 5_000; // sockets: what one process holds comfortably
+export const SCOREBOARD_STREAMS_PER_CONTEST_MAX = 3_000; // so one contest cannot take the whole instance
+export const SCOREBOARD_STREAMS_PER_USER_MAX = 5; // tabs and devices of one person
+export const SCOREBOARD_STREAMS_PER_ADDRESS_MAX = 20; // anonymous viewers behind one address
+export const SCOREBOARD_STREAM_HEARTBEAT_MS = 15_000; // keeps proxies from closing an idle stream
+export const SCOREBOARD_STREAM_LIFETIME_MS = 30 * 60_000; // then the client reconnects and is checked again
