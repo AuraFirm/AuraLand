@@ -106,6 +106,16 @@ quarterly.
 Decide the load balancer/CDN. It terminates TLS, sets `X-Request-Id` and the client address, and (later)
 mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRUST_EDGE_REQUEST_ID`.
 
+### 3.7 Stage 5 (contests): what only you can do
+1. **Put problems in the practice bank** (F53): create a platform organization, add public tasks, release them, then list
+   them as a platform administrator (`POST /api/v1/admin/practice`, see `docs/runbooks/contests.md`).
+2. **Pick the pilot** (a date, 200+ people, a partner) once a deployment, the edge and a reviewed judge node exist; I
+   then run `contest-start-spike` there (F49) and we rehearse with the runbook.
+3. **Contest-day support** (D11): decide who answers questions and watches the queue.
+4. **Decide the rating's honesty**: it is our own Elo-MMR-style function; say "rating" not "Elo-MMR" in public until it is
+   calibrated on real contests (F50).
+5. Approve or change the Java allowances (1 s extra time, 64 MiB reserved) after seeing real tasks (F51).
+
 ## 4. Routine
 - [ ] Weekly: `pnpm audit:verify`; keep the printed audit-chain head outside the database (until F8).
 - [ ] Within 72 hours of a high or critical Next.js advisory: update (ADR 0005); CI shows it.
@@ -123,5 +133,6 @@ mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRU
 | Bundle opening on nodes; `task.validate`; re-validating waived releases | Need the sandbox | F30, F31 |
 | TLS/mTLS edge, deployment, alerts and dashboards | No cloud account yet | F1, F33, F39 |
 | Real GitHub/Google sign-in tested; production mail | Accounts missing | F11, F12 |
-| Contests, exams, Arena, ratings, credentials | Later stages | `docs/kit/12` |
+| Exams, credentials | Later stages | `docs/kit/12` |
+| Contest pilot with real people, the scoreboard at kit load, a calibrated rating | Need a deployment, an edge and a reviewed judge fleet | F1, F32, F49, F50 |
 | Platform-administrator screens (nodes, orgs) | API only for now | F13 |

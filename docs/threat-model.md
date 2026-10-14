@@ -249,22 +249,33 @@ No new personal data. Reports hold task content derivatives (verdicts, scores) a
 No new personal data. The tag identifies a delivery, which identifies a customer organization; it is
 readable only by platform administrators.
 
-## STRIDE for the Stage 5 surface (contests and the Arena, v7; design only so far)
-| Threat | Surface | Control (designed in ADR 0031; built and tested slice by slice) | Evidence |
+## STRIDE for the Stage 5 surface (contests, the Arena, ratings, practice; v7, built)
+| Threat | Surface | Control (ADR 0031 and its amendments) | Evidence |
 |---|---|---|---|
-| **Disclosure**: a stranger or an early registrant reads a contest's problems | Problem statements | Statements readable only by registered people from `running`; never in `draft` or `scheduled` | RLS matrix rows (slice 1) |
-| Disclosure: a contestant reads hidden material through the new access | Tests, solutions, bundles, reports, comments | The new rule opens only the statement and limits of a released version of the contest's own problems; response schemas stay allowlists | RLS matrix, `http-task-hidden` style tests |
-| Disclosure: per-test verdicts used to probe hidden tests | Verdicts during a contest | Contestants see the verdict and score only; per-test results appear after the end | HTTP tests (slice 3) |
-| **Elevation/Tampering**: an organizer or problem author competes with inside knowledge | Registration | Owners, admins, setters and reviewers of the host or problem organizations cannot register as competitors | db tests (slice 1) |
-| Tampering: submissions after the end, or before registration | Contest submission | Created only by a definer function with the injected clock, checking registration, state, window and problem; the app role cannot insert contest submissions | db and HTTP tests (slice 3) |
-| Repudiation: scoreboard disputes | Scoreboard | The scoreboard is a pure fold of the judged-submission log; incremental state equals a recompute from the log | simulation (slice 5) |
-| Disclosure: a frozen scoreboard reveals later events | Public view | Events after `freeze_at` are excluded from the public fold; organizers and the participant see their own | simulation (slice 5/7) |
-| Denial of service: submission floods starve a contest | Queue, routes | Contest priority above practice, practice shed first, per-person and per-problem limits, SSE caps | queue simulation, load harness (slices 3, 6, 14) |
-| Information: private profiles exposed on a public scoreboard | Scoreboard, profiles | Only public profiles are named; others are "participant N" | HTTP tests (slice 5, 10) |
+| **Disclosure**: a stranger or an early registrant reads a contest's problems | Problem statements | Statements readable only by registered people from `running` (the host's staff always); never in `draft` or `scheduled` for contestants. The route returns an allowlist (no tests, checker or bundle) with safe HTML | `contests.test.ts` (db), `http-contest-problem.test.ts`, RLS matrix |
+| Disclosure: a contestant reads hidden material through the new access | Tests, solutions, bundles, reports, comments | The rule opens only the statement and limits of a released version of the contest's own problems; the staff routes (`/task-versions/:id`) stay closed to outsiders, also for the practice bank | `http-task-hidden`-style checks, `http-practice.test.ts` |
+| Disclosure: per-test verdicts used to probe hidden tests | Verdicts during a contest | Verdict and score only; the policy on `verdict_details` hides per-test results until the contest ends | `contest-submissions.test.ts` (db), `http-contest-submissions.test.ts`, browser test |
+| **Elevation/Tampering**: an organizer or problem author competes with inside knowledge | Registration | Owners, admins, setters and reviewers of the host or problem organizations cannot register as competitors | `contests.test.ts` (db) |
+| Tampering: submissions after the end, before registration, or by a direct insert | Contest submission | Created only by `create_contest_submission` with the injected clock (window, registration, language, interval, queue cap); the app role cannot insert contest submissions; a practice submission to a live contest's problem is refused by a trigger on both practice routes | db and HTTP tests, `rules.database.test.ts` |
+| Tampering: a finished submission is rewritten | Submissions | Immutable except one guarded transition: a staff rejudge (count +1, old verdict kept as `previous_verdict`); every other change is refused by the trigger; rejudges are audited and refused after finalize | `http-scoreboard.test.ts` (guard bypass attempts) |
+| Repudiation: scoreboard disputes | Scoreboard | A pure, order-independent fold of the judged log; incremental application equals recompute; stored boards carry a version and etag; the final board is the host staff's | `scoreboard.test.ts` (500 seeds), simulation `scoreboard` (500 seeds, a broken fold is caught) |
+| Disclosure: a frozen scoreboard reveals later events | Public view | Events after `freeze_at` are excluded from the public fold until the host unfreezes (once, after the end) or finalizes; a rejudge keeps the old verdict counting so the board does not flicker | `http-scoreboard.test.ts` |
+| Information: private profiles exposed on a public scoreboard or in history | Scoreboard, profiles, ratings | Only public profiles are named, everyone else is "participant N"; no user id is stored in a board; a rated contest must be public; unlisted/private/missing profiles are one 404 | `http-scoreboard.test.ts`, `http-ratings.test.ts` |
+| Denial of service: submission floods starve a contest | Queue, routes | Contest priority above practice (cap 10,000 vs 1,000), per-person (30/min) and per-problem interval limits, queue-full 503 | `contest-submissions.test.ts`, load run (zero lost at 100/s) |
+| Denial of service: readers of the scoreboard exhaust the process | Snapshot, export, stream | Reads fetch only the etag, answer 304, and serve text built once per etag (gzip once); a shared-cache window of one second; streams carry pings not boards, with caps (5,000/instance, 3,000/contest, 5/person, 20/address), a keepalive and a 30-minute lifetime | `scoreboard-cache.test.ts`, `scoreboard-hub.test.ts`, `http-scoreboard.test.ts`, load run |
+| **Denial of service: the database pool deadlocks** (a handler holds a connection and asks for a second; found by the load run, older than Stage 5) | Every route that rate-limits inside a handler | At most half the pool is inside handlers at once, with a bounded line (503 + Retry-After) | `gate.test.ts`, `http-pool-gate.test.ts` (hangs without the gate) |
+| Tampering/Information: contestant text (clarifications) used for injection | Clarifications | Plain text only: contracts reject NUL and blank text, length-bounded, the page renders it as text, answers once and append-only (trigger), no asker identity in responses, 20 questions per person per contest and 6 a minute | `http-clarifications.test.ts` |
+| Tampering: rating manipulation or double rating | Ratings | Only judged contest submissions of people who submitted; rated once per contest under an advisory lock, oldest finalized first, recorded in the same transaction; history rows never change; ratings are never edited by hand | `rating-tick.database.test.ts`, simulation `rating` (a replay reproduces the store exactly) |
+| Elevation: a non-administrator curates the practice bank or sets the status banner | Admin routes | Platform administrator only, fresh step-up, otherwise the same 404 as a missing route; audited | `http-practice.test.ts`, `http-status.test.ts`, authz matrix |
+| **Elevation (sandbox)**: untrusted C and Java code escapes the box | Judge nodes | Same box as C++ and Python; 15 escape attacks per language (16 for Java), the suite refuses a language that lacks one; `javac -proc:none`; Java mounts only `/etc/java-21-openjdk`, read-only | `TestEscapeSuite` and `TestLanguages` on the **development VM only** (runbook); external review (F32) not done |
+| Information: the platform banner is abused to phish | Status banner | Plain text only (no links, no markup), 280 characters, set by administrators with step-up | `http-status.test.ts` |
 
 **Not designed away.** There is no identity proof, no proctoring and no AI-policy enforcement in Stage 5;
 a contest's results are only as trustworthy as an unproctored online contest. Similarity or plagiarism
-detection is a Stage 6 signal. Ratings are computed, never edited.
+detection is a Stage 6 signal. Ratings are computed, never edited. The rating function is ours, not a
+port of a published system, and has not been calibrated on real contests. Java and C evidence comes from
+one development VM. A contest cannot be extended or cancelled once published (no such feature), and
+finalizing needs only one owner or admin (no second approver; ASVS V2.3.5).
 
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;
