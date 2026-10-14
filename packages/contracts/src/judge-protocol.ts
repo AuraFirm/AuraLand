@@ -60,8 +60,21 @@ export const nodeHeartbeatRequestSchema = z
 
 export const nodeHeartbeatResponseSchema = z.object({ state: nodeStateSchema }).strict();
 
+// What the operator declares a node to be (ADR 0029): only a reviewed 'production' node may produce a
+// validation report that a customer is told is validated.
+export const nodeAttestationSchema = z.enum(["development", "production"]);
+export type NodeAttestation = z.infer<typeof nodeAttestationSchema>;
+
+export const enrollmentRequestSchema = z
+    .object({ attestation: nodeAttestationSchema.default("development") })
+    .strict();
+
 export const enrollmentCreatedSchema = z
-    .object({ token: enrollmentTokenSchema, expires_at: z.iso.datetime() })
+    .object({
+        token: enrollmentTokenSchema,
+        expires_at: z.iso.datetime(),
+        attestation: nodeAttestationSchema,
+    })
     .strict();
 
 // ---- leasing and results ----
