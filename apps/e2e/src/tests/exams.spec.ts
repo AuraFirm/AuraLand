@@ -133,3 +133,14 @@ test("staff check the integrity rules; a clean exam flags nothing", async ({ bro
     await expect(owner.getByText("Nothing has been flagged.")).toBeVisible();
     await expectAccessible(owner);
 });
+
+test("staff ask for oral-defence questions about an answer", async ({ browser }) => {
+    const staff = freshEmail();
+    const exam = await seedClosedExam(staff, freshEmail());
+    const owner = await pageFor(browser, staff);
+    await owner.goto(`/exams/${exam}/oral`);
+    await owner.getByRole("button", { name: "Ask questions" }).click();
+    await expect(owner.getByText("Requested.", { exact: false })).toBeVisible();
+    await expect(owner.getByText("pending", { exact: false })).toBeVisible();
+    await expectAccessible(owner);
+});

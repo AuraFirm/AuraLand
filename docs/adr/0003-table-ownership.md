@@ -61,6 +61,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `exam_grades` | `modules/exams` | A person's rubric scores and comment for one answer; changed only by `grade_exam_answer` while the exam is closed |
 | `integrity_flags` | `modules/exams` | Evidence a rule saw (staff only), a plain explanation, the rule version and a person's decision; raised and decided only by SECURITY DEFINER functions, never deleted |
 | `integrity_appeals` | `modules/exams` | A candidate's appeal of a confirmed flag, reviewed by staff other than the decider; created and reviewed only by functions, never deleted |
+| `oral_defences` | `modules/exams` | Questions a model proposed about one answer, the candidate's written answers and a person's score; the score is set only by `score_oral_defence` (staff); never deleted |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

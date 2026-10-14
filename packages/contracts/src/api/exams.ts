@@ -13,6 +13,9 @@ import {
     EXAM_ROSTER_CSV_BYTES_MAX,
     EXAM_TITLE_CHARS_MAX,
     INTEGRITY_NOTE_CHARS_MAX,
+    ORAL_ANSWER_CHARS_MAX,
+    ORAL_QUESTIONS_MAX,
+    ORAL_QUESTIONS_MIN,
 } from "../limits.ts";
 
 // API shapes for exams (Stage 6, slice 2): allowlists, parsed strictly on both sides.
@@ -378,5 +381,62 @@ export const myIntegrityFlagsSchema = z
                 })
                 .strict(),
         ),
+    })
+    .strict();
+
+// Oral defence (Stage 6, slice 10). A model proposes questions about a candidate's own code, the candidate answers
+// in writing, and a person scores. The model scores nothing; no field here is ever filled by it except `questions`.
+export const oralStateSchema = z.enum([
+    "pending",
+    "generating",
+    "ready",
+    "answered",
+    "scored",
+    "failed",
+]);
+export const oralStaffRowSchema = z
+    .object({
+        oral_id: idSchema("ora"),
+        session_id: idSchema("exs"),
+        name: z.string(),
+        email: z.string(),
+        label: z.string(),
+        state: oralStateSchema,
+        questions: z.array(z.string()).nullable(),
+        answers: z.array(z.string()).nullable(),
+        failure: z.string(),
+        score: z.number().int().nullable(),
+        score_note: z.string(),
+    })
+    .strict();
+export const oralStaffListSchema = z.object({ rows: z.array(oralStaffRowSchema) }).strict();
+export const oralRequestedSchema = z.object({ oral_id: idSchema("ora") }).strict();
+export const oralMineSchema = z
+    .object({
+        rows: z.array(
+            z
+                .object({
+                    oral_id: idSchema("ora"),
+                    label: z.string(),
+                    state: oralStateSchema,
+                    questions: z.array(z.string()).nullable(),
+                    answers: z.array(z.string()).nullable(),
+                })
+                .strict(),
+        ),
+    })
+    .strict();
+export const oralAnswerRequestSchema = z
+    .object({
+        answers: z
+            .array(z.string().min(1).max(ORAL_ANSWER_CHARS_MAX))
+            .min(ORAL_QUESTIONS_MIN)
+            .max(ORAL_QUESTIONS_MAX),
+    })
+    .strict();
+export const oralScoreRequestSchema = z
+    .object({
+        score: z.number().int().min(0).max(100),
+        note: z.string().max(INTEGRITY_NOTE_CHARS_MAX).default(""),
     })
     .strict();
