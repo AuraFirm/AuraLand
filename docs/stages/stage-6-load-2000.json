@@ -1,0 +1,71 @@
+{
+  "when": "2026-10-14T23:07:28.562Z",
+  "node": "v26.11.1",
+  "users": 2000,
+  "saveSeconds": 10,
+  "lost": 0,
+  "answers": "2000",
+  "jobs": "2000",
+  "table": [
+    {
+      "kind": "POST /api/v1/exams/:exam/consent",
+      "count": 2000,
+      "errors": 0,
+      "statuses": "200",
+      "p50": 5,
+      "p95": 9,
+      "p99": 28,
+      "max": 52
+    },
+    {
+      "kind": "POST /api/v1/exams/:exam/join",
+      "count": 2000,
+      "errors": 0,
+      "statuses": "201",
+      "p50": 6,
+      "p95": 11,
+      "p99": 42,
+      "max": 108
+    },
+    {
+      "kind": "POST /api/v1/exams/:exam/start",
+      "count": 2000,
+      "errors": 0,
+      "statuses": "200",
+      "p50": 6,
+      "p95": 10,
+      "p99": 26,
+      "max": 54
+    },
+    {
+      "kind": "POST /api/v1/exams/:exam/submit",
+      "count": 2000,
+      "errors": 0,
+      "statuses": "200",
+      "p50": 2072,
+      "p95": 3355,
+      "p99": 3441,
+      "max": 3461
+    },
+    {
+      "kind": "POST /api/v1/exams/:exam/telemetry",
+      "count": 3995,
+      "errors": 0,
+      "statuses": "202",
+      "p50": 7,
+      "p95": 16,
+      "p99": 26,
+      "max": 46
+    },
+    {
+      "kind": "PUT /api/v1/exams/:exam/problems/A/draft",
+      "count": 11995,
+      "errors": 0,
+      "statuses": "200",
+      "p50": 7,
+      "p95": 14,
+      "p99": 26,
+      "max": 71
+    }
+  ]
+}

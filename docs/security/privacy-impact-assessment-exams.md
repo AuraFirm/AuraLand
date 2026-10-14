@@ -30,8 +30,9 @@ oral-defence questions and scores nothing. **No AI-text detector is used** (unre
 ## 3. Retention and deletion
 Telemetry: 180 days by default, an institution may choose fewer (at most 365); expired partitions are dropped. Drafts: one
 year. Submissions and grades: per the institution's policy. Deleting an account hard-deletes telemetry and drafts and
-anonymizes the rest per `docs/kit/05` section 9. **Not yet built; this stage builds telemetry and retention, and the report
-says what was verified.**
+anonymizes the rest per `docs/kit/05` section 9. **Built:** telemetry retention (per exam, 1 to 365 days, a worker job that
+deletes expired rows; partitions prepared ahead). **Not built:** account-level deletion of drafts, answers, flags and appeals
+(cutlist F57), and a retention period for drafts and answers (they are kept until the institution's policy is applied by hand).
 
 ## 4. Risks and mitigations
 | Risk | Mitigation | Residual |
@@ -53,5 +54,5 @@ confirmed or dismissed. A confirmed case needs a second reviewer before any cons
 dismissals above an agreed rate is reviewed or removed. Appeals are heard by someone who did not decide.
 
 ## 7. DPA template and sub-processors
-A data-processing agreement template is drafted in slice 12 for the owner's lawyer. Sub-processors today: PostgreSQL and object
+A data-processing agreement template is drafted in `dpa-template-exams.md` for the owner's lawyer (draft, not legal advice). Sub-processors today: PostgreSQL and object
 storage hosts (undeployed), mail provider (none yet), an LLM provider (none yet). The list is part of the DPA.
