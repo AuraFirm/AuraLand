@@ -89,3 +89,36 @@ export const rosterResponseSchema = z
     .strict();
 
 export const rosterCountSchema = z.object({ people: z.number().int() }).strict();
+
+// The candidate's own sitting. The deadline is the server's; the page counts toward it by the server's clock.
+export const examSessionSchema = z
+    .object({
+        exam_id: idSchema("exm"),
+        state: z.enum(["invited", "consented", "started", "submitted", "expired"]),
+        extra_minutes: z.number().int(),
+        consented: z.boolean(),
+        consent_text_version: z.number().int().nullable(),
+        current_consent_text_version: z.number().int(),
+        started_at: z.iso.datetime().nullable(),
+        deadline_at: z.iso.datetime().nullable(),
+        submitted_at: z.iso.datetime().nullable(),
+    })
+    .strict();
+export type ExamSession = z.infer<typeof examSessionSchema>;
+
+// The wording the candidate consents to, with its version, so the page shows exactly what the server will
+// accept consent to.
+export const consentTextSchema = z.object({ version: z.number().int(), text: z.string() }).strict();
+
+// One problem as a candidate works on it: an allowlist (statement, limits, languages), never tests or checker.
+export const examProblemViewSchema = z
+    .object({
+        label: z.string(),
+        points: z.number().int(),
+        title: z.string(),
+        time_limit_ms: z.number().int(),
+        memory_limit_kib: z.number().int(),
+        languages: z.array(z.string()),
+        statement_html: z.string(),
+    })
+    .strict();

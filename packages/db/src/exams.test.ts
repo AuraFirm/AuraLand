@@ -302,3 +302,19 @@ describe("the clock and visibility", () => {
         expect(await read(CAL)).toHaveLength(0);
     });
 });
+
+describe("the problem list of an exam", () => {
+    it("is not readable through another exam that shares a problem, until the sitting starts", async () => {
+        // ADA started the main exam (and read its problem); a second exam uses the same version.
+        const second = await newExam("shares-a-version", { close: at(40) });
+        await app(OWNER, (tx) => tx`select publish_exam(${second}, ${at(-2)})`);
+        await app(ADA, (tx) => tx`select join_exam(${second}, ${at(0, 5)})`).catch(() => undefined);
+        const rows = () =>
+            app(ADA, (tx) => tx`select label from exam_problems where exam_id = ${second}`);
+        expect(await rows()).toHaveLength(0); // not started: no list, though the version is one she has sat
+        await worker((tx) => tx`select * from advance_exams(${at(0, 10)})`);
+        await app(ADA, (tx) => tx`select consent_exam(${second}, 1, ${at(0, 11)})`);
+        await app(ADA, (tx) => tx`select * from start_exam_session(${second}, ${at(0, 12)})`);
+        expect(await rows()).toHaveLength(1);
+    });
+});

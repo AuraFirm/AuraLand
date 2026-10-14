@@ -148,3 +148,17 @@ export const rosterRowSchema = z
 export const CONSENT_TEXT_VERSION = 1;
 export const examIdSchema = idSchema("exm");
 export const sessionIdSchema = idSchema("exs");
+
+// What a candidate is shown and agrees to before the first byte of telemetry. A new wording is a new version;
+// consent to an older version never covers it. In Stage 6 consent is a condition of sitting the exam (a person
+// who declines arranges something else with the instructor, outside the product); the text says so.
+export const CONSENT_TEXTS: Readonly<Record<number, string>> = {
+    1: [
+        "Before you start, please read what this exam records about you.",
+        "Your answers are saved while you work and graded by your instructor.",
+        "While the exam is open the page also records, with the time of each event: when this window loses or regains focus, when you leave full screen, when you copy, cut or paste, when you edit your code, when you run it, and when your connection drops or returns. It records nothing else: no screen, camera, microphone, other programs or keystrokes outside your code.",
+        "Your instructor and the people they appoint may look at these records to review a possible integrity problem. A computer program never decides that you cheated: a person decides, tells you why, and you can appeal.",
+        "The records are kept for the period your institution chose and then deleted. You can ask your institution to see or delete them.",
+        "If you do not agree, do not start; talk to your instructor about another arrangement.",
+    ].join("\n\n"),
+};

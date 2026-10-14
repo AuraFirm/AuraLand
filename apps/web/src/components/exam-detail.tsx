@@ -6,6 +6,7 @@ import { apiGet, apiSend, detailOf, messageOf } from "../lib/api.ts";
 import { showInstant } from "../lib/contest-time.ts";
 import { button, buttonQuiet, input } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
+import { ExamSitting } from "./exam-sitting.tsx";
 import { Notice, Section } from "./section.tsx";
 
 type Exam = ReturnType<typeof examSchema.parse>;
@@ -45,6 +46,7 @@ export function ExamDetail({ examId }: { examId: string }) {
                 )}
             </Section>
             {data.can_manage && <Manage exam={data} onChanged={reload} />}
+            {!data.can_manage && <ExamSitting exam={data} />}
         </>
     );
 }

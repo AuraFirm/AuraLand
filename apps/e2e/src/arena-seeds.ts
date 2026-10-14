@@ -170,3 +170,35 @@ export async function setPlatformStatus(level: string, message: string): Promise
         await database.close(5);
     }
 }
+
+// An exam that is open now (people may start), with a real statement, and `email` on its roster with
+// `extraMinutes` of accommodation. Returns the exam's public id.
+export async function seedOpenExam(email: string, extraMinutes = 0): Promise<string> {
+    const database = createDatabase(e2eDatabaseUrl(), 1);
+    try {
+        const { sql } = database;
+        const slug = randomBytes(4).toString("hex");
+        const [host] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('university', ${`exam-${slug}`}, 'Exam University') returning id`;
+        const hostId = host?.id ?? "";
+        const version = await seedArenaVersion(sql, hostId, slug);
+        const [maker] = await sql<
+            { id: string }[]
+        >`select created_by as id from task_versions where id = ${version}`;
+        const now = Date.now();
+        const [exam] = await sql<{ id: string }[]>`insert into exams
+            (org_id, title, mode, duration_s, window_start, window_end, created_by)
+            values (${hostId}, ${`Sitting ${slug}`}, 'ai_free', 5400, ${new Date(now - 300_000)}, ${new Date(now + 5 * 3_600_000)}, ${maker?.id ?? ""})
+            returning id`;
+        const id = exam?.id ?? "";
+        await sql`insert into exam_problems (exam_id, org_id, label, task_version_id, task_org_id, points, auto_percent, rubric)
+            values (${id}, ${hostId}, 'A', ${version}, ${hostId}, 100, 100, '[]'::jsonb)`;
+        await sql`insert into exam_roster (exam_id, org_id, email, name, extra_minutes) values (${id}, ${hostId}, ${email}, 'Candidate', ${extraMinutes})`;
+        await sql`insert into users (email, email_verified_at) values (${email}, now()) on conflict (email) do nothing`;
+        for (const state of ["scheduled", "open"])
+            await sql`update exams set state = ${state} where id = ${id}`;
+        return `exm_${id}`;
+    } finally {
+        await database.close(5);
+    }
+}
