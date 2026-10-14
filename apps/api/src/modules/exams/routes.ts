@@ -327,6 +327,8 @@ async function transition(c: Context<AppEnv>, deps: ExamRouteDeps, kind: "publis
         const code = postgresErrorCode(error);
         if (code === NO_DATA_FOUND)
             return problemResponse(c, "conflict", "This exam is not in the right state");
+        if (code === "55000")
+            return problemResponse(c, "conflict", "Answers are still being collected or judged");
         if (code === CHECK_VIOLATION)
             return problemResponse(
                 c,

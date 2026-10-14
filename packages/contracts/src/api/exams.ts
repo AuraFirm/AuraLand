@@ -159,3 +159,78 @@ export const draftsResponseSchema = z
         ),
     })
     .strict();
+
+// Grading (Stage 6, slice 5b). Staff see every answer with the judge's verdict and the rubric scores; a candidate,
+// after release, sees their own points and comments, never the tests.
+export const gradingRowSchema = z
+    .object({
+        session_id: idSchema("exs"),
+        email: z.string(),
+        name: z.string(),
+        session_state: z.string(),
+        label: z.string(),
+        points: z.number().int(),
+        submission_state: z.string().nullable(),
+        verdict: z.string().nullable(),
+        judge_score: z.number().nullable(),
+        auto_points: z.number(),
+        rubric_points: z.number(),
+        total_points: z.number(),
+        rubric: z.array(rubricItemSchema),
+        rubric_scores: z.record(z.string(), z.number().int()),
+        comment: z.string(),
+    })
+    .strict();
+
+export const gradingResponseSchema = z.object({ rows: z.array(gradingRowSchema) }).strict();
+
+export const gradeRequestSchema = z
+    .object({
+        rubric_scores: z.record(
+            z.string().regex(/^[a-z0-9][a-z0-9_-]{0,31}$/),
+            z.number().int().min(0).max(1000),
+        ),
+        comment: z
+            .string()
+            .max(2000)
+            .refine((text) => !text.includes("\0"), "text contains a NUL byte")
+            .default(""),
+    })
+    .strict();
+
+export const answerDetailSchema = z
+    .object({
+        language: z.string().nullable(),
+        source: z.string().nullable(),
+        tests: z.array(z.object({ test_id: z.string(), verdict: z.string() }).strict()),
+    })
+    .strict();
+
+export const examResultSchema = z
+    .object({
+        exam_id: idSchema("exm"),
+        total_points: z.number(),
+        max_points: z.number(),
+        problems: z.array(
+            z
+                .object({
+                    label: z.string(),
+                    points: z.number().int(),
+                    auto_points: z.number(),
+                    rubric: z.array(
+                        z
+                            .object({
+                                id: z.string(),
+                                label: z.string(),
+                                max_points: z.number().int(),
+                                awarded: z.number().int(),
+                            })
+                            .strict(),
+                    ),
+                    comment: z.string(),
+                    total_points: z.number(),
+                })
+                .strict(),
+        ),
+    })
+    .strict();

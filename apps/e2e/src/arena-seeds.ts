@@ -202,3 +202,58 @@ export async function seedOpenExam(email: string, extraMinutes = 0): Promise<str
         await database.close(5);
     }
 }
+
+// A closed exam with one candidate who handed in an answer the judge accepted (score 100), a problem worth 100
+// points of which 70 are the judge's and 30 a rubric item, and `staffEmail` as the host's owner. Returns the
+// exam's public id.
+export async function seedClosedExam(staffEmail: string, candidateEmail: string): Promise<string> {
+    const database = createDatabase(e2eDatabaseUrl(), 1);
+    try {
+        const { sql } = database;
+        const slug = randomBytes(4).toString("hex");
+        const [host] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('university', ${`closed-${slug}`}, 'Closed University') returning id`;
+        const hostId = host?.id ?? "";
+        const version = await seedArenaVersion(sql, hostId, slug);
+        const [owner] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${staffEmail}, now())
+            on conflict (email) do update set email = excluded.email returning id`;
+        await sql`insert into memberships (org_id, user_id, role) values (${hostId}, ${owner?.id ?? ""}, 'owner')`;
+        const [candidate] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${candidateEmail}, now())
+            on conflict (email) do update set email = excluded.email returning id`;
+        const now = Date.now();
+        const [exam] = await sql<
+            { id: string }[]
+        >`insert into exams (org_id, title, mode, duration_s, window_start, window_end, created_by)
+            values (${hostId}, ${`Graded ${slug}`}, 'ai_free', 3600, ${new Date(now - 3 * 3_600_000)}, ${new Date(now - 3_600_000)}, ${owner?.id ?? ""}) returning id`;
+        const examId = exam?.id ?? "";
+        await sql`insert into exam_problems (exam_id, org_id, label, task_version_id, task_org_id, points, auto_percent, rubric)
+            values (${examId}, ${hostId}, 'A', ${version}, ${hostId}, 100, 70, ${sql.json([{ id: "style", label: "Readable code", max_points: 30 }])})`;
+        await sql`insert into exam_roster (exam_id, org_id, email, name) values (${examId}, ${hostId}, ${candidateEmail}, 'Cora Candidate')`;
+        for (const state of ["scheduled", "open"])
+            await sql`update exams set state = ${state} where id = ${examId}`;
+        const [session] = await sql<
+            { id: string }[]
+        >`insert into exam_sessions (exam_id, org_id, user_id, created_at)
+            values (${examId}, ${hostId}, ${candidate?.id ?? ""}, ${new Date(now - 3 * 3_600_000)}) returning id`;
+        const sessionId = session?.id ?? "";
+        const started = new Date(now - 2.5 * 3_600_000);
+        await sql`update exam_sessions set state = 'consented', consent_at = ${started}, consent_text_version = 1 where id = ${sessionId}`;
+        await sql`update exam_sessions set state = 'started', started_at = ${started}, deadline_at = ${new Date(now - 1.5 * 3_600_000)} where id = ${sessionId}`;
+        await sql`insert into exam_drafts (session_id, org_id, problem_label, seq, language, content, content_sha256, saved_at)
+            values (${sessionId}, ${hostId}, 'A', 1, 'cpp', 'int main() { return 0; }', ${createHash("sha256").update("int main() { return 0; }").digest()}, ${started})`;
+        await sql`update exam_sessions set state = 'submitted', submitted_at = ${new Date(now - 2 * 3_600_000)} where id = ${sessionId}`;
+        const [submission] = await sql<{ id: string }[]>`insert into submissions
+            (org_id, user_id, task_version_id, context_kind, context_id, language, source, source_sha256, source_bytes, created_at, updated_at)
+            values (${hostId}, ${candidate?.id ?? ""}, ${version}, 'exam', ${examId}, 'cpp', 'int main() { return 0; }', ${randomBytes(32)}, 24, ${started}, ${started}) returning id`;
+        const submissionId = submission?.id ?? "";
+        await sql`update submissions set state = 'judging' where id = ${submissionId}`;
+        await sql`update submissions set state = 'judged', verdict = 'AC', score = 100, judged_at = now() where id = ${submissionId}`;
+        await sql`insert into exam_answers (session_id, problem_label, org_id, submission_id, created_at) values (${sessionId}, 'A', ${hostId}, ${submissionId}, ${started})`;
+        await sql`update exams set state = 'closed' where id = ${examId}`;
+        return `exm_${examId}`;
+    } finally {
+        await database.close(5);
+    }
+}
