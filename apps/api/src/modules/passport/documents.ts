@@ -17,7 +17,7 @@ export interface PublicKey {
 // did:web:host (a port's colon is written %3A). The origin is the validated public origin of the site.
 export function issuerDid(origin: string): string {
     const url = new URL(origin);
-    return `did:web:${url.host.replace(":", "%3A")}`;
+    return `did:web:${url.host.replaceAll(":", "%3A")}`;
 }
 
 // A revoked key is left out on purpose: its credentials must stop verifying. Retired keys stay, so credentials
