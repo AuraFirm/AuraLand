@@ -18,7 +18,7 @@ Everything that ran a sandbox ran on **one development VM**, so every report tod
 | The portal shows the request button, the report with its sandbox caveat and the release button for validated versions | **Verified in a real browser** (`tasks.spec.ts`, with accessibility checks). A stand-in plays the node by calling `settle_validation`, so this tests the screens, not validation |
 | People other than the author record whether a task held or was gamed (plain text, append-only, audited) | **Verified** (`attacks.test.ts`, `http-attacks.test.ts`, browser test) |
 | **Any task is validated in the sense a customer should rely on** | **No.** No production node exists and there has been no external review (F32); no model has attacked a task and no real human attack has been made; difficulty is not measured |
-| The real agent leasing a real job from a running API, end to end | **No.** Each half is tested (HTTP tests with signed fake nodes; real sandbox with a stubbed fetch); the two were never joined in one run |
+| The real agent leasing a real job from a running API, end to end | **Verified once, on the development VM**, by `node apps/api/src/validate-e2e-cli.ts`: the built API on this machine (real PostgreSQL, real S3) and the built agent in the VM (real isolate, Node, g++, python3) over HTTP. The agent enrolled, became active, leased the job, downloaded the bundle, ran every solution, mutant and attacker and reported; the API stored a `development` report with score 95 whose only failures were the two the bundle was built to have. This is a developer tool, not part of CI (it needs the VM) |
 | Deployed anywhere | **No** (F1) |
 
 ## What was built (pull requests #59 to #67)

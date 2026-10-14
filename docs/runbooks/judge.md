@@ -75,3 +75,8 @@ housekeeping.
   to `uploaded` within a pass (`validations_aborted` in the cleanup log). No report is written then.
 - **A report that did not pass** lists the failing checks; the setter fixes the bundle and uploads a new
   version. Reports are never edited or deleted.
+- **The joined check.** On a development machine with Colima running, `pnpm build && pnpm build:opener`
+  then `node apps/api/src/validate-e2e-cli.ts` starts the built API against a throwaway database and
+  local S3, builds and enrolls the agent in the VM, requests a validation and prints the stored report. It
+  exits 0 only when the report is a `development` report whose failed checks are exactly the two the
+  test bundle is built to have. It needs the VM; it is not run in CI.
