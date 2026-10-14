@@ -20,6 +20,7 @@ import (
 	"github.com/AuraFirm/AuraLand/judge/internal/client"
 	"github.com/AuraFirm/AuraLand/judge/internal/isolate"
 	"github.com/AuraFirm/AuraLand/judge/internal/sandbox"
+	"github.com/AuraFirm/AuraLand/judge/internal/validate"
 	"github.com/AuraFirm/AuraLand/judge/internal/wire"
 )
 
@@ -72,12 +73,12 @@ func serve(plane, nodeID, keyFile, isolateBin, openerFile string, concurrency in
 	opener := &bundles.Opener{
 		Box:    box,
 		Script: string(script),
-		Fetch: func(ctx context.Context, job wire.LeasedJob) ([]byte, error) {
-			return control.FetchBundle(ctx, job.JobID, job.Task.Bundle)
+		Fetch: func(ctx context.Context, jobID string, bundle wire.Bundle) ([]byte, error) {
+			return control.FetchBundle(ctx, jobID, bundle)
 		},
 	}
 	node := &agent.Agent{
-		Plane: control, Box: box, Bundles: opener, Version: version, LeaseWaitMS: leaseWaitMS,
+		Plane: control, Box: box, Bundles: opener, Validator: &validate.Runner{Box: box, Open: opener}, Version: version, LeaseWaitMS: leaseWaitMS,
 		Logf:     func(format string, args ...any) { fmt.Fprintf(os.Stderr, "aura-judge: "+format+"\n", args...) },
 		SelfTest: smokeTest(box),
 	}

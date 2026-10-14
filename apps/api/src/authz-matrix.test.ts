@@ -208,6 +208,13 @@ const MATRIX: readonly Row[] = [
     },
     {
         method: "POST",
+        path: "/api/v1/task-versions/:id/validate",
+        access: "user",
+        owned: true,
+        object: "tsv",
+    },
+    {
+        method: "POST",
         path: "/api/v1/task-versions/:id/abandon",
         access: "user",
         owned: true,

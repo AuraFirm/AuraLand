@@ -30,8 +30,7 @@ func Run(ctx context.Context, box sandbox.Sandbox, data TestData, job wire.Lease
 	if spec.Checker.Type == "custom" || spec.Interactive {
 		return wire.Result{}, ErrUnsupported
 	}
-	compileLimits := sandbox.Limits{CPUMS: 10_000, WallMS: 30_000, MemoryKiB: 512 * 1024, OutputKiB: 64}
-	compiled, err := box.Compile(ctx, job.Submission.Language, job.Submission.Source, compileLimits)
+	compiled, err := box.Compile(ctx, job.Submission.Language, job.Submission.Source, CompileLimits)
 	if err != nil {
 		return wire.Result{}, fmt.Errorf("compile: %w", err)
 	}
@@ -40,6 +39,20 @@ func Run(ctx context.Context, box sandbox.Sandbox, data TestData, job wire.Lease
 	}
 	defer compiled.Program.Release()
 
+	results, err := RunTests(ctx, box, data, compiled.Program, spec, spec.Scoring.Type == "binary")
+	if err != nil {
+		return wire.Result{}, err
+	}
+	return wire.Result{CompileOK: true, Tests: results}, nil
+}
+
+// CompileLimits bound a compiler run; they are fixed because a task cannot ask for more compile time.
+var CompileLimits = sandbox.Limits{CPUMS: 10_000, WallMS: 30_000, MemoryKiB: 512 * 1024, OutputKiB: 64}
+
+// RunTests runs a compiled program on the spec's tests in order. With stopAtFirstFailure it ends at the
+// first test that is not AC (binary scoring needs nothing more); validation passes false, because it
+// wants to see every test.
+func RunTests(ctx context.Context, box sandbox.Sandbox, data TestData, program sandbox.Program, spec wire.Spec, stopAtFirstFailure bool) ([]wire.TestResult, error) {
 	limits := sandbox.Limits{
 		CPUMS:     spec.TimeLimitMS,
 		WallMS:    spec.TimeLimitMS * 3,
@@ -48,17 +61,16 @@ func Run(ctx context.Context, box sandbox.Sandbox, data TestData, job wire.Lease
 	}
 	results := make([]wire.TestResult, 0, len(spec.Tests))
 	for _, test := range spec.Tests {
-		result, err := runTest(ctx, box, data, compiled.Program, spec, test, limits)
+		result, err := runTest(ctx, box, data, program, spec, test, limits)
 		if err != nil {
-			return wire.Result{}, err
+			return nil, err
 		}
 		results = append(results, result)
-		// Binary tasks stop at the first failure; every other kind needs all tests.
-		if spec.Scoring.Type == "binary" && result.Verdict != "AC" {
+		if stopAtFirstFailure && result.Verdict != "AC" {
 			break
 		}
 	}
-	return wire.Result{CompileOK: true, Tests: results}, nil
+	return results, nil
 }
 
 func runTest(ctx context.Context, box sandbox.Sandbox, data TestData, program sandbox.Program, spec wire.Spec, test wire.TestSpec, limits sandbox.Limits) (wire.TestResult, error) {

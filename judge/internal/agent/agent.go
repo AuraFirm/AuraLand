@@ -20,6 +20,8 @@ import (
 type ControlPlane interface {
 	Heartbeat(ctx context.Context, request wire.HeartbeatRequest) (wire.HeartbeatResponse, error)
 	Lease(ctx context.Context, waitMS int) (*wire.LeasedJob, error)
+	LeaseValidation(ctx context.Context, waitMS int) (*wire.ValidationJob, error)
+	CompleteValidation(ctx context.Context, jobID string, epoch int, result wire.ValidationResult) error
 	JobHeartbeat(ctx context.Context, jobID string, epoch int) error
 	Complete(ctx context.Context, jobID string, epoch int, result wire.Result) error
 	Fail(ctx context.Context, jobID string, epoch int, reason string, retryable bool) error
@@ -31,12 +33,20 @@ type Bundles interface {
 	Open(ctx context.Context, job wire.LeasedJob) (data judge.TestData, release func(), err error)
 }
 
+// Validator runs the solutions of a task bundle for the validate queue. A node without one never asks
+// for validation jobs.
+type Validator interface {
+	Run(ctx context.Context, job wire.ValidationJob) (wire.ValidationResult, error)
+}
+
 type Agent struct {
-	Plane   ControlPlane
-	Box     sandbox.Sandbox
-	Bundles Bundles
-	Version string
-	Logf    func(format string, args ...any)
+	Plane ControlPlane
+	// Validator is optional; see Validator.
+	Validator Validator
+	Box       sandbox.Sandbox
+	Bundles   Bundles
+	Version   string
+	Logf      func(format string, args ...any)
 	// SelfTest runs the node's canary (escape suite, timing calibration). A failing node drains.
 	SelfTest func(ctx context.Context) bool
 	// LeaseWaitMS is how long a lease request may wait for work; 0 polls.
@@ -53,11 +63,43 @@ func (a *Agent) Beat(ctx context.Context, running int) (string, error) {
 // RunOnce leases at most one job and finishes it. It returns whether there was one.
 func (a *Agent) RunOnce(ctx context.Context) (bool, error) {
 	job, err := a.Plane.Lease(ctx, a.LeaseWaitMS)
-	if err != nil || job == nil {
+	if err != nil {
 		return false, err
 	}
-	a.process(ctx, *job)
+	if job != nil {
+		a.process(ctx, *job)
+		return true, nil
+	}
+	if a.Validator == nil {
+		return false, nil
+	}
+	// Submissions come first and may long-poll; validation is asked for without waiting.
+	validation, err := a.Plane.LeaseValidation(ctx, 0)
+	if err != nil || validation == nil {
+		return false, err
+	}
+	a.processValidation(ctx, *validation)
 	return true, nil
+}
+
+func (a *Agent) processValidation(ctx context.Context, job wire.ValidationJob) {
+	jobCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var lost sync.Once
+	stop := a.keepAlive(jobCtx, job.JobID, job.LeaseEpoch, job.LeaseTTLS, func() { lost.Do(cancel) })
+	defer stop()
+	result, err := a.Validator.Run(jobCtx, job)
+	if jobCtx.Err() != nil && ctx.Err() == nil {
+		a.Logf("validation %s: lease lost, result discarded", job.JobID)
+		return
+	}
+	if err != nil {
+		a.reportFailure(ctx, job.JobID, job.LeaseEpoch, err)
+		return
+	}
+	if err := a.Plane.CompleteValidation(ctx, job.JobID, job.LeaseEpoch, result); err != nil {
+		a.Logf("validation %s: result not accepted: %v", job.JobID, err)
+	}
 }
 
 func (a *Agent) process(ctx context.Context, job wire.LeasedJob) {
@@ -65,7 +107,7 @@ func (a *Agent) process(ctx context.Context, job wire.LeasedJob) {
 	jobCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var lost sync.Once
-	stop := a.keepAlive(jobCtx, job, func() { lost.Do(cancel) })
+	stop := a.keepAlive(jobCtx, job.JobID, job.LeaseEpoch, job.LeaseTTLS, func() { lost.Do(cancel) })
 	defer stop()
 
 	result, err := a.judge(jobCtx, job)
@@ -74,7 +116,7 @@ func (a *Agent) process(ctx context.Context, job wire.LeasedJob) {
 		return
 	}
 	if err != nil {
-		a.report(ctx, job, err)
+		a.reportFailure(ctx, job.JobID, job.LeaseEpoch, err)
 		return
 	}
 	if err := a.Plane.Complete(ctx, job.JobID, job.LeaseEpoch, result); err != nil {
@@ -91,22 +133,22 @@ func (a *Agent) judge(ctx context.Context, job wire.LeasedJob) (wire.Result, err
 	return judge.Run(ctx, a.Box, data, job)
 }
 
-// report sends a system error back. Every such failure is retryable: another node may do better, and
-// attempts are bounded by the control plane.
-func (a *Agent) report(ctx context.Context, job wire.LeasedJob, cause error) {
+// reportFailure sends a system error back. Every such failure is retryable: another node may do
+// better, and attempts are bounded by the control plane.
+func (a *Agent) reportFailure(ctx context.Context, jobID string, epoch int, cause error) {
 	reason := cause.Error()
 	if errors.Is(cause, judge.ErrUnsupported) {
 		reason = "unsupported on this node: " + reason
 	}
-	if err := a.Plane.Fail(ctx, job.JobID, job.LeaseEpoch, reason, true); err != nil && !errors.Is(err, client.ErrStaleLease) {
-		a.Logf("job %s: could not report failure: %v", job.JobID, err)
+	if err := a.Plane.Fail(ctx, jobID, epoch, reason, true); err != nil && !errors.Is(err, client.ErrStaleLease) {
+		a.Logf("job %s: could not report failure: %v", jobID, err)
 	}
 }
 
 // keepAlive sends a job heartbeat every third of the lease and calls lost() if the control plane says
 // the lease is no longer ours. The returned function stops it.
-func (a *Agent) keepAlive(ctx context.Context, job wire.LeasedJob, lost func()) func() {
-	interval := time.Duration(job.LeaseTTLS) * time.Second / 3
+func (a *Agent) keepAlive(ctx context.Context, jobID string, epoch, ttlSeconds int, lost func()) func() {
+	interval := time.Duration(ttlSeconds) * time.Second / 3
 	if interval <= 0 {
 		interval = time.Second
 	}
@@ -123,7 +165,7 @@ func (a *Agent) keepAlive(ctx context.Context, job wire.LeasedJob, lost func()) 
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if err := a.Plane.JobHeartbeat(ctx, job.JobID, job.LeaseEpoch); errors.Is(err, client.ErrStaleLease) {
+				if err := a.Plane.JobHeartbeat(ctx, jobID, epoch); errors.Is(err, client.ErrStaleLease) {
 					lost()
 					return
 				}

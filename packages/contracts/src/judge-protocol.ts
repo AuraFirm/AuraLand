@@ -82,10 +82,11 @@ export const enrollmentCreatedSchema = z
 import { judgeLanguageSchema, testVerdictSchema } from "./judging.ts";
 import { JOB_ERROR_CHARS_MAX, LEASE_WAIT_MS_MAX } from "./limits.ts";
 import { taskSpecSchema } from "./tasks.ts";
+import { validationJobSchema } from "./validation.ts";
 
 export const leaseRequestSchema = z
     .object({
-        queue: z.literal("judge"),
+        queue: z.enum(["judge", "validate"]),
         // 0 answers at once; up to 25 s holds the request until work arrives.
         wait_ms: z.number().int().min(0).max(LEASE_WAIT_MS_MAX),
     })
@@ -114,6 +115,10 @@ export const leasedJobSchema = z
     .strict();
 
 export const leaseResponseSchema = z.object({ job: leasedJobSchema.nullable() }).strict();
+// The answer to a lease on the validate queue: the other kind of job, so the two never get mixed up.
+export const validationLeaseResponseSchema = z
+    .object({ job: validationJobSchema.nullable() })
+    .strict();
 
 export const jobHeartbeatRequestSchema = z
     .object({ lease_epoch: z.number().int().min(1) })

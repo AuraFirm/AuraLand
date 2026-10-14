@@ -16,6 +16,8 @@ import (
 type plane struct {
 	mu          sync.Mutex
 	jobs        []*wire.LeasedJob
+	validations []*wire.ValidationJob
+	validated   []wire.ValidationResult
 	completed   []wire.Result
 	failed      []string
 	failRetry   []bool
@@ -45,6 +47,24 @@ func (p *plane) Lease(context.Context, int) (*wire.LeasedJob, error) {
 	job := p.jobs[0]
 	p.jobs = p.jobs[1:]
 	return job, nil
+}
+
+func (p *plane) LeaseValidation(context.Context, int) (*wire.ValidationJob, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.validations) == 0 {
+		return nil, nil
+	}
+	job := p.validations[0]
+	p.validations = p.validations[1:]
+	return job, nil
+}
+
+func (p *plane) CompleteValidation(_ context.Context, _ string, _ int, r wire.ValidationResult) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.validated = append(p.validated, r)
+	return nil
 }
 
 func (p *plane) JobHeartbeat(context.Context, string, int) error {
@@ -222,5 +242,45 @@ func TestServeStopsWhenAskedAndAnsweredJobsAreDone(t *testing.T) {
 	}
 	if len(p.completed) != 1 {
 		t.Fatalf("the job must be judged once, got %d", len(p.completed))
+	}
+}
+
+type validator struct {
+	err error
+	ran int
+}
+
+func (v *validator) Run(context.Context, wire.ValidationJob) (wire.ValidationResult, error) {
+	v.ran++
+	return wire.ValidationResult{Bundle: wire.ValidationBundle{Opens: true}, Runs: []wire.ValidationRun{}}, v.err
+}
+
+// Goal: a node with a validator takes validation jobs after submissions, reports what it saw, and
+// reports its own failures as retryable; a node without one never asks.
+func TestValidationJobsAreRunAndReported(t *testing.T) {
+	job := &wire.ValidationJob{JobID: "job_v", LeaseEpoch: 2, LeaseTTLS: 30}
+	p := &plane{validations: []*wire.ValidationJob{job}}
+	v := &validator{}
+	a := newAgent(p, &sandbox.Fake{}, &bundles{})
+	a.Validator = v
+	ran, err := a.RunOnce(context.Background())
+	if err != nil || !ran || v.ran != 1 || len(p.validated) != 1 {
+		t.Fatalf("ran %v err %v validator %d reported %d", ran, err, v.ran, len(p.validated))
+	}
+}
+
+func TestValidationFailureIsReportedAsRetryableAndNodeWithoutValidatorSkips(t *testing.T) {
+	failing := &validator{err: errors.New("sandbox down")}
+	p := &plane{validations: []*wire.ValidationJob{{JobID: "job_v", LeaseEpoch: 1, LeaseTTLS: 30}}}
+	a := newAgent(p, &sandbox.Fake{}, &bundles{})
+	a.Validator = failing
+	a.RunOnce(context.Background())
+	if len(p.failed) != 1 || !p.failRetry[0] || len(p.validated) != 0 {
+		t.Fatalf("failed %v retry %v validated %d", p.failed, p.failRetry, len(p.validated))
+	}
+	idle := &plane{validations: []*wire.ValidationJob{{JobID: "job_v", LeaseEpoch: 1, LeaseTTLS: 30}}}
+	ran, _ := newAgent(idle, &sandbox.Fake{}, &bundles{}).RunOnce(context.Background())
+	if ran || len(idle.validations) != 1 {
+		t.Fatal("a node without a validator must not lease validation jobs")
 	}
 }

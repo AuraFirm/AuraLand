@@ -80,7 +80,7 @@ func jobFor(packed []byte) wire.LeasedJob {
 }
 
 func opener(box sandbox.Sandbox, packed []byte) *Opener {
-	return &Opener{Box: box, Script: "script", Fetch: func(context.Context, wire.LeasedJob) ([]byte, error) { return packed, nil }}
+	return &Opener{Box: box, Script: "script", Fetch: func(context.Context, string, wire.Bundle) ([]byte, error) { return packed, nil }}
 }
 
 func TestOpenerChecksTheDownloadBeforeRunningAnything(t *testing.T) {

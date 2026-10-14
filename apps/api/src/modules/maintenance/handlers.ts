@@ -21,7 +21,15 @@ const UPLOADS_PER_PASS = 100;
 export async function cleanupExpired(context: HandlerContext): Promise<Record<string, number>> {
     const now = new Date(context.clock.nowUnixMs());
     const rows = await context.inTransaction((tx) => tx`select cleanup_expired(${now}) as counts`);
-    return z.object({ counts: z.record(z.string(), z.number()) }).parse(rows[0]).counts;
+    const counts = z.object({ counts: z.record(z.string(), z.number()) }).parse(rows[0]).counts;
+    // Versions whose validation job died go back to 'uploaded' (migration 0027).
+    const aborted = await context.inTransaction(
+        (tx) => tx`select abort_orphaned_validations(${now}) as aborted`,
+    );
+    return {
+        ...counts,
+        validations_aborted: z.object({ aborted: z.number() }).parse(aborted[0]).aborted,
+    };
 }
 
 // An upload whose plan has expired can no longer be finalized: abort it in storage, then close the row.

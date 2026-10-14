@@ -130,6 +130,20 @@ func (c *Client) Heartbeat(ctx context.Context, request wire.HeartbeatRequest) (
 	return out, err
 }
 
+// LeaseValidation asks for a task-validation job (queue "validate"); the answer has its own shape.
+func (c *Client) LeaseValidation(ctx context.Context, waitMS int) (*wire.ValidationJob, error) {
+	var out wire.ValidationLeaseResponse
+	_, _, err := c.do(ctx, http.MethodPost, "/lease", true, wire.LeaseRequest{Queue: "validate", WaitMS: waitMS}, &out)
+	return out.Job, err
+}
+
+// CompleteValidation reports what the node observed; the control plane draws the conclusions.
+func (c *Client) CompleteValidation(ctx context.Context, jobID string, epoch int, result wire.ValidationResult) error {
+	var out wire.Accepted
+	_, _, err := c.do(ctx, http.MethodPost, "/jobs/"+jobID+"/validation", true, wire.ValidationComplete{LeaseEpoch: epoch, Result: result}, &out)
+	return staleOr(err)
+}
+
 func (c *Client) Lease(ctx context.Context, waitMS int) (*wire.LeasedJob, error) {
 	var out wire.LeaseResponse
 	_, _, err := c.do(ctx, http.MethodPost, "/lease", true, wire.LeaseRequest{Queue: "judge", WaitMS: waitMS}, &out)

@@ -3,6 +3,8 @@
 
 export const UNIQUE_VIOLATION = "23505";
 export const CHECK_VIOLATION = "23514";
+export const NO_DATA_FOUND = "P0002";
+export const CONFIGURATION_LIMIT_EXCEEDED = "53400";
 
 export function postgresErrorCode(error: unknown): string | null {
     if (typeof error !== "object" || error === null || !("code" in error)) return null;

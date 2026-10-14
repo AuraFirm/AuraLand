@@ -175,3 +175,48 @@ func Decode(data []byte, into any) error {
 	}
 	return nil
 }
+
+// ---- validation (Stage 4B) ----
+//
+// The same discipline as judging: the node reports what it saw, the control plane draws the
+// conclusions (apps/api/src/modules/validation/rules.ts).
+
+type ValidationJob struct {
+	JobID      string `json:"job_id"`
+	LeaseEpoch int    `json:"lease_epoch"`
+	LeaseTTLS  int    `json:"lease_ttl_s"`
+	Kind       string `json:"kind"`
+	Task       Task   `json:"task"`
+}
+
+type ValidationLeaseResponse struct {
+	Job *ValidationJob `json:"job"`
+}
+
+type ValidationTest struct {
+	TestID  string `json:"test_id"`
+	Verdict string `json:"verdict"`
+	CPUMS   int    `json:"cpu_ms"`
+}
+
+type ValidationRun struct {
+	Solution  string           `json:"solution"`
+	Repeat    int              `json:"repeat"`
+	CompileOK bool             `json:"compile_ok"`
+	Tests     []ValidationTest `json:"tests"`
+}
+
+type ValidationBundle struct {
+	Opens   bool   `json:"opens"`
+	Refusal string `json:"refusal,omitempty"`
+}
+
+type ValidationResult struct {
+	Bundle ValidationBundle `json:"bundle"`
+	Runs   []ValidationRun  `json:"runs"`
+}
+
+type ValidationComplete struct {
+	LeaseEpoch int              `json:"lease_epoch"`
+	Result     ValidationResult `json:"result"`
+}

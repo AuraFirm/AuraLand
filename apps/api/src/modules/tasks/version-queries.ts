@@ -1,4 +1,4 @@
-import { VERSIONS_PER_TASK_MAX } from "@aura/contracts/limits";
+import { VALIDATE_QUEUE_READY_MAX, VERSIONS_PER_TASK_MAX } from "@aura/contracts/limits";
 import {
     type TaskSpec,
     taskKindSchema,
@@ -6,6 +6,7 @@ import {
     versionStateSchema,
 } from "@aura/contracts/tasks";
 import type { Transaction } from "@aura/db/context";
+import { CONFIGURATION_LIMIT_EXCEEDED, NO_DATA_FOUND, postgresErrorCode } from "@aura/db/errors";
 import { z } from "zod";
 
 // SQL for task versions and bundle uploads, run as `aura_app`: row-level security decides which
@@ -215,4 +216,23 @@ export async function recordRelease(
         where id = ${input.versionId} and state = ${input.from}
         returning id`;
     return rows.length === 1;
+}
+
+// Moves a version from in_review to validating and queues its validation job in one step (migration
+// 0026). Returns the job id, null when the version is not in review for this caller, or "queue_full".
+export async function requestValidation(
+    tx: Transaction,
+    versionId: string,
+    nowMs: number,
+): Promise<string | null | "queue_full"> {
+    try {
+        const rows = await tx`
+            select request_validation(${versionId}, ${new Date(nowMs)}, ${VALIDATE_QUEUE_READY_MAX}) as job`;
+        return z.object({ job: z.string() }).parse(rows[0]).job;
+    } catch (error) {
+        const code = postgresErrorCode(error);
+        if (code === NO_DATA_FOUND) return null;
+        if (code === CONFIGURATION_LIMIT_EXCEEDED) return "queue_full";
+        throw error;
+    }
 }

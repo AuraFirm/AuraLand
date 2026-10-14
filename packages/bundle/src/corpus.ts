@@ -56,6 +56,24 @@ const SPEC = {
 
 const specFile = (spec: unknown = SPEC): TarFile => file("task.json", JSON.stringify(spec));
 
+// A bundle whose solutions really run (Stage 4B): a correct C++ reference and wrong solutions that
+// each fail in a different way, so validation has something real to observe. Used by the Go tests
+// that run it in a real sandbox (judge/internal/validate).
+const SUM =
+    '#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<"\\n";}\n';
+const OFF_BY_ONE = SUM.replace("a+b", "a+b+1");
+const LOOPS = SUM.replace("std::cin>>a>>b;", "std::cin>>a>>b;for(;;){}");
+function solvedFiles(): TarFile[] {
+    return [
+        ...goldenFiles(),
+        file("solutions/reference.cpp", SUM),
+        file("solutions/wrong_off_by_one.cpp", OFF_BY_ONE),
+        file("solutions/wrong_loops.cpp", LOOPS),
+        file("solutions/wrong_noncompiling.cpp", "this is not C++\n"),
+        file("solutions/wrong_python.py", "a, b = map(int, input().split())\nprint(a * b)\n"),
+    ];
+}
+
 // The smallest valid bundle's files.
 export function goldenFiles(): TarFile[] {
     return [
@@ -138,6 +156,7 @@ function archiveCases(): CorpusCase[] {
     return [
         packed("golden-minimal", "ok", golden),
         packed("golden-rich", "ok", buildTar(richFiles())),
+        packed("golden-solved", "ok", buildTar(solvedFiles())),
         raw("empty-input", "empty", new Uint8Array(0)),
         raw("not-zstd", "bad_compression", enc("this is not a compressed bundle at all")),
         raw("truncated-zstd", "bad_compression", compress(golden).subarray(0, 20)),

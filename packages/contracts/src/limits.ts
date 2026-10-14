@@ -103,6 +103,8 @@ export const SUBMISSION_PAGE_SIZE_MAX = 100;
 
 // Above this many ready judge jobs new submissions are refused with a retry hint.
 export const JUDGE_QUEUE_READY_MAX = 1_000;
+// Validation jobs are heavy (dozens of sandbox runs each) and rare; a short queue is a signal to wait.
+export const VALIDATE_QUEUE_READY_MAX = 100;
 
 // Judge nodes (Stage 3): how long an enrollment token lives, and how far a signed request's timestamp
 // may differ from our clock before it is refused as stale or from the future.

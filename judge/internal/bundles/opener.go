@@ -21,14 +21,14 @@ var OpenLimits = sandbox.Limits{CPUMS: 60_000, WallMS: 120_000, MemoryKiB: 2 * 1
 type Opener struct {
 	Box sandbox.Sandbox
 	// Fetch returns the packed bundle bytes of the job's task. It is not trusted: Open checks them.
-	Fetch func(ctx context.Context, job wire.LeasedJob) ([]byte, error)
+	Fetch func(ctx context.Context, jobID string, bundle wire.Bundle) ([]byte, error)
 	// Script is the opener program (packages/bundle/dist/open-bundle.cjs), read once at start-up.
 	Script string
 }
 
 // Open downloads, verifies and opens the bundle of a job. The release function drops the contents.
 func (o *Opener) Open(ctx context.Context, job wire.LeasedJob) (judge.TestData, func(), error) {
-	files, err := o.OpenFiles(ctx, job)
+	files, err := o.OpenFiles(ctx, job.JobID, job.Task.Bundle)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -36,12 +36,12 @@ func (o *Opener) Open(ctx context.Context, job wire.LeasedJob) (judge.TestData, 
 }
 
 // OpenFiles is Open for callers (validation) that need the solutions too.
-func (o *Opener) OpenFiles(ctx context.Context, job wire.LeasedJob) (*Files, error) {
-	packed, err := o.Fetch(ctx, job)
+func (o *Opener) OpenFiles(ctx context.Context, jobID string, bundle wire.Bundle) (*Files, error) {
+	packed, err := o.Fetch(ctx, jobID, bundle)
 	if err != nil {
 		return nil, fmt.Errorf("download bundle: %w", err)
 	}
-	if err := CheckPacked(packed, job.Task.Bundle); err != nil {
+	if err := CheckPacked(packed, bundle); err != nil {
 		return nil, err
 	}
 	compiled, err := o.Box.Compile(ctx, sandbox.OpenerLanguage, o.Script, OpenLimits)
@@ -71,6 +71,9 @@ func CheckPacked(packed []byte, want wire.Bundle) error {
 	}
 	return nil
 }
+
+// TestData lets the judge read the tests of an opened bundle.
+func (f *Files) TestData() judge.TestData { return testData{files: f} }
 
 type testData struct{ files *Files }
 
