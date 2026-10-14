@@ -3,8 +3,8 @@
 //	enroll  --control-plane URL --token T --name N --key-file F   (once per node)
 //	run     --control-plane URL --node-id ID --key-file F
 //
-// `run` needs a sandbox. This build has none for the current platform (isolate needs Linux and cgroup
-// v2), so it refuses to start rather than judge without isolation.
+// `run` needs a sandbox. Off Linux there is none (isolate needs Linux and cgroup v2), so it refuses to
+// start rather than judge without isolation (run_other.go); on Linux see run_linux.go.
 package main
 
 import (
@@ -82,15 +82,4 @@ func enroll(args []string) int {
 	}
 	fmt.Printf("enrolled as %s; start the agent with: aura-judge run --node-id %s --key-file %s\n", out.NodeID, out.NodeID, *keyFile)
 	return 0
-}
-
-func run(args []string) int {
-	flags := flag.NewFlagSet("run", flag.ExitOnError)
-	flags.String("control-plane", "", "control plane address ending in /api/judge/v1")
-	flags.String("node-id", "", "node id printed by enroll")
-	flags.String("key-file", "", "the node's private key file")
-	flags.Parse(args)
-	fmt.Fprintln(os.Stderr, "aura-judge: no sandbox is available in this build. Judging without isolation is refused. "+
-		"Run on a Linux judge node with the isolate driver (docs/stages/stage-3-plan.md section 2).")
-	return 2
 }
