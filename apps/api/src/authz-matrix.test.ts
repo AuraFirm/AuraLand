@@ -467,6 +467,23 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "cst",
     },
+    { method: "GET", path: "/api/v1/contests/:id/clarifications", access: "public", object: "cst" },
+    {
+        method: "POST",
+        path: "/api/v1/contests/:id/clarifications",
+        access: "user",
+        owned: true,
+        object: "cst",
+        body: { question: "Is the input sorted?" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/contests/:id/clarifications/:clarification_id/answer",
+        access: "user",
+        owned: true,
+        object: "cst",
+        body: { answer: "Yes.", public: true },
+    },
     {
         method: "POST",
         path: "/api/v1/contests/:id/unfreeze",
@@ -549,6 +566,7 @@ const concrete = (row: Row) =>
         .replace(":invitationId", encodeId("inv", SAMPLE_UUID))
         .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
         .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
+        .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
         .replace(":label", "A");
 const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
@@ -690,6 +708,7 @@ describe("generated checks", () => {
                     .replace(":invitationId", encodeId("inv", SAMPLE_UUID))
                     .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
                     .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
+                    .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
                     .replace(":label", "A");
                 const hasBody =
                     row.method === "PATCH" || row.method === "PUT" || row.body !== undefined;

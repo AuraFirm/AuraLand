@@ -200,3 +200,10 @@ export const SCOREBOARD_STREAMS_PER_USER_MAX = 5; // tabs and devices of one per
 export const SCOREBOARD_STREAMS_PER_ADDRESS_MAX = 20; // anonymous viewers behind one address
 export const SCOREBOARD_STREAM_HEARTBEAT_MS = 15_000; // keeps proxies from closing an idle stream
 export const SCOREBOARD_STREAM_LIFETIME_MS = 30 * 60_000; // then the client reconnects and is checked again
+
+// Clarifications (Stage 5, slice 7b): plain text, so the sizes are in characters.
+export const CLARIFICATION_QUESTION_CHARS_MAX = 1_000;
+export const CLARIFICATION_ANSWER_CHARS_MAX = 2_000;
+export const CLARIFICATIONS_PER_USER_PER_CONTEST_MAX = 20; // a contestant who needs more is not asking
+export const CLARIFICATIONS_PER_MINUTE_PER_USER_MAX = 6;
+export const CLARIFICATION_PAGE_SIZE_MAX = 50;
