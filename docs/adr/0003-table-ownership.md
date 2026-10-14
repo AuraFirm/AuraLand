@@ -47,6 +47,9 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `registrations` | `modules/contests` | Who registered for a contest; written only by `register_for_contest` |
 | `contest_scoreboards` | `modules/contests` | The rendered board of a contest, one row per view (public, final); written only by the worker through `store_contest_scoreboard` |
 | `contest_clarifications` | `modules/contests` | Questions to a contest's organizers and their answers; written only by `ask_clarification` and `answer_clarification` |
+| `ratings` | `modules/contests` | A person's current rating per dimension; written only by the worker through `rating_apply` |
+| `rating_events` | `modules/contests` | One row per person per rated contest: the rating history; never changes |
+| `contest_ratings` | `modules/contests` | Marks a contest as rated or skipped; makes the rating job idempotent |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |

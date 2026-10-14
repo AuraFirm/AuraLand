@@ -59,10 +59,8 @@ export interface RenderedScoreboards {
     readonly finalEtag: string;
 }
 
-export function renderScoreboards(input: ScoreboardInput): RenderedScoreboards {
-    assert(input.registrants.length > 0 || input.events.length === 0, "scores need registrants");
-    assert(input.events.length < 1e7, "the judged log fits in memory");
-    const config: ScoreboardConfig = {
+function configOf(input: ScoreboardInput): ScoreboardConfig {
+    return {
         rules:
             input.format === "icpc"
                 ? { format: "icpc", penaltyMinutesPerWrong: input.penalty_minutes_per_wrong }
@@ -73,13 +71,27 @@ export function renderScoreboards(input: ScoreboardInput): RenderedScoreboards {
         problems: input.problems,
         registrants: input.registrants.map((r) => ({ userId: r.user_id, order: r.order })),
     };
-    const events: ScoreboardEvent[] = input.events.map((e) => ({
+}
+
+const eventsOf = (input: ScoreboardInput): ScoreboardEvent[] =>
+    input.events.map((e) => ({
         userId: e.user_id,
         label: e.label,
         submittedAtMs: e.submitted_at_ms,
         verdict: e.verdict,
         score: e.score,
     }));
+
+// The whole truth, ranked, with the people (the rating job needs ids, which no stored board carries).
+export function finalStandings(input: ScoreboardInput): Standing[] {
+    return foldScoreboard(configOf(input), eventsOf(input), "final");
+}
+
+export function renderScoreboards(input: ScoreboardInput): RenderedScoreboards {
+    assert(input.registrants.length > 0 || input.events.length === 0, "scores need registrants");
+    assert(input.events.length < 1e7, "the judged log fits in memory");
+    const config = configOf(input);
+    const events = eventsOf(input);
     const publicBody = bodyFor(input, foldScoreboard(config, events, "public"), "public");
     const finalBody = bodyFor(input, foldScoreboard(config, events, "final"), "final");
     return {

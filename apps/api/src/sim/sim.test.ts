@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { jobScenario } from "./jobs.sim.ts";
 import { loginScenario } from "./login.sim.ts";
+import { ratingScenario } from "./rating.sim.ts";
 import { runScenario, runSeeds } from "./runner.ts";
 import { scoreboardScenario } from "./scoreboard.sim.ts";
 import { boundedQueueScenario } from "./selftest.sim.ts";
@@ -110,6 +111,13 @@ describe("job queue scenario", () => {
 describe("scoreboard scenario", () => {
     it("passes on 150 seeds", async () => {
         const failures = await runSeeds(scoreboardScenario(), 0, 150);
+        expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
+    });
+});
+
+describe("rating scenario", () => {
+    it("passes on 150 seeds", async () => {
+        const failures = await runSeeds(ratingScenario(), 0, 150);
         expect(failures.map((f) => `${f.seed}@${f.step}: ${f.message}`)).toEqual([]);
     });
 });
