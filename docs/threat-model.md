@@ -223,6 +223,32 @@ original bytes, so it is not traceable to a customer by content (F41).
 ## Privacy review (Stage 4B)
 No new personal data. Reports hold task content derivatives (verdicts, scores) and node ids.
 
+## STRIDE for the Stage 4C surface (per-delivery watermarks and the leak trace, v6)
+| Threat | Surface | Control | Evidence |
+|---|---|---|---|
+| **Repudiation/Disclosure**: a leaked bundle names nobody | Delivered bundles | Each delivered copy carries a tag derived by the database from the delivery's secret watermark id (answer-line trailing spaces for whitespace-blind checkers, a comment in each solution), recorded in `delivery_bundles`; `trace-leak-cli` names candidates and a person decides | `watermark.test.ts`, `trace.test.ts`, `trace-leak-cli.test.ts`, `pack-e2e-cli.ts` |
+| **Tampering**: a mark changes a customer's results | Rewritten bundles | Marks only where a verdict cannot change (answers a token checker ignores; solution comments); test inputs never touched; the node re-runs the harness on the original and the copy and the control plane delivers the copy only if every verdict, mutant and attacker outcome is identical | `rules.test.ts` (watermark), `watermark_isolate_test.go` |
+| Spoofing/Elevation: a node chooses its own tag or delivers a different bundle | Watermark job | The tag is computed by `record_delivery_bundle`/`delivery_tag` in the database; the node's word on hash and size is never taken (the API measures the upload); the source hash must be the version's own; the attestation is read from the node row | `watermark.test.ts` (db), `http-watermark.test.ts` |
+| Disclosure: the watermark id or tags reach a customer | Responses | The id and tags are in no response; only platform administrators can read `delivery_bundles`; the node learns a tag but not which delivery it names | `watermark.test.ts` (db), allowlisted response schemas |
+| Elevation: rebuilding an archive runs on the host | Rewriter | The rewrite happens in a box on a judge node (pinned Node, read-only mount), from a bundle the validator accepted, and the result is validated again before it is returned | `rewriter_isolate_test.go`, `rewrite.test.ts` |
+| Tampering: a customer receives a bundle other than the recorded one | Downloads | A link points at the key the database chose (the delivery's own copy, or the original when nothing was marked); a ready delivery without a recorded bundle is an error, never a fallback | `http-deliveries.test.ts`, `handlers.database.test.ts` |
+| Denial of service: watermarking floods nodes | Queue | One job per ordered version (at most 100); 3 attempts; dead jobs are visible in the queue and leave the delivery pending | `watermark.test.ts` (db) |
+
+**What is not claimed.**
+- The marks survive a verbatim copy, a partial copy and a copy with files dropped (tested). A leaker who
+  normalizes whitespace in the answers and strips the comments in the solutions erases them (tested, and
+  the trace finds nothing); we say so.
+- Tasks with an `exact` or custom checker and no solutions carry the statement canary only, because no
+  safe carrier exists; the manifest says which marks each copy carries.
+- A `development` node's re-check is labelled in the manifest (`checked_on`); only a reviewed production
+  node (F32) makes it more than evidence.
+- The 20-task run used 20 versions of one bundle, not 20 different authored tasks, and one development VM.
+- A dead watermark job leaves its delivery pending; there is no automatic recovery or alert (F39).
+
+## Privacy review (Stage 4C)
+No new personal data. The tag identifies a delivery, which identifies a customer organization; it is
+readable only by platform administrators.
+
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;
 download events with the person's address; contractors' payout amounts and references. Download events
