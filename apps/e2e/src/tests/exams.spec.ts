@@ -91,3 +91,22 @@ test("staff grade a rubric, release the grades, and the candidate reads their re
     await expect(student.getByText("Comment: Clear and tidy.")).toBeVisible();
     await expectAccessible(student);
 });
+
+test("staff watch the monitor and replay an answer; the candidate cannot", async ({ browser }) => {
+    const staff = freshEmail();
+    const candidate = freshEmail();
+    const exam = await seedClosedExam(staff, candidate);
+
+    const owner = await pageFor(browser, staff);
+    await owner.goto(`/exams/${exam}/monitor`);
+    await expect(owner.getByRole("heading", { name: "Monitor" })).toBeVisible();
+    await expect(owner.getByText(candidate, { exact: false })).toBeVisible();
+    await expectAccessible(owner);
+    await owner.getByRole("link", { name: "A", exact: true }).click();
+    await expect(owner.getByText("int main() { return 0; }")).toBeVisible();
+    await expectAccessible(owner);
+
+    const student = await pageFor(browser, candidate);
+    await student.goto(`/exams/${exam}/monitor`);
+    await expect(student.getByText("There is nothing to monitor here.")).toBeVisible();
+});
