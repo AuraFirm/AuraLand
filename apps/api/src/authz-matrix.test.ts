@@ -743,6 +743,37 @@ const MATRIX: readonly Row[] = [
         object: "exm",
         body: { outcome: "upheld", note: "" },
     },
+    {
+        method: "POST",
+        path: "/api/v1/exams/:id/oral/:session_id/:label",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    { method: "GET", path: "/api/v1/exams/:id/oral", access: "user", owned: true, object: "exm" },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/oral/mine",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "PUT",
+        path: "/api/v1/exams/:id/oral/:oral_id/answers",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: { answers: ["a", "b", "c"] },
+    },
+    {
+        method: "PUT",
+        path: "/api/v1/exams/:id/oral/:oral_id/score",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: { score: 50, note: "" },
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {
@@ -831,6 +862,7 @@ const concrete = (row: Row) =>
         .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
         .replace(":session_id", encodeId("exs", SAMPLE_UUID))
         .replace(":flag_id", encodeId("ifl", SAMPLE_UUID))
+        .replace(":oral_id", encodeId("ora", SAMPLE_UUID))
         .replace(":appeal_id", encodeId("apl", SAMPLE_UUID))
         .replace(":handle", "nobody_here")
         .replace(":label", "A");
@@ -988,6 +1020,7 @@ describe("generated checks", () => {
                     .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
                     .replace(":session_id", encodeId("exs", SAMPLE_UUID))
                     .replace(":flag_id", encodeId("ifl", SAMPLE_UUID))
+                    .replace(":oral_id", encodeId("ora", SAMPLE_UUID))
                     .replace(":appeal_id", encodeId("apl", SAMPLE_UUID))
                     .replace(":handle", "nobody_here")
                     .replace(":label", "A");

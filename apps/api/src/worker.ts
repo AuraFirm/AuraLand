@@ -5,6 +5,7 @@ import {
     refreshScoreboards,
 } from "./modules/contests/scoreboard-tick.ts";
 import { advanceContests, CONTEST_TICK_MS } from "./modules/contests/tick.ts";
+import { generateOralQuestions } from "./modules/exams/oral-tick.ts";
 import { advanceExams } from "./modules/exams/tick.ts";
 import { HEARTBEAT_INTERVAL_MS } from "./modules/jobs/limits.ts";
 import type { JobRecord } from "./modules/jobs/rules.ts";
@@ -25,6 +26,7 @@ import {
 } from "./modules/maintenance/handlers.ts";
 import { buildDelivery, DELIVERY_BUILD_KIND } from "./modules/orders/handlers.ts";
 import type { Clock } from "./platform/clock.ts";
+import type { LlmProvider } from "./platform/llm.ts";
 import type { Logger } from "./platform/log.ts";
 import type { Rng } from "./platform/rng.ts";
 
@@ -44,6 +46,8 @@ export interface WorkerDeps {
     readonly handlers: ReadonlyMap<string, Handler>;
     readonly queue: string;
     readonly name: string;
+    // Absent until a provider account exists (owner item F41): oral defence requests then wait, pending.
+    readonly llm?: LlmProvider;
 }
 
 export function maintenanceHandlers(): Map<string, Handler> {
@@ -133,6 +137,20 @@ export interface RunningWorker {
     stop(): Promise<void>;
 }
 
+// Questions for oral defence requests, when there is a model to ask. A failure here never stops the other ticks.
+async function tickOralDefence(deps: WorkerDeps): Promise<void> {
+    if (deps.llm === undefined) return;
+    try {
+        await generateOralQuestions({
+            clock: deps.context.clock,
+            llm: deps.llm,
+            inTransaction: deps.context.inTransaction,
+        });
+    } catch (error) {
+        deps.logger.error({ err: error }, "oral defence tick error");
+    }
+}
+
 export function startWorker(deps: WorkerDeps): RunningWorker {
     let stopping = false;
     const loop = (async () => {
@@ -167,6 +185,7 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
             } catch (error) {
                 deps.logger.error({ err: error }, "exam tick error");
             }
+            await tickOralDefence(deps);
             try {
                 await refreshScoreboards(scoreboards, deps.context.clock);
             } catch (error) {
