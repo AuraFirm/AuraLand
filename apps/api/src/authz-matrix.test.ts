@@ -521,6 +521,23 @@ const MATRIX: readonly Row[] = [
         object: "cst",
     },
     { method: "GET", path: "/api/v1/time", access: "public" },
+    { method: "GET", path: "/api/v1/practice", access: "public" },
+    { method: "GET", path: "/api/v1/practice/daily", access: "public" },
+    { method: "GET", path: "/api/v1/practice/:id", access: "public", object: "tsv" },
+    {
+        method: "POST",
+        path: "/api/v1/practice/:id/submissions",
+        access: "user",
+        object: "tsv",
+        body: { language: "cpp", source: "int main(){}" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/admin/practice",
+        access: "admin",
+        body: { task_version_id: encodeId("tsv", SAMPLE_UUID) },
+    },
+    { method: "DELETE", path: "/api/v1/admin/practice/:id", access: "admin", object: "tsv" },
     {
         method: "GET",
         path: "/api/v1/contests/:id/problems/:label",

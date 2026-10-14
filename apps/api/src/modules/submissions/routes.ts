@@ -7,6 +7,7 @@ import {
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
 import { SUBMISSIONS_PER_MINUTE_PER_TASK_MAX } from "@aura/contracts/limits";
 import { appendAudit } from "@aura/db/audit";
+import { CHECK_VIOLATION, postgresErrorCode } from "@aura/db/errors";
 import { type Context, Hono } from "hono";
 import type { AppEnv } from "../../app-env.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
@@ -94,14 +95,27 @@ async function handleCreate(c: Context<AppEnv>, deps: SubmissionRouteDeps) {
     );
     if (!verdict.allowed) return refuseRateLimited(c, verdict);
     const nowMs = deps.clock.nowUnixMs();
-    const id = await insertSubmission(tx, {
-        orgId: version.org_id,
-        userId: who.userId,
-        versionId: version.id,
-        language: body.data.language,
-        source: body.data.source,
-        nowMs,
-    });
+    let id: string;
+    try {
+        id = await insertSubmission(tx, {
+            orgId: version.org_id,
+            userId: who.userId,
+            versionId: version.id,
+            language: body.data.language,
+            source: body.data.source,
+            nowMs,
+        });
+    } catch (error) {
+        // The guard on submissions: this problem is in a contest that has not ended (migration 0035).
+        if (postgresErrorCode(error) === CHECK_VIOLATION) {
+            return problemResponse(
+                c,
+                "conflict",
+                "This problem is part of a contest that has not ended",
+            );
+        }
+        throw error;
+    }
     if (!(await enqueueForJudging(tx, id, nowMs))) {
         // Throwing rolls the transaction back, so no submission is left waiting for nothing; the
         // error handler turns this into a 503 with a retry hint.
