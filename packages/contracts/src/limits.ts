@@ -244,3 +244,7 @@ export const ORAL_QUESTIONS_MIN = 3;
 export const ORAL_QUESTIONS_MAX = 5;
 export const ORAL_QUESTION_CHARS_MAX = 400;
 export const ORAL_ANSWER_CHARS_MAX = 2_000;
+
+// The judge queue may hold this many ready jobs before exam answers wait for the next tick. Between contests
+// (10,000) and practice (1,000): an exam's answers are judged before practice and after a contest's runs.
+export const EXAM_JUDGE_QUEUE_READY_MAX = 5_000;

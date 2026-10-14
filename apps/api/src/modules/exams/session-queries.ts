@@ -26,6 +26,8 @@ export const join = (tx: Transaction, examId: string, nowMs: number) =>
     tx`select join_exam(${examId}, ${new Date(nowMs)})`;
 export const consent = (tx: Transaction, examId: string, version: number, nowMs: number) =>
     tx`select consent_exam(${examId}, ${version}, ${new Date(nowMs)})`;
+export const submit = (tx: Transaction, examId: string, nowMs: number) =>
+    tx`select submit_exam_session(${examId}, ${new Date(nowMs)})`;
 export const start = (tx: Transaction, examId: string, nowMs: number) =>
     tx`select * from start_exam_session(${examId}, ${new Date(nowMs)})`;
 

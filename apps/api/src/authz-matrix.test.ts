@@ -632,6 +632,13 @@ const MATRIX: readonly Row[] = [
         body: { seq: 1, language: "cpp", content: "x" },
     },
     { method: "GET", path: "/api/v1/exams/:id/drafts", access: "user", owned: true, object: "exm" },
+    {
+        method: "POST",
+        path: "/api/v1/exams/:id/submit",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {

@@ -40,6 +40,7 @@ export function sessionRoutes(deps: SessionRouteDeps): Hono<AppEnv> {
     );
     routes.post("/exams/:id/consent", (c) => handleConsent(c, deps));
     routes.post("/exams/:id/start", (c) => handleStart(c, deps));
+    routes.post("/exams/:id/submit", (c) => handleSubmit(c, deps));
     routes.put("/exams/:id/problems/:label/draft", (c) => handleSave(c, deps));
     routes.get("/exams/:id/drafts", handleDrafts);
     return routes;
@@ -221,4 +222,31 @@ async function handleDrafts(c: Context<AppEnv>) {
             })),
         }),
     );
+}
+
+// Handing in early. The last acknowledged save of each problem is the answer; after this no save is accepted.
+async function handleSubmit(c: Context<AppEnv>, deps: SessionRouteDeps) {
+    const parsed = parse(c);
+    if ("problem" in parsed) return parsed.problem;
+    const tx = c.get("tx");
+    const before = await q.getSession(tx, parsed.examId);
+    try {
+        await q.submit(tx, parsed.examId, deps.clock.nowUnixMs());
+    } catch (error) {
+        const code = postgresErrorCode(error);
+        if (code === NO_DATA_FOUND) return notFound(c);
+        if (code === OBJECT_NOT_IN_STATE)
+            return problemResponse(c, "conflict", "This sitting can no longer be handed in");
+        throw error;
+    }
+    if (before?.state !== "submitted") {
+        await appendAudit(tx, {
+            actorKind: "user",
+            actorUserId: parsed.actor.userId,
+            orgId: null,
+            action: "exam.submitted",
+            target: encodeId("exm", parsed.examId),
+        });
+    }
+    return respond(c, parsed.examId);
 }
