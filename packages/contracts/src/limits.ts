@@ -161,3 +161,26 @@ assert(BUNDLE_PATH_SEGMENT_BYTES_MAX < BUNDLE_PATH_BYTES_MAX, "a segment fits in
 export const ATTACK_METHOD_CHARS_MAX = 4_000;
 export const ATTACKS_PAGE_SIZE_MAX = 200;
 export const ATTACKS_PER_MINUTE_PER_USER_MAX = 10;
+
+// ---- contests (Stage 5) ----
+
+// A contest has a handful of problems (the kit's formats use up to a few dozen); labels are one to three
+// capital letters or digits, so 26 single letters are never a limit but 36 problems are plenty.
+export const CONTEST_PROBLEMS_MAX = 36;
+export const CONTEST_TITLE_CHARS_MAX = 120;
+// A contest runs from five minutes (a drill) to a week (a long-running challenge).
+export const CONTEST_DURATION_S_MIN = 5 * 60;
+export const CONTEST_DURATION_S_MAX = 7 * 24 * 3600;
+// ICPC penalty per rejected run, in minutes; zero turns penalties off, two hours is far past any use.
+export const CONTEST_PENALTY_MINUTES_MAX = 120;
+// The least time between two submissions of one person to one problem; zero turns the limit off, ten
+// minutes is the longest a rule can ask a contestant to wait.
+export const CONTEST_SUBMIT_INTERVAL_S_MAX = 600;
+export const CONTEST_SUBMIT_INTERVAL_S_DEFAULT = 10;
+// Registration is one request per person per contest; this bounds bursts across contests.
+export const CONTEST_REGISTRATIONS_PER_MINUTE_PER_USER_MAX = 20;
+// Ratings need a field to be meaningful: below this many participants who submitted, a rated contest
+// is not rated (ADR 0031).
+export const CONTEST_RATED_PARTICIPANTS_MIN = 20;
+// Contests listed on a page.
+export const CONTESTS_PAGE_SIZE_MAX = 50;
