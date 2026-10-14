@@ -60,6 +60,18 @@ var profiles = map[string]Profile{
 		Environment:      []string{"PATH=/usr/bin:/bin", "LANG=C"},
 		Version:          "cpp-1",
 	},
+	// C (Stage 5): gcc in the same box and with the same limits as C++. gnu17 and not strict c17 so the POSIX
+	// declarations contestants expect (getline, strdup) exist; -lm because math is part of C, not of libc.
+	"c": {
+		Language:         "c",
+		SourceName:       "main.c",
+		Compile:          []string{"/usr/bin/gcc", "-std=gnu17", "-O2", "-pipe", "-static", "-o", "main", "main.c", "-lm"},
+		Run:              []string{"./main"},
+		CompileProcesses: 16,
+		RunProcesses:     1,
+		Environment:      []string{"PATH=/usr/bin:/bin", "LANG=C"},
+		Version:          "c-1",
+	},
 	"python3": {
 		Language:     "python3",
 		SourceName:   "main.py",

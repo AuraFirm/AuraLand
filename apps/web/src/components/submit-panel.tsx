@@ -19,6 +19,7 @@ const POLL_MS = 2_000;
 
 const SKELETON: Record<string, string> = {
     cpp: "#include <iostream>\n\nint main() {\n    return 0;\n}\n",
+    c: "#include <stdio.h>\n\nint main(void) {\n    return 0;\n}\n",
     python3: "def main():\n    pass\n\n\nmain()\n",
 };
 

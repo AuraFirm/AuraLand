@@ -77,8 +77,11 @@ describe("contestRulesSchema and the states", () => {
         expect(
             contestRulesSchema.safeParse({ format: "ioi", languages: ["cpp", "python3"] }).success,
         ).toBe(true);
-        // C and Java arrive with their judge profiles (slice 13); until then a contest cannot offer them.
+        // C has a judge profile and an escape suite (slice 13); Java is still to come.
         expect(contestRulesSchema.safeParse({ format: "ioi", languages: ["c"] }).success).toBe(
+            true,
+        );
+        expect(contestRulesSchema.safeParse({ format: "ioi", languages: ["java"] }).success).toBe(
             false,
         );
     });

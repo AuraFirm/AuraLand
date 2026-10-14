@@ -128,10 +128,14 @@ func TestProfiles(t *testing.T) {
 	if err != nil || python.Compile != nil {
 		t.Fatalf("%+v %v", python, err)
 	}
+	c, err := ProfileFor("c")
+	if err != nil || c.Compile == nil || c.RunProcesses != 1 || c.Version != "c-1" {
+		t.Fatalf("%+v %v", c, err)
+	}
 	if _, err := ProfileFor("brainfuck"); err == nil {
 		t.Fatal("an unknown language has no profile")
 	}
-	for _, p := range []Profile{cpp, python} {
+	for _, p := range []Profile{cpp, c, python} {
 		if !slices.ContainsFunc(p.Environment, func(e string) bool { return strings.HasPrefix(e, "PATH=") }) {
 			t.Errorf("%s: the environment is explicit", p.Language)
 		}
@@ -149,7 +153,7 @@ func TestDirectoriesAreMountedReadOnlyAndOnlyForTheOpener(t *testing.T) {
 			t.Errorf("a mount must never be writable: %s", arg)
 		}
 	}
-	for _, language := range []string{"cpp", "python3"} {
+	for _, language := range []string{"cpp", "c", "python3"} {
 		profile, err := ProfileFor(language)
 		if err != nil || len(profile.Directories) != 0 {
 			t.Errorf("%s must have no extra mounts: %+v %v", language, profile, err)

@@ -44,19 +44,36 @@ func TestEscapeSuite(t *testing.T) {
 		"network_connect", "raw_socket", "write_outside_box", "signal_others", "setuid_root",
 	}
 	limits := sandbox.Limits{CPUMS: 1000, WallMS: 3000, MemoryKiB: 262144, OutputKiB: 64}
-	files, err := filepath.Glob("../../testdata/escape/*.cpp")
+	for _, suite := range escapeSuites {
+		t.Run(suite.language, func(t *testing.T) { runEscapeSuite(t, box, suite, limits, mustBeStopped, mustNotSucceed) })
+	}
+}
+
+// Every language a participant can submit has its own escape programs: the same attacks, written the way
+// that language would write them. A language without a directory here is not allowed to take work.
+var escapeSuites = []escapeSuite{
+	{language: "cpp", directory: "escape", extension: ".cpp"},
+	{language: "c", directory: "escape-c", extension: ".c"},
+}
+
+type escapeSuite struct {
+	language, directory, extension string
+}
+
+func runEscapeSuite(t *testing.T, box *Box, suite escapeSuite, limits sandbox.Limits, mustBeStopped map[string][]string, mustNotSucceed []string) {
+	files, err := filepath.Glob("../../testdata/" + suite.directory + "/*" + suite.extension)
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no escape programs found: %v", err)
 	}
 	covered := 0
 	for _, file := range files {
-		name := strings.TrimSuffix(filepath.Base(file), ".cpp")
+		name := strings.TrimSuffix(filepath.Base(file), suite.extension)
 		source, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		compiled, err := box.Compile(ctx, "cpp", string(source), sandbox.Limits{CPUMS: 20000, WallMS: 60000, MemoryKiB: 1 << 20, OutputKiB: 64})
+		compiled, err := box.Compile(ctx, suite.language, string(source), sandbox.Limits{CPUMS: 20000, WallMS: 60000, MemoryKiB: 1 << 20, OutputKiB: 64})
 		if err != nil || !compiled.OK {
 			cancel()
 			t.Fatalf("%s: could not compile the escape program: %v %s", name, err, compiled.Message)
