@@ -75,8 +75,12 @@ describe("contestRulesSchema and the states", () => {
             false,
         );
         expect(
-            contestRulesSchema.safeParse({ format: "ioi", languages: ["c", "java"] }).success,
+            contestRulesSchema.safeParse({ format: "ioi", languages: ["cpp", "python3"] }).success,
         ).toBe(true);
+        // C and Java arrive with their judge profiles (slice 13); until then a contest cannot offer them.
+        expect(contestRulesSchema.safeParse({ format: "ioi", languages: ["c"] }).success).toBe(
+            false,
+        );
     });
 
     it("lists the states in the order a contest moves through them", () => {

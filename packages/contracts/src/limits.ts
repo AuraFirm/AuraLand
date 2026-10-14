@@ -184,3 +184,10 @@ export const CONTEST_REGISTRATIONS_PER_MINUTE_PER_USER_MAX = 20;
 export const CONTEST_RATED_PARTICIPANTS_MIN = 20;
 // Contests listed on a page.
 export const CONTESTS_PAGE_SIZE_MAX = 50;
+
+// The judge queue may hold this many ready jobs before contest submissions are refused. Practice
+// submissions are refused at JUDGE_QUEUE_READY_MAX, ten times fewer, so practice is shed first.
+export const CONTEST_JUDGE_QUEUE_READY_MAX = 10_000;
+// Submissions one person may send to contests per minute, over all problems (the per-problem interval in
+// the rules is the finer limit).
+export const CONTEST_SUBMISSIONS_PER_MINUTE_PER_USER_MAX = 30;

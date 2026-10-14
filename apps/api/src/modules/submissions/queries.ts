@@ -5,7 +5,11 @@ import {
     testVerdictSchema,
     verdictSchema,
 } from "@aura/contracts/judging";
-import { JUDGE_QUEUE_READY_MAX, SUBMISSION_PAGE_SIZE_MAX } from "@aura/contracts/limits";
+import {
+    CONTEST_JUDGE_QUEUE_READY_MAX,
+    JUDGE_QUEUE_READY_MAX,
+    SUBMISSION_PAGE_SIZE_MAX,
+} from "@aura/contracts/limits";
 import { taskSpecSchema } from "@aura/contracts/tasks";
 import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
@@ -128,4 +132,61 @@ export async function testResults(tx: Transaction, submissionId: string): Promis
         select test_id, verdict, cpu_ms, wall_ms, memory_kib from verdict_details
         where submission_id = ${submissionId} order by test_id limit 1000`;
     return rows.map((row) => resultRowSchema.parse(row));
+}
+
+// A submission to a contest problem, created by the database function of migration 0035 (which takes the
+// injected clock and checks registration, window, problem, language and the interval). The refusal codes
+// are those the function documents.
+export type ContestSubmissionOutcome =
+    | { readonly kind: "created"; readonly id: string }
+    | {
+          readonly kind: "refused";
+          readonly why: "closed" | "language" | "too_soon" | "queue_full" | "too_large" | "unknown";
+          readonly retryAfterS: number | null;
+      };
+
+export async function createContestSubmission(
+    tx: Transaction,
+    input: { contestId: string; label: string; language: string; source: string; nowMs: number },
+): Promise<ContestSubmissionOutcome> {
+    try {
+        const rows =
+            await tx`select create_contest_submission(${input.contestId}, ${input.label}, ${input.language},
+            ${input.source}, ${new Date(input.nowMs)}, ${CONTEST_JUDGE_QUEUE_READY_MAX}) as id`;
+        return { kind: "created", id: z.object({ id: z.string() }).parse(rows[0]).id };
+    } catch (error) {
+        const code =
+            typeof error === "object" && error !== null && "code" in error ? error.code : null;
+        const hint =
+            typeof error === "object" && error !== null && "hint" in error
+                ? Number(error.hint)
+                : null;
+        const known = refusalOf(code);
+        if (known === null) throw error;
+        return { kind: "refused", why: known, retryAfterS: Number.isFinite(hint) ? hint : null };
+    }
+}
+
+const REFUSALS: Readonly<
+    Record<string, "closed" | "language" | "too_soon" | "queue_full" | "too_large" | "unknown">
+> = {
+    "55000": "closed",
+    "22023": "language",
+    "54000": "too_soon",
+    "53400": "queue_full",
+    "22001": "too_large",
+    P0002: "unknown",
+};
+const refusalOf = (code: unknown) => (typeof code === "string" ? (REFUSALS[code] ?? null) : null);
+
+export async function listMineInContest(
+    tx: Transaction,
+    input: { contestId: string; userId: string; cursor: string | null; limit: number },
+): Promise<{ rows: SubmissionRow[]; hasMore: boolean }> {
+    const rows = await tx`select ${COLUMNS(tx)} from submissions
+        where context_id = ${input.contestId} and user_id = ${input.userId}
+          and ${input.cursor === null ? tx`true` : tx`id < ${input.cursor}`}
+        order by id desc limit ${input.limit + 1}`;
+    const parsed = rows.map((row) => submissionRowSchema.parse(row));
+    return { rows: parsed.slice(0, input.limit), hasMore: parsed.length > input.limit };
 }

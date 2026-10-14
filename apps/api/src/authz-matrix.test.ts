@@ -474,6 +474,21 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "cst",
     },
+    {
+        method: "POST",
+        path: "/api/v1/contests/:id/problems/:label/submissions",
+        access: "user",
+        owned: true,
+        object: "cst",
+        body: { language: "cpp", source: "int main(){}" },
+    },
+    {
+        method: "GET",
+        path: "/api/v1/contests/:id/submissions",
+        access: "user",
+        owned: true,
+        object: "cst",
+    },
     { method: "GET", path: "/api/v1/deliveries", access: "user" },
     { method: "GET", path: "/api/v1/deliveries/:id", access: "user", owned: true, object: "dlv" },
     {
@@ -557,15 +572,20 @@ async function victimSubmission(): Promise<string> {
 
 // An object owned by the victim that the row's path can name.
 // A draft contest of an organization only the victim belongs to: nobody else can even see it.
+let victimUniversity = "";
 async function victimContest(): Promise<string> {
     const { sql } = h.db.database;
-    const [org] = await sql<{ id: string }[]>`
-        insert into orgs (kind, slug, name) values ('university', ${`victim-${randomBytes(4).toString("hex")}`}, 'Victim uni')
-        returning id`;
-    await sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${ALICE}, 'owner')`;
+    // One organization for all of them: a person may belong to only twenty.
+    if (victimUniversity === "") {
+        const [org] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('university', ${`victim-${randomBytes(4).toString("hex")}`}, 'Victim uni')
+            returning id`;
+        victimUniversity = org?.id ?? "";
+        await sql`insert into memberships (org_id, user_id, role) values (${victimUniversity}, ${ALICE}, 'owner')`;
+    }
     const [contest] = await sql<{ id: string }[]>`
         insert into contests (org_id, slug, title, format, rules, starts_at, ends_at, created_by)
-        values (${org?.id ?? ""}, ${`c-${randomBytes(4).toString("hex")}`}, 'Victim contest', 'icpc',
+        values (${victimUniversity}, ${`c-${randomBytes(4).toString("hex")}`}, 'Victim contest', 'icpc',
                 ${sql.json({ format: "icpc" })}, '2030-01-01T10:00:00Z', '2030-01-01T15:00:00Z', ${ALICE})
         returning id`;
     return contest?.id ?? "";

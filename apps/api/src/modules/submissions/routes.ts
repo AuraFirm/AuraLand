@@ -53,7 +53,7 @@ const invalid = (c: Context<AppEnv>, detail?: string) =>
     problemResponse(c, "invalid_request", "Invalid request", detail);
 const notFound = (c: Context<AppEnv>) => problemResponse(c, "not_found", "Not found");
 
-function submissionBody(
+export function submissionBody(
     row: SubmissionRow,
     results: Awaited<ReturnType<typeof testResults>> | null,
 ) {
