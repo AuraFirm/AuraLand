@@ -19,6 +19,8 @@ Open items are in [../cutlist.md](../cutlist.md); your manual tasks are the chec
 
 **Stage 5 — Contests, Arena, ratings: built, awaiting your review.** Plan: [stage-5-plan.md](stage-5-plan.md). Report: [stage-5-report.md](stage-5-report.md). Runbook: [../runbooks/contests.md](../runbooks/contests.md). **Not met: the kit's 5,000-in-10-seconds load target on one process, and anything that needs a deployment, an edge or a production judge fleet (F1, F32, F49).**
 
-**Stage 6 — Exams and integrity: built, awaiting your review.** Plan: [stage-6-plan.md](stage-6-plan.md). Report: [stage-6-report.md](stage-6-report.md). Runbook: [../runbooks/exams.md](../runbooks/exams.md). **Not met: any real exam (no deployment, no reviewed judge node, legal review pending), a real LLM call (no provider), assurance above level 1.**
+**Stage 6 — Exams and integrity: approved on 2026-10-15.** Plan: [stage-6-plan.md](stage-6-plan.md). Report: [stage-6-report.md](stage-6-report.md). Runbook: [../runbooks/exams.md](../runbooks/exams.md). **Not met: any real exam (no deployment, no reviewed judge node, legal review pending), a real LLM call (no provider), assurance above level 1.**
+
+**Stage 7 — Passport (credentials): plan drafted, awaiting your approval.** Plan: [stage-7-plan.md](stage-7-plan.md). No Stage 7 code starts until you approve it.
 
 **What only you can do, with steps: [../owner-tasks.md](../owner-tasks.md).**
