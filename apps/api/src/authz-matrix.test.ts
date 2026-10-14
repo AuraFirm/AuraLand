@@ -677,6 +677,20 @@ const MATRIX: readonly Row[] = [
         object: "exm",
         body: { events: [{ kind: "focus_lost", t: 1, data: {} }] },
     },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/monitor",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/replay/:session_id/:label",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {

@@ -234,3 +234,58 @@ export const examResultSchema = z
         ),
     })
     .strict();
+
+// The live monitor and the replay (Stage 6, slice 7). Staff only. Signals are counts for a person to look at, not
+// findings; the replay is a base text and a chain of small changes with the events of the sitting beside it.
+export const monitorRowSchema = z
+    .object({
+        session_id: idSchema("exs"),
+        email: z.string(),
+        name: z.string(),
+        state: z.string(),
+        consented: z.boolean(),
+        started_at: z.iso.datetime().nullable(),
+        deadline_at: z.iso.datetime().nullable(),
+        last_save_at: z.iso.datetime().nullable(),
+        saves: z.number().int(),
+        problems_started: z.number().int(),
+        focus_lost: z.number().int(),
+        paste: z.number().int(),
+        fullscreen_exit: z.number().int(),
+        offline: z.number().int(),
+        last_event_at: z.iso.datetime().nullable(),
+    })
+    .strict();
+export const monitorResponseSchema = z.object({ rows: z.array(monitorRowSchema) }).strict();
+
+export const replayStepSchema = z
+    .object({
+        seq: z.number().int(),
+        at: z.iso.datetime(),
+        start: z.number().int(),
+        remove: z.number().int(),
+        insert: z.string(),
+        bytes: z.number().int(),
+        sha256: z.string(),
+    })
+    .strict();
+
+export const replaySchema = z
+    .object({
+        language: z.string(),
+        // The text at `base_seq`, which the steps build on; a later page begins at the last seq of the page before.
+        base_seq: z.number().int(),
+        base: z.string(),
+        steps: z.array(replayStepSchema),
+        next_from_seq: z.number().int().nullable(),
+        events: z.array(
+            z
+                .object({
+                    at: z.iso.datetime(),
+                    kind: z.string(),
+                    data: z.record(z.string(), z.unknown()),
+                })
+                .strict(),
+        ),
+    })
+    .strict();

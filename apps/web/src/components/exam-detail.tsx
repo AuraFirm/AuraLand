@@ -88,6 +88,13 @@ function Manage({ exam, onChanged }: { exam: Exam; onChanged: () => void }) {
                     </button>
                 )}
             </div>
+            {exam.state !== "draft" && (
+                <p className="mt-2">
+                    <a className="text-accent underline" href={`/exams/${exam.id}/monitor`}>
+                        Monitor and replay
+                    </a>
+                </p>
+            )}
             {(exam.state === "closed" || exam.state === "released") && (
                 <p className="mt-2">
                     <a className="text-accent underline" href={`/exams/${exam.id}/grading`}>
