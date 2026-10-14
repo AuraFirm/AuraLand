@@ -8,8 +8,16 @@ import type { z } from "zod";
 export class ApiError extends Error {
     readonly status: number;
     readonly code: ErrorCode | "unknown";
-    constructor(status: number, code: ErrorCode | "unknown", title: string) {
+    // What the server said about this particular refusal, when it said anything (a bad line in a file).
+    readonly detail: string | null;
+    constructor(
+        status: number,
+        code: ErrorCode | "unknown",
+        title: string,
+        detail: string | null = null,
+    ) {
         super(title);
+        this.detail = detail;
         this.name = "ApiError";
         this.status = status;
         this.code = code;
@@ -17,7 +25,7 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-    readonly method?: "GET" | "POST" | "PATCH" | "DELETE";
+    readonly method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     readonly body?: unknown;
 }
 
@@ -36,7 +44,7 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
     const problem = problemSchema.safeParse(await response.json().catch(() => null));
     if (!problem.success) throw new ApiError(response.status, "unknown", "Something went wrong");
     const code = isErrorCode(problem.data.code) ? problem.data.code : "unknown";
-    throw new ApiError(response.status, code, problem.data.title);
+    throw new ApiError(response.status, code, problem.data.title, problem.data.detail ?? null);
 }
 
 export async function apiGet<T>(path: string, schema: z.ZodType<T>): Promise<T> {
@@ -54,6 +62,12 @@ export async function apiSend<T>(
 // For routes that answer 204 with no body.
 export async function apiDo(path: string, options: RequestOptions): Promise<void> {
     await send(path, options);
+}
+
+// For forms where the detail is the point (which lines of a file are wrong).
+export function detailOf(error: unknown): string {
+    if (error instanceof ApiError && error.detail !== null) return error.detail;
+    return messageOf(error);
 }
 
 export function messageOf(error: unknown): string {

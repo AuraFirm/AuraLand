@@ -24,6 +24,7 @@ import {
     SCOREBOARD_STREAM_DEFAULTS,
     scoreboardRoutes,
 } from "./modules/contests/scoreboard-routes.ts";
+import { examRoutes } from "./modules/exams/routes.ts";
 import { accountRoutes } from "./modules/identity/account-routes.ts";
 import { adminRoutes } from "./modules/identity/admin-routes.ts";
 import { apiKeyRoutes } from "./modules/identity/api-key-routes.ts";
@@ -289,6 +290,7 @@ function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
             serverTimeSchema.parse({ now: new Date(nowMs).toISOString(), now_ms: nowMs }),
         );
     });
+    app.route("/v1", examRoutes({ clock: deps.clock }));
     app.route("/v1", ratingRoutes());
     const hub = defaultHub();
     app.route(

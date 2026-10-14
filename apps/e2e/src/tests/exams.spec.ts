@@ -1,0 +1,60 @@
+import { type Browser, expect, type Page, test } from "@playwright/test";
+import {
+    expectAccessible,
+    freshEmail,
+    loginAs,
+    seedReleasedVersion,
+    seedTeam,
+} from "../test-helpers.ts";
+
+// Goal: an instructor sets an exam up in a real browser: creates it with its first problem, uploads a roster (a
+// bad line is named and nothing is saved, a good file is saved) and publishes it. The pages are accessible.
+
+const localInput = (offsetHours: number): string => {
+    const date = new Date(Date.now() + offsetHours * 3_600_000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+async function pageFor(browser: Browser, email: string): Promise<Page> {
+    const context = await browser.newContext();
+    await loginAs(context, email);
+    return context.newPage();
+}
+
+test("an instructor creates an exam, uploads a roster and publishes it", async ({ browser }) => {
+    const ownerEmail = freshEmail();
+    const orgId = await seedTeam("E2E exam university", [{ email: ownerEmail, role: "owner" }]);
+    const versionId = await seedReleasedVersion(orgId);
+    const title = `Lab exam ${Date.now()}`;
+
+    const owner = await pageFor(browser, ownerEmail);
+    await owner.goto(`/orgs/${orgId}`);
+    await owner.getByLabel("Exam title").fill(title);
+    await owner.getByLabel("Minutes each person has").fill("90");
+    await owner.getByLabel(/^People may start from/).fill(localInput(3));
+    await owner.getByLabel(/^and until/).fill(localInput(8));
+    await owner.getByLabel("First problem label").fill("A");
+    await owner.getByLabel(/^Released task version for it/).fill(versionId);
+    await owner.getByRole("button", { name: "Create exam" }).click();
+
+    await expect(owner.getByRole("heading", { name: title })).toBeVisible();
+    await expect(owner.getByText("draft", { exact: true })).toBeVisible();
+    await expect(owner.getByText("Problem A · 100 points")).toBeVisible();
+    await expectAccessible(owner);
+
+    await owner.getByLabel(/^or paste it/).fill("email,name\nnot-an-email,Nobody\n");
+    await owner.getByRole("button", { name: "Save roster" }).click();
+    await expect(owner.getByText("line 2", { exact: false })).toBeVisible();
+    await expect(owner.getByText("0 people on the roster.")).toBeVisible();
+
+    await owner
+        .getByLabel(/^or paste it/)
+        .fill("email,name,extra_minutes\nada@example.com,Ada,30\nben@example.com,Ben,0\n");
+    await owner.getByRole("button", { name: "Save roster" }).click();
+    await expect(owner.getByText("Roster saved: 2 people.")).toBeVisible();
+
+    await owner.getByRole("button", { name: "Publish" }).click();
+    await expect(owner.getByText("scheduled", { exact: true })).toBeVisible();
+    await expectAccessible(owner);
+});
