@@ -136,6 +136,28 @@ describe.each(["memory", "s3"])("object storage contract: %s", (name) => {
     });
 });
 
+describe.each(["memory", "s3"])("object storage contract, small documents: %s", (name) => {
+    const subject = () => {
+        const found = subjects.find((s) => s.name === name);
+        if (found === undefined) throw new Error("subject not ready");
+        return found;
+    };
+
+    it("writes a small document whole, replaces it, and reads it back up to a cap", async () => {
+        const { storage } = subject();
+        const key = `public/passport/test-${randomBytes(6).toString("hex")}.json`;
+        expect(await storage.getSmall(key, 1024)).toEqual({ kind: "missing" });
+        await storage.putSmall(key, new TextEncoder().encode('{"v":1}'), "application/json");
+        const first = await storage.getSmall(key, 1024);
+        expect(first.kind === "found" && new TextDecoder().decode(first.bytes)).toBe('{"v":1}');
+        await storage.putSmall(key, new TextEncoder().encode('{"v":22}'), "application/json");
+        const second = await storage.getSmall(key, 1024);
+        expect(second.kind === "found" && new TextDecoder().decode(second.bytes)).toBe('{"v":22}');
+        expect(await storage.getSmall(key, 7)).toEqual({ kind: "too_large" }); // 8 bytes against a cap of 7
+        await storage.remove(key);
+    });
+});
+
 describe.each(["memory", "s3"])("object storage contract, failure cases: %s", (name) => {
     const subject = () => {
         const found = subjects.find((s) => s.name === name);

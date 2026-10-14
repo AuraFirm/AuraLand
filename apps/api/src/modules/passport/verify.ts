@@ -40,34 +40,46 @@ const payloadSchema = z.object({
 
 const invalid = (reason: string): Verified => ({ outcome: "invalid", reason });
 
+export type Signed =
+    | { readonly ok: true; readonly kid: string; readonly payloadText: string }
+    | { readonly ok: false; readonly reason: string };
+
+// The signature check every published JWT (a credential, a revocation list) goes through: ES256 only, a key id that
+// names a published, not revoked key, and a signature that matches.
+export async function verifySignature(jwt: string, keys: readonly PublicKey[]): Promise<Signed> {
+    if (jwt.length > CREDENTIAL_JWT_BYTES_MAX) return { ok: false, reason: "too large" };
+    let kid: string;
+    try {
+        const header = decodeProtectedHeader(jwt);
+        if (header.alg !== "ES256" || typeof header.kid !== "string") {
+            return { ok: false, reason: "unsupported header" };
+        }
+        kid = header.kid.split("#").pop() ?? "";
+    } catch {
+        return { ok: false, reason: "not a JWT" };
+    }
+    const key = keys.find((candidate) => candidate.kid === kid && candidate.status !== "revoked");
+    if (key === undefined) return { ok: false, reason: "unknown or revoked key" };
+    try {
+        const imported = await importJWK({ ...key.jwk, alg: "ES256" }, "ES256");
+        const result = await compactVerify(jwt, imported, { algorithms: ["ES256"] });
+        return { ok: true, kid, payloadText: new TextDecoder().decode(result.payload) };
+    } catch (error) {
+        if (error instanceof errors.JWSSignatureVerificationFailed) {
+            return { ok: false, reason: "signature does not match" };
+        }
+        return { ok: false, reason: "cannot be verified" };
+    }
+}
+
 export async function verifyCredentialJwt(
     jwt: string,
     keys: readonly PublicKey[],
     nowMs: number,
 ): Promise<Verified> {
-    if (jwt.length > CREDENTIAL_JWT_BYTES_MAX) return invalid("too large");
-    let kid: string;
-    try {
-        const header = decodeProtectedHeader(jwt);
-        if (header.alg !== "ES256" || typeof header.kid !== "string")
-            return invalid("unsupported header");
-        kid = header.kid.split("#").pop() ?? "";
-    } catch {
-        return invalid("not a JWT");
-    }
-    const key = keys.find((candidate) => candidate.kid === kid && candidate.status !== "revoked");
-    if (key === undefined) return invalid("unknown or revoked key");
-    let payloadText: string;
-    try {
-        const imported = await importJWK({ ...key.jwk, alg: "ES256" }, "ES256");
-        const result = await compactVerify(jwt, imported, { algorithms: ["ES256"] });
-        payloadText = new TextDecoder().decode(result.payload);
-    } catch (error) {
-        if (error instanceof errors.JWSSignatureVerificationFailed)
-            return invalid("signature does not match");
-        return invalid("cannot be verified");
-    }
-    return readVerified(payloadText, kid, nowMs);
+    const signed = await verifySignature(jwt, keys);
+    if (!signed.ok) return invalid(signed.reason);
+    return readVerified(signed.payloadText, signed.kid, nowMs);
 }
 
 function readVerified(payloadText: string, kid: string, nowMs: number): Verified {
