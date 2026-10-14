@@ -11,6 +11,7 @@ import { decodeId, encodeId } from "@aura/contracts/ids";
 import { withRequestContext } from "@aura/db/context";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ALICE, BOB, browser, createHarness, type Harness } from "./http-harness.ts";
+import { icpcScoreboardSchema } from "./modules/contests/scoreboard-export.ts";
 import {
     createPostgresScoreboardPort,
     refreshScoreboards,
@@ -255,6 +256,33 @@ describe("reading a scoreboard", () => {
         expect(staff.headers.get("cache-control")).toBe("private, no-cache");
         expect((await read(DAVE, contest.id, "?view=other")).status).toBe(400);
         expect((await read(DAVE, "cst_nope")).status).toBe(400);
+    });
+});
+
+describe("exporting for ICPC tools", () => {
+    it("serves the Contest API scoreboard of a stored board with the same caching and privacy", async () => {
+        const contest = await runningContest();
+        const sub = await submit(DAVE, contest.id);
+        await judge(sub, "AC");
+        await tick();
+        const response = await call(null, "GET", `/contests/${contest.id}/standings.icpc.json`);
+        expect(response.status).toBe(200);
+        expect(response.headers.get("cache-control")).toContain("s-maxage=1");
+        const out = icpcScoreboardSchema.parse(await response.json());
+        expect(out.rows.map((r) => r.score.num_solved)).toEqual([1, 0]);
+        expect(out.rows[0]?.problems[0]).toMatchObject({
+            problem_id: "A",
+            num_judged: 1,
+            solved: true,
+        });
+        expect(
+            (await call(DAVE, "GET", `/contests/${contest.id}/standings.icpc.json?view=final`))
+                .status,
+        ).toBe(404);
+        expect(
+            (await call(ALICE, "GET", `/contests/${contest.id}/standings.icpc.json?view=final`))
+                .status,
+        ).toBe(200);
     });
 });
 

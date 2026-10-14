@@ -523,6 +523,12 @@ const MATRIX: readonly Row[] = [
     { method: "GET", path: "/api/v1/contests/:id/scoreboard", access: "public", object: "cst" },
     {
         method: "GET",
+        path: "/api/v1/contests/:id/standings.icpc.json",
+        access: "public",
+        object: "cst",
+    },
+    {
+        method: "GET",
         path: "/api/v1/contests/:id/scoreboard/stream",
         access: "public",
         object: "cst",

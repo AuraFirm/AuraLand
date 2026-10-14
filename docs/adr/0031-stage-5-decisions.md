@@ -92,3 +92,12 @@ and etag only; when the listener's connection is re-established every open strea
   verdict (`previous_verdict`, `previous_score`) keeps counting on the scoreboard until the new one lands, so
   the board does not flicker and a lost job never un-solves a problem. The per-test results of the old run
   are deleted; the guard allows no other change to a finished submission. Each rejudge is audited.
+
+## Amendment (slice 8): the ICPC export
+
+`GET /contests/:id/standings.icpc.json[?view=final]` answers with the ICPC Contest API scoreboard object
+(CCS specification 2023-06) built from the stored board. The kit names it `standings.icpc.json`; the
+specification itself defines the object, not a file name. ICPC contests only: the specification wants a
+per-problem time for every positive score, which an IOI cell does not record. Ranks are duplicated on ties
+of solved count and total time; the specification is silent on the unit of `total_time`, so we use minutes
+as its example does. The kit's stream path `/contests/{id}/stream` is `/contests/:id/scoreboard/stream` here.

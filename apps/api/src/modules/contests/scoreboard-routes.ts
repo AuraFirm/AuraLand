@@ -18,6 +18,7 @@ import { contextFor } from "../../auth-middleware.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import { clientAddress } from "../../request-info.ts";
 import * as q from "./queries.ts";
+import { toIcpcScoreboard } from "./scoreboard-export.ts";
 import {
     createScoreboardHub,
     type ScoreboardHub,
@@ -65,6 +66,7 @@ export function scoreboardRoutes(deps: ScoreboardRouteDeps): Hono<AppEnv> {
     const routes = new Hono<AppEnv>();
     routes.get("/contests/:id/scoreboard", handleSnapshot);
     routes.get("/contests/:id/scoreboard/stream", (c) => handleStream(c, deps));
+    routes.get("/contests/:id/standings.icpc.json", handleIcpcExport);
     return routes;
 }
 
@@ -91,6 +93,13 @@ function mayRead(c: Context<AppEnv>, orgId: string, view: ScoreboardViewName): b
     return role === "owner" || role === "admin";
 }
 
+// The body names no user and is the same for everyone, so a shared cache may keep a public contest's
+// public board for the one second the tick takes to make the next. Anything else is for this caller.
+function cacheControlFor(contest: q.ContestRow, view: ScoreboardViewName): string {
+    const shared = contest.visibility === "public" && view === "public";
+    return shared ? "public, max-age=0, s-maxage=1" : "private, no-cache";
+}
+
 async function handleSnapshot(c: Context<AppEnv>) {
     const request = parseRequest(c);
     if (request === null) return problemResponse(c, "invalid_request", "Invalid request");
@@ -100,11 +109,8 @@ async function handleSnapshot(c: Context<AppEnv>) {
     const row = await q.getScoreboard(tx, request.contestId, request.view);
     if (row === null) return notFound(c); // not started, or the first tick has not run yet
     const quoted = `"${row.etag}"`;
-    // The body names no user and is the same for everyone, so a shared cache may keep a public contest's
-    // public board for the one second the tick takes to make the next. Anything else is for this caller.
-    const shared = contest.visibility === "public" && request.view === "public";
     c.header("ETag", quoted);
-    c.header("Cache-Control", shared ? "public, max-age=0, s-maxage=1" : "private, no-cache");
+    c.header("Cache-Control", cacheControlFor(contest, request.view));
     if (c.req.header("if-none-match") === quoted) return c.body(null, 304);
     return c.json(
         scoreboardResponseSchema.parse({
@@ -112,6 +118,33 @@ async function handleSnapshot(c: Context<AppEnv>) {
             version: row.version,
             etag: row.etag,
             updated_at: row.updated_at.toISOString(),
+        }),
+    );
+}
+
+// The ICPC Contest API scoreboard of a stored board, for ICPC tools (resolvers, spotlights, archives).
+async function handleIcpcExport(c: Context<AppEnv>) {
+    const request = parseRequest(c);
+    if (request === null) return problemResponse(c, "invalid_request", "Invalid request");
+    const tx = c.get("tx");
+    const contest = await q.getContest(tx, request.contestId);
+    if (contest === null || !mayRead(c, contest.org_id, request.view)) return notFound(c);
+    if (contest.format !== "icpc") return notFound(c); // see scoreboard-export.ts
+    const row = await q.getScoreboard(tx, request.contestId, request.view);
+    if (row === null) return notFound(c);
+    const quoted = `"${row.etag}"`;
+    c.header("ETag", quoted);
+    c.header("Cache-Control", cacheControlFor(contest, request.view));
+    if (c.req.header("if-none-match") === quoted) return c.body(null, 304);
+    return c.json(
+        toIcpcScoreboard(scoreboardBodySchema.parse(row.body), {
+            startsAt: contest.starts_at,
+            endsAt: contest.ends_at,
+            freezeAt: contest.freeze_at,
+            unfrozenAt: contest.unfrozen_at,
+            finalizedAt: contest.finalized_at,
+            state: contest.state,
+            generatedAt: row.updated_at,
         }),
     );
 }
