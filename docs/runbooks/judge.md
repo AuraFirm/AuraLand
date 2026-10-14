@@ -46,7 +46,13 @@ select (payload->>'submission_id') as submission, last_error, attempt from jobs 
 
 ## 6. Before a node may take real work
 1. Run the escape suite on the node: `AURA_ISOLATE_BIN=/usr/local/bin/isolate go test -tags isolate ./internal/isolate -run TestEscape` (from `judge/`).
-2. Every program must be contained; any "ESCAPED" line means the node does not go live.
+2. Every program must be contained, for every language (the suite runs each language's attacks as a subtest:
+   `cpp` and `c` today); any "ESCAPED" line means the node does not go live. Then run
+   `go test -tags isolate ./internal/isolate -run TestLanguages` to see each language build and run a real
+   program. A language a node cannot pass is a language it must not be offered work in.
+   Observed on the Colima VM (2026-10-14): both suites pass for `cpp` and `c`. One cold first run showed the C++
+   `memory_bomb` ending by TLE (contained, but the suite expects MLE); three further runs ended MLE. It is
+   timing, not an escape, and it is recorded here rather than loosened in the test.
 3. The sandbox configuration needs the external review (cutlist F32) before public use.
 
 ## 7. Replaying signatures and fixtures
