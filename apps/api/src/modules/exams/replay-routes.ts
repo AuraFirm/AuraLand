@@ -1,12 +1,19 @@
 import { createHash } from "node:crypto";
-import { monitorResponseSchema, replaySchema } from "@aura/contracts/api/exams";
+import {
+    monitorResponseSchema,
+    replaySchema,
+    similarityResponseSchema,
+} from "@aura/contracts/api/exams";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
 import { diffText } from "@aura/contracts/text-delta";
+import type { Transaction } from "@aura/db/context";
+import { postgresErrorCode } from "@aura/db/errors";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../../app-env.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import * as q from "./replay-queries.ts";
+import { similarPairs } from "./similarity.ts";
 
 // The live monitor and the replay (Stage 6, slice 7) for the host's staff. A replay is the first snapshot of a page
 // and a chain of small changes (one replacement each), with the sitting's events beside them; applying the chain
@@ -20,6 +27,7 @@ export function replayRoutes(): Hono<AppEnv> {
     const routes = new Hono<AppEnv>();
     routes.get("/exams/:id/monitor", handleMonitor);
     routes.get("/exams/:id/replay/:session_id/:label", handleReplay);
+    routes.get("/exams/:id/similarity", handleSimilarity);
     return routes;
 }
 
@@ -119,4 +127,65 @@ async function handleReplay(c: Context<AppEnv>) {
             events: events.map((e) => ({ at: e.ts.toISOString(), kind: e.kind, data: e.data })),
         }),
     );
+}
+
+// Pairs listed at most this many, best first; the rest are below what a person would read.
+const SIMILARITY_PAIRS_MAX = 200;
+const similarityQuery = z
+    .object({
+        label: z.string().regex(/^[A-Z][A-Z0-9]{0,2}$/),
+        score_min: z.coerce.number().min(0.3).max(1).default(0.6),
+    })
+    .strict();
+
+async function handleSimilarity(c: Context<AppEnv>) {
+    if (c.get("actor").kind !== "user")
+        return problemResponse(c, "unauthenticated", "Authentication required");
+    const exam = idSchema("exm").safeParse(c.req.param("id"));
+    if (!exam.success) return problemResponse(c, "invalid_request", "Invalid request");
+    const tx = c.get("tx");
+    const examId = decodeId("exm", exam.data);
+    // Who may ask is decided before anything about the question, so a stranger learns nothing from a 400.
+    const people = await staffPeople(tx, examId);
+    if (people === null) return notFound(c);
+    const query = similarityQuery.safeParse(c.req.query());
+    if (!query.success) return problemResponse(c, "invalid_request", "Invalid request");
+    const answers = await q.answerSources(tx, { examId, label: query.data.label });
+    const pairs = similarPairs(
+        answers.map((answer) => answer.source),
+        { scoreMin: query.data.score_min, pairsMax: SIMILARITY_PAIRS_MAX },
+    );
+    const who = (index: number) => {
+        const sessionId = answers[index]?.session_id ?? "";
+        const person = people.find((row) => row.session_id === sessionId);
+        return {
+            session_id: encodeId("exs", sessionId),
+            name: person?.name ?? "",
+            email: person?.email ?? "",
+        };
+    };
+    return c.json(
+        similarityResponseSchema.parse({
+            label: query.data.label,
+            answers: answers.length,
+            pairs: pairs.map((pair) => ({
+                a: who(pair.a),
+                b: who(pair.b),
+                score: Math.round(pair.comparison.score * 1000) / 1000,
+                shared: pair.comparison.shared,
+                spans_a: pair.comparison.spansA,
+                spans_b: pair.comparison.spansB,
+            })),
+        }),
+    );
+}
+
+// The host's people, or null when the caller is not its staff.
+async function staffPeople(tx: Transaction, examId: string): Promise<q.MonitorRow[] | null> {
+    try {
+        return await q.monitorRows(tx, examId);
+    } catch (error) {
+        if (postgresErrorCode(error) === NO_DATA_FOUND) return null;
+        throw error;
+    }
 }

@@ -691,6 +691,13 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "exm",
     },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/similarity",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {

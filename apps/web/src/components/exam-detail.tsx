@@ -92,6 +92,10 @@ function Manage({ exam, onChanged }: { exam: Exam; onChanged: () => void }) {
                 <p className="mt-2">
                     <a className="text-accent underline" href={`/exams/${exam.id}/monitor`}>
                         Monitor and replay
+                    </a>{" "}
+                    ·{" "}
+                    <a className="text-accent underline" href={`/exams/${exam.id}/similarity`}>
+                        Similar answers
                     </a>
                 </p>
             )}
