@@ -42,6 +42,9 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `validation_reports` | `modules/tasks` | Immutable result of one validation attempt of a task version: checks, observations, the attesting node's kind; written only by `settle_validation` |
 | `attack_findings` | `modules/tasks` | Human attacks on a task version: held or gamed, and the method as plain text; written by people other than the author; append-only |
 | `delivery_bundles` | `modules/orders` | What was actually delivered for each ordered version (the original, or a copy with a watermark tag written in), with the tag, the original's hash and which node made it; append-only; written only by `record_delivery_bundle` |
+| `contests` | `modules/contests` | A contest hosted by an organization: format, rules, window, visibility, state; the clock and the host's owners and admins move it |
+| `contest_problems` | `modules/contests` | The released versions a contest uses, labelled; fixed once the contest is published |
+| `registrations` | `modules/contests` | Who registered for a contest; written only by `register_for_contest` |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
