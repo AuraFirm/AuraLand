@@ -15,4 +15,6 @@ Open items are in [../cutlist.md](../cutlist.md); your manual tasks are the chec
 
 **Stage 4B — validation: core built (job, report, mutation, attackers, score, portal), report awaiting your review.** Plan: [stage-4b-plan.md](stage-4b-plan.md). Report: [stage-4b-report.md](stage-4b-report.md). Not built: model calibration, the human-attack queue. **Evidence comes from one development VM; reports are 'development' reports until a reviewed production node exists (F32).**
 
+**Stage 4C — per-delivery watermarks and the leak trace: built, report awaiting your review.** Plan: [stage-4c-plan.md](stage-4c-plan.md). Report: [stage-4c-report.md](stage-4c-report.md). With 4A, 4B and 4C the Stage 4 build list is done except model calibration and agent attack runs (need a provider account). **Reports and re-checks come from one development VM (F32).**
+
 **What only you can do, with steps: [../owner-tasks.md](../owner-tasks.md).**

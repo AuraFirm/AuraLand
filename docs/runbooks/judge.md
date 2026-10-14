@@ -80,3 +80,25 @@ housekeeping.
   local S3, builds and enrolls the agent in the VM, requests a validation and prints the stored report. It
   exits 0 only when the report is a `development` report whose failed checks are exactly the two the
   test bundle is built to have. It needs the VM; it is not run in CI.
+
+## 8. Delivery watermarks (Stage 4C)
+- **A node that takes watermark jobs** is started with `--rewriter-file .../packages/bundle/dist/rewrite-bundle.cjs`
+  as well as `--opener-file`; without it the node never leases the `watermark` queue. Both programs are built
+  by `pnpm build:opener`.
+- **What happens at placement.** `place_order` queues one `delivery.watermark` job per ordered version; the
+  manifest build is queued automatically when the last version has its delivered bundle. Looking at it:
+  `select kind, state, attempt, last_error from jobs where queue = 'watermark' order by created_at desc limit 20;`
+  and `select delivery_id, task_version_id, answers_marked, solutions_marked, verdicts_checked, attestation from delivery_bundles order by created_at desc limit 20;`
+- **A delivery stuck pending** with its watermark jobs dead (no node, or a node that keeps failing, or a bundle
+  the validator now refuses) is visible as dead jobs in the queue; nothing recovers it automatically (F39). Fix
+  the cause, then re-place the order or ask engineering to re-queue the jobs.
+- **Tracing a leak.** Unpack nothing yourself: a leaked archive is untrusted input, so open it in a box first.
+  With loose leaked files (`*.ans`, `*.cpp`, `*.py`) in a directory, export the delivery records and run
+  `node packages/bundle/src/trace-leak-cli.ts --leaked <dir-or-file> --candidates candidates.json`
+  (the file's header comment has the `psql` export). `STRONG` means an exact solution tag or 24 or more
+  agreeing answer bits; `POSSIBLE` means 8 to 23 agreeing bits and is a lead, not a finding. Then look at the
+  customer's download log for that delivery (`delivery_access`) and decide with the owner. The trace never
+  decides anything.
+- **The acceptance check.** `node apps/api/src/pack-e2e-cli.ts` (needs the VM, like the joined check above)
+  places a 20-version pack and a 3-version pack, runs the real agent, downloads over HTTP as the buyers, runs
+  the customer verification script and checks the log, the tags and that the two customers' copies differ.

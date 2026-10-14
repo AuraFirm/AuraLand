@@ -13,6 +13,7 @@ whole class of work until it is done.
 | 2 Tasks and bundles | Approved (2026-10-11) |
 | 3 Queue, submissions, judge | **Built, awaiting your review.** The sandbox has never been run (section 1) |
 | 4A Forge v0 without the sandbox | **Built, awaiting your review** (`stages/stage-4a-report.md`) |
+| 4C Per-delivery watermarks and leak trace | **Built, awaiting your review** (`stages/stage-4c-report.md`) |
 | 4B Forge v0 validation | **Core built, awaiting your review** (`stages/stage-4b-report.md`); remainder needs your provider account and the production node |
 
 ## 1. Stage 3: review, sign-off and the sandbox gate (**BLOCKS** any real use of the judge)
