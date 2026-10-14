@@ -332,3 +332,117 @@ describe("a stream's lifetime", () => {
         expect(text.startsWith("retry:") || text.includes("event: version")).toBe(true);
     });
 });
+
+const publicBoard = async (contest: string) =>
+    scoreboardResponseSchema.parse(await (await read(null, contest)).json());
+const post = (user: string, path: string) => call(user, "POST", path);
+
+describe("unfreezing", () => {
+    it("lifts the freeze for the public board once, for the host's staff, after the end", async () => {
+        const contest = await runningContest();
+        h.clock.advance(4 * HOUR); // 6 h in: frozen
+        await advanceContests(context());
+        await judge(await submit(DAVE, contest.id), "AC");
+        await tick();
+        const frozen = await publicBoard(contest.id);
+        expect(frozen.frozen).toBe(true);
+        expect(frozen.rows.map((r) => r.solved)).toEqual([0, 0]);
+
+        expect((await post(ALICE, `/contests/${contest.id}/unfreeze`)).status).toBe(409); // not ended
+        h.clock.advance(HOUR);
+        await advanceContests(context());
+        expect((await post(DAVE, `/contests/${contest.id}/unfreeze`)).status).toBe(403);
+        const done = await post(ALICE, `/contests/${contest.id}/unfreeze`);
+        expect(done.status).toBe(200);
+        expect(contestSchema.parse(await done.json()).unfrozen_at).not.toBeNull();
+        expect((await post(ALICE, `/contests/${contest.id}/unfreeze`)).status).toBe(409); // once
+        await tick();
+        const open = await publicBoard(contest.id);
+        expect(open.frozen).toBe(false);
+        expect(open.rows.map((r) => r.solved).sort()).toEqual([0, 1]);
+        expect(open.version).toBeGreaterThan(frozen.version);
+    });
+
+    it("is also done by finalizing, so a finalized board shows everything", async () => {
+        const contest = await runningContest();
+        h.clock.advance(4 * HOUR);
+        await advanceContests(context());
+        await judge(await submit(DAVE, contest.id), "AC");
+        h.clock.advance(HOUR);
+        await advanceContests(context());
+        expect((await post(ALICE, `/contests/${contest.id}/finalize`)).status).toBe(200);
+        await tick();
+        const board = await publicBoard(contest.id);
+        expect(board.frozen).toBe(false);
+        expect(board.rows.map((r) => r.solved).sort()).toEqual([0, 1]);
+    });
+});
+
+describe("rejudging", () => {
+    it("keeps the old verdict on the board until the new one lands, then replaces it", async () => {
+        const contest = await runningContest();
+        const sub = await submit(DAVE, contest.id);
+        await judge(sub, "AC");
+        await tick();
+        const before = await publicBoard(contest.id);
+        expect(before.rows.map((r) => r.solved).sort()).toEqual([0, 1]);
+
+        const path = `/contests/${contest.id}/submissions/${encodeId("sub", sub)}/rejudge`;
+        expect((await post(DAVE, path)).status).toBe(404); // a contestant cannot ask
+        expect((await post(CAROL, path)).status).toBe(404);
+        const asked = await post(ALICE, path);
+        expect(asked.status).toBe(202);
+        expect(submissionSchema.parse(await asked.json()).state).toBe("queued");
+        expect((await post(ALICE, path)).status).toBe(409); // already waiting
+        await tick();
+        const during = await publicBoard(contest.id);
+        expect(during.etag).toBe(before.etag); // no flicker: the old verdict still counts
+        expect(during.version).toBe(before.version);
+
+        await judge(sub, "WA");
+        await tick();
+        const after = await publicBoard(contest.id);
+        expect(after.version).toBe(before.version + 1);
+        expect(after.rows.map((r) => r.solved)).toEqual([0, 0]);
+    });
+
+    it("refuses a submission of another contest, a finalized contest, and unfinished work", async () => {
+        const contest = await runningContest();
+        const other = await runningContest();
+        const sub = await submit(DAVE, contest.id);
+        const wrong = `/contests/${other.id}/submissions/${encodeId("sub", sub)}/rejudge`;
+        expect((await post(ALICE, wrong)).status).toBe(404);
+        const path = `/contests/${contest.id}/submissions/${encodeId("sub", sub)}/rejudge`;
+        expect((await post(ALICE, path)).status).toBe(409); // still queued
+        await judge(sub, "AC");
+        h.clock.advance(6 * HOUR);
+        await advanceContests(context());
+        expect((await post(ALICE, `/contests/${contest.id}/finalize`)).status).toBe(200);
+        expect((await post(ALICE, path)).status).toBe(409); // ratings come from a finalized board
+    });
+
+    it("lets the database refuse every other way of changing a finished submission", async () => {
+        const contest = await runningContest();
+        const sub = await submit(DAVE, contest.id);
+        await judge(sub, "AC");
+        const { sql } = h.db.database;
+        const attempt = (change: ReturnType<typeof sql>) =>
+            change.then(
+                () => "changed",
+                (e: Error) => e.message,
+            );
+        expect(
+            await attempt(
+                sql`update submissions set state = 'queued', verdict = null, score = null, judged_at = null where id = ${sub}`,
+            ),
+        ).toMatch(/finished submission/);
+        expect(
+            await attempt(
+                sql`update submissions set state = 'queued', verdict = null, score = null, judged_at = null, rejudge_count = 1, previous_verdict = 'WA' where id = ${sub}`,
+            ),
+        ).toMatch(/finished submission/);
+        expect(
+            await attempt(sql`update submissions set rejudge_count = 5 where id = ${sub}`),
+        ).toMatch(/finished submission/);
+    });
+});

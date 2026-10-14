@@ -15,7 +15,12 @@ import { problemResponse } from "../../platform/problem-response.ts";
 import type { RateLimitRule } from "../../platform/rate-limit.ts";
 import { consumeRateLimit, refuseRateLimited } from "../../rate-limit-middleware.ts";
 import { findVisibleContest } from "../contests/service.ts";
-import { createContestSubmission, getSubmission, listMineInContest } from "./queries.ts";
+import {
+    createContestSubmission,
+    getSubmission,
+    listMineInContest,
+    rejudgeContestSubmission,
+} from "./queries.ts";
 import { type SubmissionRouteDeps, submissionBody } from "./routes.ts";
 
 const SUBMIT_IN_CONTESTS: RateLimitRule = {
@@ -32,6 +37,7 @@ export function contestSubmissionRoutes(deps: SubmissionRouteDeps): Hono<AppEnv>
     const routes = new Hono<AppEnv>();
     routes.post("/contests/:id/problems/:label/submissions", (c) => handleCreate(c, deps));
     routes.get("/contests/:id/submissions", handleList);
+    routes.post("/contests/:id/submissions/:submission_id/rejudge", (c) => handleRejudge(c, deps));
     return routes;
 }
 
@@ -99,6 +105,44 @@ async function handleCreate(c: Context<AppEnv>, deps: SubmissionRouteDeps) {
     const row = await getSubmission(tx, outcome.id);
     if (row === null) throw new Error("a new submission is visible to its owner");
     return c.json(submissionBody(row, null), 201);
+}
+
+// A rejudge puts a finished submission back on the judge queue. The old verdict keeps counting on the
+// scoreboard until the new one lands, so a rejudge never makes the board flicker.
+async function handleRejudge(c: Context<AppEnv>, deps: SubmissionRouteDeps) {
+    const actor = c.get("actor");
+    if (actor.kind !== "user")
+        return problemResponse(c, "unauthenticated", "Authentication required");
+    const contest = contestId(c);
+    const submission = idSchema("sub").safeParse(c.req.param("submission_id"));
+    if (contest === null || !submission.success) {
+        return problemResponse(c, "invalid_request", "Invalid request");
+    }
+    const tx = c.get("tx");
+    const submissionId = decodeId("sub", submission.data);
+    const outcome = await rejudgeContestSubmission(tx, {
+        contestId: contest,
+        submissionId,
+        nowMs: deps.clock.nowUnixMs(),
+    });
+    if (outcome.kind === "refused") {
+        if (outcome.why === "unknown") return problemResponse(c, "not_found", "Not found");
+        if (outcome.why === "not_now") {
+            return problemResponse(c, "conflict", "This submission cannot be rejudged now");
+        }
+        return problemResponse(c, "unavailable", "The judges are busy; try again shortly");
+    }
+    await appendAudit(tx, {
+        actorKind: "user",
+        actorUserId: actor.userId,
+        orgId: null,
+        action: "contest.submission_rejudged",
+        target: encodeId("sub", submissionId),
+        detail: { contest: encodeId("cst", contest) },
+    });
+    const row = await getSubmission(tx, submissionId);
+    if (row === null) throw new Error("the host's staff can read a submission they rejudged");
+    return c.json(submissionBody(row, null), 202);
 }
 
 const listQuery = z.object({

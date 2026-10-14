@@ -167,6 +167,34 @@ export async function createContestSubmission(
     }
 }
 
+export type RejudgeOutcome =
+    | { kind: "queued" }
+    | { kind: "refused"; why: "unknown" | "not_now" | "queue_full" };
+
+// Asks for a rejudge. The database function decides who may (the host's owners and admins), whether the
+// submission and contest allow it, and whether the judge queue has room; `contestId` only guards the
+// address, so a submission of another contest is "unknown" rather than rejudged by accident.
+export async function rejudgeContestSubmission(
+    tx: Transaction,
+    input: { contestId: string; submissionId: string; nowMs: number },
+): Promise<RejudgeOutcome> {
+    const own = await tx`select 1 as found from submissions
+        where id = ${input.submissionId} and context_id = ${input.contestId}`;
+    if (own.length === 0) return { kind: "refused", why: "unknown" };
+    try {
+        await tx`select rejudge_contest_submission(${input.submissionId}, ${new Date(input.nowMs)},
+            ${CONTEST_JUDGE_QUEUE_READY_MAX})`;
+        return { kind: "queued" };
+    } catch (error) {
+        const code =
+            typeof error === "object" && error !== null && "code" in error ? error.code : null;
+        if (code === "P0002") return { kind: "refused", why: "unknown" };
+        if (code === "55000") return { kind: "refused", why: "not_now" };
+        if (code === "53400") return { kind: "refused", why: "queue_full" };
+        throw error;
+    }
+}
+
 const REFUSALS: Readonly<
     Record<string, "closed" | "language" | "too_soon" | "queue_full" | "too_large" | "unknown">
 > = {

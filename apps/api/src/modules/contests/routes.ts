@@ -46,6 +46,7 @@ export function contestRoutes(deps: ContestRouteDeps): Hono<AppEnv> {
     routes.delete("/contests/:id/problems/:label", handleRemoveProblem);
     routes.post("/contests/:id/publish", (c) => handlePublish(c, deps));
     routes.post("/contests/:id/finalize", (c) => handleFinalize(c, deps));
+    routes.post("/contests/:id/unfreeze", (c) => handleUnfreeze(c, deps));
     routes.post("/contests/:id/registrations", (c) => handleRegister(c, deps));
     return routes;
 }
@@ -90,6 +91,7 @@ async function body(c: Context<AppEnv>, row: q.ContestRow) {
         ends_at: row.ends_at.toISOString(),
         freeze_at: row.freeze_at?.toISOString() ?? null,
         finalized_at: row.finalized_at?.toISOString() ?? null,
+        unfrozen_at: row.unfrozen_at?.toISOString() ?? null,
         problems: await q.problemsOf(tx, row.id),
         registered: actor === null ? null : await q.isRegistered(tx, row.id, actor.userId),
         can_manage: isManager(c, row.org_id),
@@ -283,10 +285,17 @@ async function handleRemoveProblem(c: Context<AppEnv>) {
     return c.body(null, 204);
 }
 
+const TRANSITIONS = { publish: q.publish, finalize: q.finalize, unfreeze: q.unfreeze } as const;
+const TRANSITION_AUDIT = {
+    publish: "contest.published",
+    finalize: "contest.finalized",
+    unfreeze: "contest.unfrozen",
+} as const;
+
 async function transition(
     c: Context<AppEnv>,
     deps: ContestRouteDeps,
-    kind: "publish" | "finalize",
+    kind: "publish" | "finalize" | "unfreeze",
 ) {
     const actor = person(c);
     if (actor === null) return problemResponse(c, "unauthenticated", "Authentication required");
@@ -297,8 +306,7 @@ async function transition(
     if (before === null) return notFound(c);
     if (!isManager(c, before.org_id)) return problemResponse(c, "forbidden", "Forbidden");
     try {
-        if (kind === "publish") await q.publish(tx, id, deps.clock.nowUnixMs());
-        else await q.finalize(tx, id, deps.clock.nowUnixMs());
+        await TRANSITIONS[kind](tx, id, deps.clock.nowUnixMs());
     } catch (error) {
         const code = postgresErrorCode(error);
         if (code === NO_DATA_FOUND)
@@ -315,7 +323,7 @@ async function transition(
         actorKind: "user",
         actorUserId: actor.userId,
         orgId: before.org_id,
-        action: kind === "publish" ? "contest.published" : "contest.finalized",
+        action: TRANSITION_AUDIT[kind],
         target: encodeId("cst", id),
     });
     const row = await q.getContest(tx, id);
@@ -325,6 +333,8 @@ const handlePublish = (c: Context<AppEnv>, deps: ContestRouteDeps) =>
     transition(c, deps, "publish");
 const handleFinalize = (c: Context<AppEnv>, deps: ContestRouteDeps) =>
     transition(c, deps, "finalize");
+const handleUnfreeze = (c: Context<AppEnv>, deps: ContestRouteDeps) =>
+    transition(c, deps, "unfreeze");
 
 async function handleRegister(c: Context<AppEnv>, deps: ContestRouteDeps) {
     const actor = person(c);

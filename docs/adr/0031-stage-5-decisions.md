@@ -82,3 +82,13 @@ what the snapshot already gives. Bounds: 5,000 streams per instance, 3,000 per c
 person, 20 per address for anyone else, a 15 s keepalive, and a 30 min lifetime after which the client
 reconnects and is authorized again. `NOTIFY` is sent by the storing function with contest, view, version
 and etag only; when the listener's connection is re-established every open stream re-reads as its caller.
+
+## Amendment (slice 7a): unfreeze and rejudge
+
+- **Unfreeze** (`unfreeze_contest`): once, after the end, by the host's owners and admins; finalizing does it
+  too. The public board then includes everything. Until then it keeps hiding what follows the freeze.
+- **Rejudge** (`rejudge_contest_submission`): the host's owners and admins put a finished contest submission
+  (judged, or failed by the system) back on the judge queue, never after the contest is finalized. The old
+  verdict (`previous_verdict`, `previous_score`) keeps counting on the scoreboard until the new one lands, so
+  the board does not flicker and a lost job never un-solves a problem. The per-test results of the old run
+  are deleted; the guard allows no other change to a finished submission. Each rejudge is audited.
