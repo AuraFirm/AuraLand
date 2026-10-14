@@ -59,6 +59,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `exam_drafts` | `modules/exams` | A candidate's saved snapshots per problem with a sequence number; append-only; written only by `save_exam_draft` |
 | `exam_answers` | `modules/exams` | Links a sitting's problem to the judged submission of its final draft; written only by `queue_exam_answers` |
 | `exam_grades` | `modules/exams` | A person's rubric scores and comment for one answer; changed only by `grade_exam_answer` while the exam is closed |
+| `integrity_flags` | `modules/exams` | Evidence a rule saw (staff only), a plain explanation, the rule version and a person's decision; raised and decided only by SECURITY DEFINER functions, never deleted |
+| `integrity_appeals` | `modules/exams` | A candidate's appeal of a confirmed flag, reviewed by staff other than the decider; created and reviewed only by functions, never deleted |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

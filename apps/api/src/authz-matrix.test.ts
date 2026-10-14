@@ -698,6 +698,51 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "exm",
     },
+    {
+        method: "POST",
+        path: "/api/v1/exams/:id/integrity/scan",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/integrity/flags",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "PUT",
+        path: "/api/v1/exams/:id/integrity/flags/:flag_id",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: { state: "clear", note: "" },
+    },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/integrity/mine",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/exams/:id/integrity/flags/:flag_id/appeal",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: { note: "I wrote this myself." },
+    },
+    {
+        method: "PUT",
+        path: "/api/v1/exams/:id/integrity/appeals/:appeal_id",
+        access: "user",
+        owned: true,
+        object: "exm",
+        body: { outcome: "upheld", note: "" },
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {
@@ -785,6 +830,8 @@ const concrete = (row: Row) =>
         .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
         .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
         .replace(":session_id", encodeId("exs", SAMPLE_UUID))
+        .replace(":flag_id", encodeId("ifl", SAMPLE_UUID))
+        .replace(":appeal_id", encodeId("apl", SAMPLE_UUID))
         .replace(":handle", "nobody_here")
         .replace(":label", "A");
 const call = (row: Row, headers: Record<string, string>) =>
@@ -940,6 +987,8 @@ describe("generated checks", () => {
                     .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
                     .replace(":clarification_id", encodeId("clr", SAMPLE_UUID))
                     .replace(":session_id", encodeId("exs", SAMPLE_UUID))
+                    .replace(":flag_id", encodeId("ifl", SAMPLE_UUID))
+                    .replace(":appeal_id", encodeId("apl", SAMPLE_UUID))
                     .replace(":handle", "nobody_here")
                     .replace(":label", "A");
                 const hasBody =

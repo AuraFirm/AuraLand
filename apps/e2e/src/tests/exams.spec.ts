@@ -121,3 +121,15 @@ test("staff open the similar-answers page; with one answer nothing stands out", 
     await expect(owner.getByText("No pairs among 1 answers stood out.")).toBeVisible();
     await expectAccessible(owner);
 });
+
+test("staff check the integrity rules; a clean exam flags nothing", async ({ browser }) => {
+    const staff = freshEmail();
+    const exam = await seedClosedExam(staff, freshEmail());
+    const owner = await pageFor(browser, staff);
+    await owner.goto(`/exams/${exam}/integrity`);
+    await expect(owner.getByText("Nothing has been flagged.")).toBeVisible();
+    await owner.getByRole("button", { name: "Check the rules now" }).click();
+    await expect(owner.getByText("Checked the rules.")).toBeVisible();
+    await expect(owner.getByText("Nothing has been flagged.")).toBeVisible();
+    await expectAccessible(owner);
+});
