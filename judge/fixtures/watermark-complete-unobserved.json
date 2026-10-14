@@ -1,0 +1,10 @@
+{
+    "lease_epoch": 1,
+    "result": {
+        "outcome": "rewritten",
+        "upload_id": "up_abc",
+        "answers": false,
+        "solutions": true,
+        "observations": null
+    }
+}

@@ -86,7 +86,7 @@ import { validationJobSchema } from "./validation.ts";
 
 export const leaseRequestSchema = z
     .object({
-        queue: z.enum(["judge", "validate"]),
+        queue: z.enum(["judge", "validate", "watermark"]),
         // 0 answers at once; up to 25 s holds the request until work arrives.
         wait_ms: z.number().int().min(0).max(LEASE_WAIT_MS_MAX),
     })

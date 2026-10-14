@@ -21,6 +21,7 @@ import (
 	"github.com/AuraFirm/AuraLand/judge/internal/isolate"
 	"github.com/AuraFirm/AuraLand/judge/internal/sandbox"
 	"github.com/AuraFirm/AuraLand/judge/internal/validate"
+	"github.com/AuraFirm/AuraLand/judge/internal/watermark"
 	"github.com/AuraFirm/AuraLand/judge/internal/wire"
 )
 
@@ -40,20 +41,21 @@ func run(args []string) int {
 	keyFile := flags.String("key-file", "", "the node's private key file")
 	isolateBin := flags.String("isolate-bin", "/usr/local/bin/isolate", "absolute path of the isolate binary")
 	openerFile := flags.String("opener-file", "", "the built bundle opener (packages/bundle/dist/open-bundle.cjs)")
+	rewriterFile := flags.String("rewriter-file", "", "the built delivery rewriter (packages/bundle/dist/rewrite-bundle.cjs); without it the node takes no watermark jobs")
 	concurrency := flags.Int("concurrency", 1, "boxes available at once")
 	flags.Parse(args)
 	if *plane == "" || *nodeID == "" || *keyFile == "" || *openerFile == "" {
 		fmt.Fprintln(os.Stderr, "run needs --control-plane, --node-id, --key-file and --opener-file")
 		return 2
 	}
-	if err := serve(*plane, *nodeID, *keyFile, *isolateBin, *openerFile, *concurrency); err != nil {
+	if err := serve(*plane, *nodeID, *keyFile, *isolateBin, *openerFile, *rewriterFile, *concurrency); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		return 1
 	}
 	return 0
 }
 
-func serve(plane, nodeID, keyFile, isolateBin, openerFile string, concurrency int) error {
+func serve(plane, nodeID, keyFile, isolateBin, openerFile, rewriterFile string, concurrency int) error {
 	key, err := readKey(keyFile)
 	if err != nil {
 		return err
@@ -81,6 +83,13 @@ func serve(plane, nodeID, keyFile, isolateBin, openerFile string, concurrency in
 		Plane: control, Box: box, Bundles: opener, Validator: &validate.Runner{Box: box, Open: opener}, Version: version, LeaseWaitMS: leaseWaitMS,
 		Logf:     func(format string, args ...any) { fmt.Fprintf(os.Stderr, "aura-judge: "+format+"\n", args...) },
 		SelfTest: smokeTest(box),
+	}
+	if rewriterFile != "" {
+		watermarker, err := newWatermarker(control, box, rewriterFile, string(script))
+		if err != nil {
+			return err
+		}
+		node.Watermarker = watermarker
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -130,4 +139,34 @@ func smokeTest(box sandbox.Sandbox) func(context.Context) bool {
 		done = ctx.Err() == nil
 		return ok
 	}
+}
+
+// newWatermarker builds the delivery watermark runner: the rewriter box, the download of the original, the
+// upload of the rewrite, and a validation harness for any bundle's bytes.
+func newWatermarker(control *client.Client, box sandbox.Sandbox, rewriterFile, openerScript string) (*watermark.Runner, error) {
+	script, err := os.ReadFile(rewriterFile)
+	if err != nil {
+		return nil, fmt.Errorf("rewriter file: %w", err)
+	}
+	return &watermark.Runner{
+		Rewriter: &bundles.Rewriter{Box: box, Script: string(script)},
+		Fetch: func(ctx context.Context, jobID string, bundle wire.Bundle) ([]byte, error) {
+			return control.FetchBundle(ctx, jobID, bundle)
+		},
+		Upload: func(ctx context.Context, job wire.WatermarkJob, data []byte) (string, error) {
+			target, err := control.WatermarkUploadTarget(ctx, job.JobID, job.LeaseEpoch, len(data))
+			if err != nil {
+				return "", err
+			}
+			if err := control.PutBundle(ctx, target.URL, data); err != nil {
+				return "", err
+			}
+			return target.UploadID, nil
+		},
+		Harness: func(packed []byte) *validate.Runner {
+			// An opener that serves these very bytes: the harness must see this bundle, not the job's.
+			fetch := func(context.Context, string, wire.Bundle) ([]byte, error) { return packed, nil }
+			return &validate.Runner{Box: box, Open: &bundles.Opener{Box: box, Script: openerScript, Fetch: fetch}}
+		},
+	}, nil
 }

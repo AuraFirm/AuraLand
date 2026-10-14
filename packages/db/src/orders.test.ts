@@ -217,7 +217,7 @@ describe("deliveries", () => {
     const manifest = '{"items":[]}';
     const digest = (text: string) => createHash("sha256").update(text).digest();
 
-    it("creates a pending delivery with an expiry and a build job in the same step", async () => {
+    it("creates a pending delivery with an expiry and a watermark job per version in the same step", async () => {
         const id = await pendingDelivery();
         const { sql } = db.database;
         const [row] = await sql<
@@ -225,9 +225,13 @@ describe("deliveries", () => {
         >`select state, expires_at from deliveries where id = ${id}`;
         expect(row?.state).toBe("pending");
         expect(row?.expires_at.toISOString()).toBe("2026-11-11T10:00:00.000Z");
-        const jobs =
+        const watermarks =
+            await sql`select id from jobs where kind = 'delivery.watermark' and payload->>'delivery_id' = ${id}`;
+        expect(watermarks.length).toBe(1); // the order has one version
+        // The manifest build waits until every version has its delivered bundle (migration 0031).
+        const builds =
             await sql`select id from jobs where kind = 'delivery.build' and payload->>'delivery_id' = ${id}`;
-        expect(jobs.length).toBe(1);
+        expect(builds.length).toBe(0);
     });
 
     it("sets the manifest once, only with its true hash", async () => {

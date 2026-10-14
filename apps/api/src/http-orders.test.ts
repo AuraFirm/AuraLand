@@ -1,6 +1,6 @@
 // Goal: platform administrators run the order lifecycle over HTTP (create, add released versions, set an
 // invoice reference, place, revoke), every change needs a fresh passkey check and leaves an audit row,
-// placing creates the delivery and its build job together, and nobody else can even see the routes.
+// placing creates the delivery and its watermark jobs together, and nobody else can even see the routes.
 import { createHash } from "node:crypto";
 import { orderSchema, ordersResponseSchema } from "@aura/contracts/api/orders";
 import { encodeId } from "@aura/contracts/ids";
@@ -90,7 +90,7 @@ describe("the order lifecycle", () => {
         );
         expect(paid.payment_status).toBe("paid");
         expect((await send(token, "POST", `orders/${order.id}/paid`)).status).toBe(404);
-        const jobs = await h.db.database.sql`select id from jobs where kind = 'delivery.build'`;
+        const jobs = await h.db.database.sql`select id from jobs where kind = 'delivery.watermark'`;
         expect(jobs.length).toBeGreaterThanOrEqual(1);
         const listed = ordersResponseSchema.parse(
             await (await send(token, "GET", "orders")).json(),

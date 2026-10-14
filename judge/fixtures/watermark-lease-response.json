@@ -1,0 +1,56 @@
+{
+    "job": {
+        "job_id": "job_018f0000-0000-7000-8000-0000000000aa",
+        "lease_epoch": 1,
+        "lease_ttl_s": 30,
+        "kind": "delivery.watermark",
+        "task": {
+            "bundle": {
+                "sha256": "9f76a5abbe7553e7bf71176e48bc6c85034864f31794729bd0f6515679c0eb43",
+                "bytes": 1234
+            },
+            "spec": {
+                "spec_version": 1,
+                "kind": "algorithmic",
+                "title": "Sum of two numbers",
+                "time_limit_ms": 1000,
+                "memory_limit_kib": 262144,
+                "output_limit_kib": 1024,
+                "languages": ["cpp", "python3"],
+                "scoring": {
+                    "type": "binary",
+                    "subtasks": []
+                },
+                "tests": [
+                    {
+                        "id": "001",
+                        "group": "all",
+                        "points": 50,
+                        "is_sample": true
+                    },
+                    {
+                        "id": "002",
+                        "group": "all",
+                        "points": 50,
+                        "is_sample": false
+                    }
+                ],
+                "checker": {
+                    "type": "exact"
+                },
+                "interactive": false,
+                "license": {
+                    "owner": "Acme",
+                    "terms": "internal use"
+                },
+                "provenance": {
+                    "author": "Alice",
+                    "reviewers": [],
+                    "created": "2026-10-10",
+                    "generated_with_ai": false
+                }
+            },
+            "tag": 3237998146
+        }
+    }
+}

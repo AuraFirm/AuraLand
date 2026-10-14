@@ -13,6 +13,11 @@ import {
     validationLeaseResponseSchema,
 } from "@aura/contracts/judge-protocol";
 import { validationCompleteRequestSchema } from "@aura/contracts/validation";
+import {
+    watermarkCompleteRequestSchema,
+    watermarkLeaseResponseSchema,
+    watermarkUploadRequestSchema,
+} from "@aura/contracts/watermark";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -25,6 +30,11 @@ const cases: Array<[string, z.ZodType]> = [
     ["complete-request.json", jobCompleteRequestSchema],
     ["validation-lease-response.json", validationLeaseResponseSchema],
     ["validation-complete-request.json", validationCompleteRequestSchema],
+    ["watermark-lease-response.json", watermarkLeaseResponseSchema],
+    ["watermark-upload-request.json", watermarkUploadRequestSchema],
+    ["watermark-complete-rewritten.json", watermarkCompleteRequestSchema],
+    ["watermark-complete-unchanged.json", watermarkCompleteRequestSchema],
+    ["watermark-complete-unobserved.json", watermarkCompleteRequestSchema],
     ["fail-request.json", jobFailRequestSchema],
     ["enroll-request.json", enrollRequestSchema],
     ["heartbeat-request.json", nodeHeartbeatRequestSchema],
