@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { connect } from "node:net";
 import { fileURLToPath } from "node:url";
 import { withRequestContext } from "@aura/db/context";
 import { createMigratedTestDatabase, type TestDatabase } from "@aura/db/test-helpers";
@@ -148,16 +149,25 @@ function startApi(databaseUrl: string): ChildProcess {
     });
 }
 
-async function waitUntilHealthy(): Promise<void> {
+// Ready when the port accepts a connection. A plain TCP check: this tool makes no HTTP request of its
+// own, so it needs no exception to the rule that outbound HTTP goes through the egress client.
+function accepts(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+        const socket = connect(port, "127.0.0.1");
+        socket.once("connect", () => {
+            socket.destroy();
+            resolve(true);
+        });
+        socket.once("error", () => resolve(false));
+    });
+}
+
+async function waitUntilListening(): Promise<void> {
     for (let i = 0; i < 60; i++) {
-        const healthy = await fetch(`http://127.0.0.1:${PORT}/api/healthz`).then(
-            (r) => r.ok,
-            () => false,
-        );
-        if (healthy) return;
+        if (await accepts(PORT)) return;
         await sleep(500);
     }
-    throw new Error("the API did not become healthy");
+    throw new Error("the API did not start listening");
 }
 
 // Builds the agent in the VM, enrolls it with the seeded token and starts it in the background.
@@ -217,7 +227,7 @@ async function main(): Promise<number> {
         const { versionId, token } = await seed(database, s3, readFileSync(BUNDLE_FILE));
         out("seeded: a version in review, validation requested, bundle in storage");
         api = startApi(database.url);
-        await waitUntilHealthy();
+        await waitUntilListening();
         out(`the API is up; enrolled ${await startAgent(token)}`);
         const report = await waitForReport(database, versionId);
         const [after] = await database.database.sql<
