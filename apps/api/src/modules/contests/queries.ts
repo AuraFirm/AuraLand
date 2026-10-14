@@ -22,13 +22,14 @@ const rowSchema = z.object({
     ends_at: z.date(),
     freeze_at: z.date().nullable(),
     finalized_at: z.date().nullable(),
+    unfrozen_at: z.date().nullable(),
 });
 export type ContestRow = z.infer<typeof rowSchema>;
 
 const COLUMNS = (
     tx: Transaction,
 ) => tx`id, org_id, slug, title, format, rules, visibility, ai_policy, rated,
-    state, starts_at, ends_at, freeze_at, finalized_at`;
+    state, starts_at, ends_at, freeze_at, finalized_at, unfrozen_at`;
 
 export async function insertContest(
     tx: Transaction,
@@ -132,6 +133,8 @@ export const publish = (tx: Transaction, contestId: string, nowMs: number) =>
     tx`select publish_contest(${contestId}, ${new Date(nowMs)})`;
 export const finalize = (tx: Transaction, contestId: string, nowMs: number) =>
     tx`select finalize_contest(${contestId}, ${new Date(nowMs)})`;
+export const unfreeze = (tx: Transaction, contestId: string, nowMs: number) =>
+    tx`select unfreeze_contest(${contestId}, ${new Date(nowMs)})`;
 
 export async function register(
     tx: Transaction,

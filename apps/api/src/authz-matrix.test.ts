@@ -469,6 +469,20 @@ const MATRIX: readonly Row[] = [
     },
     {
         method: "POST",
+        path: "/api/v1/contests/:id/unfreeze",
+        access: "user",
+        owned: true,
+        object: "cst",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/contests/:id/submissions/:submission_id/rejudge",
+        access: "user",
+        owned: true,
+        object: "cst",
+    },
+    {
+        method: "POST",
         path: "/api/v1/contests/:id/registrations",
         access: "user",
         owned: true,
@@ -534,6 +548,7 @@ const concrete = (row: Row) =>
         .replace(":keyId", encodeId("key", SAMPLE_UUID))
         .replace(":invitationId", encodeId("inv", SAMPLE_UUID))
         .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
+        .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
         .replace(":label", "A");
 const call = (row: Row, headers: Record<string, string>) =>
     h.app().request(concrete(row), { method: row.method, headers });
@@ -674,6 +689,7 @@ describe("generated checks", () => {
                     .replace(":keyId", encodeId("key", SAMPLE_UUID))
                     .replace(":invitationId", encodeId("inv", SAMPLE_UUID))
                     .replace(":versionId", encodeId("tsv", SAMPLE_UUID))
+                    .replace(":submission_id", encodeId("sub", SAMPLE_UUID))
                     .replace(":label", "A");
                 const hasBody =
                     row.method === "PATCH" || row.method === "PUT" || row.body !== undefined;

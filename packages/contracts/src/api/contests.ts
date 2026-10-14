@@ -36,6 +36,8 @@ export const contestSchema = z
         ends_at: z.iso.datetime(),
         freeze_at: z.iso.datetime().nullable(),
         finalized_at: z.iso.datetime().nullable(),
+        // When the host ended the freeze (or finalized); null while the public board still stops at the freeze.
+        unfrozen_at: z.iso.datetime().nullable(),
         // Visible once the contest has started, or to the host's staff before.
         problems: z.array(contestProblemSchema),
         // null for someone who is not signed in.
