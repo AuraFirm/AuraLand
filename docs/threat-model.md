@@ -277,6 +277,26 @@ port of a published system, and has not been calibrated on real contests. Java a
 one development VM. A contest cannot be extended or cancelled once published (no such feature), and
 finalizing needs only one owner or admin (no second approver; ASVS V2.3.5).
 
+## STRIDE for the Stage 6 surface (exams and integrity, v8; design only so far)
+| Threat | Surface | Control (designed in ADR 0032; built and tested slice by slice) | Evidence |
+|---|---|---|---|
+| **Tampering**: a candidate's answer is lost or changed after they were told it was saved | Autosave | Server `seq`, content hash, idempotent repeats, acknowledgement only after commit; the client deletes nothing until acknowledged | exam DST: no acknowledged save lost (slice 4) |
+| Tampering: saving or submitting after the deadline | Autosave, submit | A definer function with the injected clock refuses at or after `deadline_at`; the exam state alone is not trusted | db tests, DST (slices 1, 4) |
+| **Disclosure**: a candidate reads other candidates' work, grades or per-test results | Sessions, submissions | RLS on every exam table: a candidate sees only their own session; results appear when the exam is `released` | RLS matrix, HTTP tests (slices 1, 5) |
+| Disclosure: telemetry collected without consent, or more than the closed list | Telemetry ingest | `consent_at` and the consent text version required before a batch is accepted; closed kind list; bounded size and rate; no keystroke content beyond the code, no media | consent gate tests (slice 6) |
+| Information: telemetry kept too long or for the wrong people | Telemetry store | Monthly partitions dropped at the institution's retention; readable by that course's instructors only; deleted with the account | partition and retention tests (slice 6) |
+| **Repudiation**: an integrity decision cannot be explained or challenged | Flags, decisions, appeals | Each flag stores kind, evidence, plain explanation and rule version; decisions and appeals are audited; an appeal is reviewed by a different person | state-machine simulation, HTTP tests (slice 9) |
+| Elevation: a program, not a person, decides a case | Integrity, oral defence | States change only by a person; the LLM only proposes questions and scores nothing; **no AI-text detector** is used | design; tests that no automatic path sets `confirmed` (slice 9) |
+| Tampering: hostile candidate code or answers steer the LLM | Oral-defence prompts | Code and answers are untrusted text in a separate user message; strict output schema; no tools or secrets; output validated and bounded; fake provider in tests | prompt-injection tests (slice 10) |
+| Disclosure: another tenant's hidden material sent to a provider | LLM calls | Only the candidate's own code and the question text; per-institution switch; calls logged redacted | tests (slice 10) |
+| Denial of service: a start-of-exam stampede or autosave flood | Sessions, saves | Per-session save rate and size caps; the request gate from Stage 5; batched telemetry | scaled load run (slice 12) |
+| Tampering: a roster upload poisons accounts or invitations | CSV roster | Whole-file validation before any write; row and byte caps; invitations only through the existing flow; emails lower-cased | HTTP tests (slice 2) |
+| Disclosure: similarity results shown to the wrong people | Similarity | Pairs visible only to instructors of the course; never to candidates; a score is a signal with spans, not a verdict | HTTP tests (slice 8) |
+
+**Not designed away.** No identity proof, webcam, screen recording or lockdown browser (assurance level 1 only): an exam
+here is as strong as an open-book exam at a computer the candidate controls plus the signals above. The judge is still
+evidenced on one development VM (F32).
+
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;
 download events with the person's address; contractors' payout amounts and references. Download events
