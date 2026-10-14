@@ -63,12 +63,38 @@ export const validationMutantSchema = z
     })
     .strict();
 
+// The platform's own cheap "solutions" that know nothing about the problem (judge/internal/attack Names
+// must stay equal, in this order). A validation reports every one, so a node cannot skip the hard ones.
+export const VALIDATION_ATTACKERS = [
+    "sample_lookup",
+    "echo_input",
+    "first_token",
+    "token_count",
+    "sum_of_integers",
+    "constant_0",
+    "constant_1",
+    "constant_yes",
+    "constant_no",
+    "empty_output",
+] as const;
+
+// How far an attacker got: tests passed (counted up to its first failure, which is where it stops) out
+// of all tests. It beat the task only if it passed every one.
+export const validationAttackerSchema = z
+    .object({
+        name: z.enum(VALIDATION_ATTACKERS),
+        passed: z.number().int().min(0).max(SPEC_TESTS_MAX),
+        total: z.number().int().min(1).max(SPEC_TESTS_MAX),
+    })
+    .strict();
+
 export const validationResultSchema = z
     .object({
         // The opener's answer: opens, or the validator's refusal code (never content).
         bundle: z.object({ opens: z.boolean(), refusal: z.string().max(64).optional() }).strict(),
         runs: z.array(validationRunSchema).max(VALIDATION_RUNS_MAX),
         mutants: z.array(validationMutantSchema).max(VALIDATION_MUTANTS_MAX),
+        attackers: z.array(validationAttackerSchema).max(VALIDATION_ATTACKERS.length),
     })
     .strict();
 export type ValidationResult = z.infer<typeof validationResultSchema>;

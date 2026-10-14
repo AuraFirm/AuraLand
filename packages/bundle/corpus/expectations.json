@@ -11,6 +11,10 @@
         "expect": "ok",
         "compressed": true
     },
+    "golden-weak-samples.tar.zst": {
+        "expect": "ok",
+        "compressed": true
+    },
     "empty-input.bin": {
         "expect": "empty",
         "compressed": false

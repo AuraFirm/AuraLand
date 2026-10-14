@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/AuraFirm/AuraLand/judge/internal/attack"
 	"github.com/AuraFirm/AuraLand/judge/internal/bundles"
 	"github.com/AuraFirm/AuraLand/judge/internal/judge"
 	"github.com/AuraFirm/AuraLand/judge/internal/mutate"
@@ -37,12 +38,12 @@ func (r *Runner) Run(ctx context.Context, job wire.ValidationJob) (wire.Validati
 	files, err := r.Open.OpenFiles(ctx, job.JobID, job.Task.Bundle)
 	var refused *bundles.Refused
 	if errors.As(err, &refused) {
-		return wire.ValidationResult{Bundle: wire.ValidationBundle{Opens: false, Refusal: refused.Code}, Runs: []wire.ValidationRun{}, Mutants: []wire.ValidationMutant{}}, nil
+		return wire.ValidationResult{Bundle: wire.ValidationBundle{Opens: false, Refusal: refused.Code}, Runs: []wire.ValidationRun{}, Mutants: []wire.ValidationMutant{}, Attackers: []wire.ValidationAttacker{}}, nil
 	}
 	if err != nil {
 		return wire.ValidationResult{}, fmt.Errorf("open bundle: %w", err)
 	}
-	result := wire.ValidationResult{Bundle: wire.ValidationBundle{Opens: true}, Runs: []wire.ValidationRun{}, Mutants: []wire.ValidationMutant{}}
+	result := wire.ValidationResult{Bundle: wire.ValidationBundle{Opens: true}, Runs: []wire.ValidationRun{}, Mutants: []wire.ValidationMutant{}, Attackers: []wire.ValidationAttacker{}}
 	for _, path := range files.Paths() {
 		if !strings.HasPrefix(path, "solutions/") {
 			continue
@@ -58,7 +59,64 @@ func (r *Runner) Run(ctx context.Context, job wire.ValidationJob) (wire.Validati
 		return wire.ValidationResult{}, fmt.Errorf("mutation: %w", err)
 	}
 	result.Mutants = mutants
+	attackers, err := r.attack(ctx, files, spec)
+	if err != nil {
+		return wire.ValidationResult{}, fmt.Errorf("attackers: %w", err)
+	}
+	result.Attackers = attackers
 	return result, nil
+}
+
+// attack runs the platform's trivial programs on every test. An attacker stops at its first failing
+// test (it has lost; running on only costs time), so "passed" counts the tests it got through.
+func (r *Runner) attack(ctx context.Context, files *bundles.Files, spec wire.Spec) ([]wire.ValidationAttacker, error) {
+	var samples []attack.Sample
+	for _, test := range spec.Tests {
+		if !test.IsSample {
+			continue
+		}
+		input, answer, err := files.TestData().Test(ctx, test.ID)
+		if err != nil {
+			return nil, err
+		}
+		samples = append(samples, attack.Sample{Input: input, Answer: answer})
+	}
+	programs, err := attack.Programs(samples)
+	if err != nil {
+		return nil, err
+	}
+	observed := make([]wire.ValidationAttacker, 0, len(programs))
+	for _, program := range programs {
+		passed, err := r.passedPrefix(ctx, files, spec, program)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", program.Name, err)
+		}
+		observed = append(observed, wire.ValidationAttacker{Name: program.Name, Passed: passed, Total: len(spec.Tests)})
+	}
+	return observed, nil
+}
+
+func (r *Runner) passedPrefix(ctx context.Context, files *bundles.Files, spec wire.Spec, program attack.Program) (int, error) {
+	compiled, err := r.Box.Compile(ctx, "python3", program.Source, judge.CompileLimits)
+	if err != nil {
+		return 0, fmt.Errorf("compile: %w", err)
+	}
+	if !compiled.OK {
+		return 0, fmt.Errorf("an attacker must always compile: %s", compiled.Message)
+	}
+	defer compiled.Program.Release()
+	results, err := judge.RunTests(ctx, r.Box, files.TestData(), compiled.Program, spec, true)
+	if err != nil {
+		return 0, err
+	}
+	passed := 0
+	for _, result := range results {
+		if result.Verdict != "AC" {
+			break
+		}
+		passed++
+	}
+	return passed, nil
 }
 
 // mutate changes the reference one place at a time and sees whether any test fails. It only makes sense

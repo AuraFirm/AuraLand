@@ -21,6 +21,40 @@ import (
 // It needs g++, python3, the pinned Node under /opt/aura/node and the built opener. The bundle is the
 // corpus's golden-solved: a correct C++ reference and four wrong solutions that fail differently.
 func TestRealSandboxObservesEverySolution(t *testing.T) {
+	result := runReal(t, "golden-solved.tar.zst", [2]bool{true, false})
+	checkSolutions(t, result)
+	// Only the first test is a sample, so looking samples up gets through one test and no further. This
+	// task IS "sum the integers", so the generic sum attacker legitimately solves all of it: the harness
+	// is right to flag a task that a program ignorant of the statement can solve.
+	for _, attacker := range result.Attackers {
+		want := 0
+		switch attacker.Name {
+		case "sample_lookup":
+			want = 1
+		case "sum_of_integers":
+			want = 2
+		}
+		if attacker.Passed != want || attacker.Total != 2 {
+			t.Errorf("attacker %s: passed %d of %d, want %d of 2", attacker.Name, attacker.Passed, attacker.Total, want)
+		}
+	}
+}
+
+// When every test is a public sample, the lookup attacker passes the whole task: the weak case.
+func TestRealSandboxFlagsATaskThatOnlyChecksSamples(t *testing.T) {
+	result := runReal(t, "golden-weak-samples.tar.zst", [2]bool{true, true})
+	beaten := []string{}
+	for _, attacker := range result.Attackers {
+		if attacker.Passed == attacker.Total {
+			beaten = append(beaten, attacker.Name)
+		}
+	}
+	if len(beaten) != 2 || beaten[0] != "sample_lookup" || beaten[1] != "sum_of_integers" {
+		t.Fatalf("the sample lookup (all tests public) and the sum attacker (the task is a sum) should win, got %v", beaten)
+	}
+}
+
+func runReal(t *testing.T, corpusFile string, samples [2]bool) wire.ValidationResult {
 	binary := os.Getenv("AURA_ISOLATE_BIN")
 	if binary == "" {
 		t.Skip("AURA_ISOLATE_BIN is not set")
@@ -29,7 +63,7 @@ func TestRealSandboxObservesEverySolution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	packed, err := os.ReadFile("../../../packages/bundle/corpus/golden-solved.tar.zst")
+	packed, err := os.ReadFile("../../../packages/bundle/corpus/" + corpusFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,12 +78,16 @@ func TestRealSandboxObservesEverySolution(t *testing.T) {
 	job := wire.ValidationJob{JobID: "job_real", Task: wire.Task{Bundle: bundle, Spec: wire.Spec{
 		TimeLimitMS: 1000, MemoryLimitKiB: 262144, OutputLimitKiB: 1024,
 		Scoring: wire.Scoring{Type: "binary"}, Checker: wire.Checker{Type: "exact"},
-		Tests: []wire.TestSpec{{ID: "001"}, {ID: "002"}},
+		Tests: []wire.TestSpec{{ID: "001", IsSample: samples[0]}, {ID: "002", IsSample: samples[1]}},
 	}}}
 	result, err := (&Runner{Box: box, Open: opener}).Run(context.Background(), job)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return result
+}
+
+func checkSolutions(t *testing.T, result wire.ValidationResult) {
 	type key struct {
 		solution string
 		repeat   int

@@ -219,10 +219,19 @@ type ValidationMutant struct {
 	Killed    bool   `json:"killed"`
 }
 
+// ValidationAttacker is how far one of the platform's trivial programs got: tests passed (up to its
+// first failure) of all tests.
+type ValidationAttacker struct {
+	Name   string `json:"name"`
+	Passed int    `json:"passed"`
+	Total  int    `json:"total"`
+}
+
 type ValidationResult struct {
-	Bundle  ValidationBundle   `json:"bundle"`
-	Runs    []ValidationRun    `json:"runs"`
-	Mutants []ValidationMutant `json:"mutants"`
+	Bundle    ValidationBundle     `json:"bundle"`
+	Runs      []ValidationRun      `json:"runs"`
+	Mutants   []ValidationMutant   `json:"mutants"`
+	Attackers []ValidationAttacker `json:"attackers"`
 }
 
 type ValidationComplete struct {
