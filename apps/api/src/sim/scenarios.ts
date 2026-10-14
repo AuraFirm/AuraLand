@@ -1,3 +1,4 @@
+import { examSavesScenario } from "./exam-saves.sim.ts";
 import { jobScenario } from "./jobs.sim.ts";
 import { loginScenario } from "./login.sim.ts";
 import { ratingScenario } from "./rating.sim.ts";
@@ -17,4 +18,5 @@ export const SCENARIOS: readonly Scenario[] = [
     jobScenario(),
     scoreboardScenario(),
     ratingScenario(),
+    examSavesScenario(),
 ];

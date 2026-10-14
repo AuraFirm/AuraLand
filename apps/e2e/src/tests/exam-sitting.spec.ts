@@ -35,8 +35,25 @@ test("a rostered candidate checks, agrees, starts and sees the timer and the sta
     await expect(page.getByLabel("Problem A").locator("strong")).toHaveText("two");
     await expectAccessible(page);
 
-    await page.reload(); // a reconnect: the same sitting, the same clock
+    const answer = page.getByLabel("Your answer to problem A");
+    await answer.fill("int main() { return 0; }");
+    await expect(page.getByText("All changes saved.")).toBeVisible({ timeout: 15_000 });
+
+    await page.reload(); // a reconnect: the same sitting, the same clock, the same work
     await expect(page.getByRole("heading", { name: "Time left" })).toBeVisible();
+    await expect(page.getByLabel("Your answer to problem A")).toHaveValue(
+        "int main() { return 0; }",
+    );
+
+    // The connection drops: typing goes on, the page says it is only on this computer, and it catches up.
+    await context.setOffline(true);
+    await page.getByLabel("Your answer to problem A").fill("int main() { return 1; }");
+    await expect(page.getByText("Not saved to the server yet", { exact: false })).toBeVisible({
+        timeout: 15_000,
+    });
+    await context.setOffline(false);
+    await expect(page.getByText("All changes saved.")).toBeVisible({ timeout: 20_000 });
+    await expectAccessible(page);
 });
 
 test("a person who is not on the roster finds no exam", async ({ browser }) => {

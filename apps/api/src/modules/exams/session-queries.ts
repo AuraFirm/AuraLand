@@ -28,3 +28,70 @@ export const consent = (tx: Transaction, examId: string, version: number, nowMs:
     tx`select consent_exam(${examId}, ${version}, ${new Date(nowMs)})`;
 export const start = (tx: Transaction, examId: string, nowMs: number) =>
     tx`select * from start_exam_session(${examId}, ${new Date(nowMs)})`;
+
+export type SaveResult =
+    | { readonly kind: "saved"; readonly ackedSeq: number; readonly deadlineAt: Date }
+    | {
+          readonly kind: "refused";
+          readonly why: "unknown" | "over" | "conflict" | "too_many" | "too_large";
+          readonly lastSeq: number | null;
+      };
+
+const SAVE_REFUSALS: Readonly<
+    Record<string, "unknown" | "over" | "conflict" | "too_many" | "too_large">
+> = {
+    P0002: "unknown",
+    "55000": "over",
+    "40001": "conflict",
+    "54000": "too_many",
+    "22001": "too_large",
+};
+
+export async function saveDraft(
+    tx: Transaction,
+    input: {
+        examId: string;
+        label: string;
+        seq: number;
+        language: string;
+        content: string;
+        nowMs: number;
+    },
+): Promise<SaveResult> {
+    try {
+        const rows =
+            await tx`select acked_seq, deadline_at from save_exam_draft(${input.examId}, ${input.label},
+            ${input.seq}, ${input.language}, ${input.content}, ${new Date(input.nowMs)})`;
+        const row = z.object({ acked_seq: z.number().int(), deadline_at: z.date() }).parse(rows[0]);
+        return { kind: "saved", ackedSeq: row.acked_seq, deadlineAt: row.deadline_at };
+    } catch (error) {
+        const code =
+            typeof error === "object" && error !== null && "code" in error
+                ? String(error.code)
+                : "";
+        const why = SAVE_REFUSALS[code];
+        if (why === undefined) throw error;
+        const hint =
+            typeof error === "object" && error !== null && "hint" in error
+                ? Number(error.hint)
+                : null;
+        return { kind: "refused", why, lastSeq: Number.isFinite(hint) ? hint : null };
+    }
+}
+
+const draftSchema = z.object({
+    problem_label: z.string(),
+    seq: z.number().int(),
+    language: z.string(),
+    content: z.string(),
+});
+
+// The newest saved draft of each problem, for the caller's own session (row-level security) or, for staff, any.
+export async function latestDrafts(tx: Transaction, examId: string) {
+    const rows =
+        await tx`select distinct on (d.problem_label) d.problem_label, d.seq, d.language, d.content
+        from exam_drafts d join exam_sessions s on s.id = d.session_id
+        where s.exam_id = ${examId} and s.user_id = app_user()
+        order by d.problem_label, d.seq desc`;
+    return rows.map((row) => draftSchema.parse(row));
+}

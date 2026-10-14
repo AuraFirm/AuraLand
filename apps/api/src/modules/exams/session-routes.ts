@@ -1,4 +1,10 @@
-import { consentTextSchema, examSessionSchema } from "@aura/contracts/api/exams";
+import {
+    consentTextSchema,
+    draftSaveRequestSchema,
+    draftSaveResponseSchema,
+    draftsResponseSchema,
+    examSessionSchema,
+} from "@aura/contracts/api/exams";
 import { CONSENT_TEXT_VERSION, CONSENT_TEXTS } from "@aura/contracts/exams";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
 import { appendAudit } from "@aura/db/audit";
@@ -34,6 +40,8 @@ export function sessionRoutes(deps: SessionRouteDeps): Hono<AppEnv> {
     );
     routes.post("/exams/:id/consent", (c) => handleConsent(c, deps));
     routes.post("/exams/:id/start", (c) => handleStart(c, deps));
+    routes.put("/exams/:id/problems/:label/draft", (c) => handleSave(c, deps));
+    routes.get("/exams/:id/drafts", handleDrafts);
     return routes;
 }
 
@@ -158,4 +166,59 @@ async function handleStart(c: Context<AppEnv>, deps: SessionRouteDeps) {
         });
     }
     return respond(c, parsed.examId);
+}
+
+// Saves one snapshot. Everything is decided by save_exam_draft with this clock; the page learns from the detail:
+// "over" when the time is up, "last:N" when the server already holds a save at or above its number.
+async function handleSave(c: Context<AppEnv>, deps: SessionRouteDeps) {
+    const parsed = parse(c);
+    if ("problem" in parsed) return parsed.problem;
+    const label = c.req.param("label") ?? "";
+    const body = draftSaveRequestSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success || !/^[A-Z][A-Z0-9]{0,2}$/.test(label)) {
+        return problemResponse(c, "invalid_request", "Invalid request");
+    }
+    const result = await q.saveDraft(c.get("tx"), {
+        examId: parsed.examId,
+        label,
+        seq: body.data.seq,
+        language: body.data.language,
+        content: body.data.content,
+        nowMs: deps.clock.nowUnixMs(),
+    });
+    if (result.kind === "saved") {
+        return c.json(
+            draftSaveResponseSchema.parse({
+                acked_seq: result.ackedSeq,
+                deadline_at: result.deadlineAt.toISOString(),
+            }),
+        );
+    }
+    if (result.why === "unknown") return notFound(c);
+    if (result.why === "over") return problemResponse(c, "conflict", "The time is over", "over");
+    if (result.why === "conflict") {
+        return problemResponse(c, "conflict", "A newer save exists", `last:${result.lastSeq ?? 0}`);
+    }
+    if (result.why === "too_large")
+        return problemResponse(c, "payload_too_large", "The draft is too large");
+    return problemResponse(c, "rate_limited", "Too many saves; wait a moment");
+}
+
+async function handleDrafts(c: Context<AppEnv>) {
+    const parsed = parse(c);
+    if ("problem" in parsed) return parsed.problem;
+    const tx = c.get("tx");
+    // Only a person with a sitting in this exam has drafts to read back; anyone else gets the same 404.
+    if ((await q.getSession(tx, parsed.examId)) === null) return notFound(c);
+    const drafts = await q.latestDrafts(tx, parsed.examId);
+    return c.json(
+        draftsResponseSchema.parse({
+            drafts: drafts.map((d) => ({
+                label: d.problem_label,
+                seq: d.seq,
+                language: d.language,
+                content: d.content,
+            })),
+        }),
+    );
 }
