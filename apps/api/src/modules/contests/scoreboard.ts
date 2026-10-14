@@ -160,6 +160,8 @@ function addIcpc(cell: Cell, event: ScoreboardEvent): void {
         }
         return;
     }
+    // A rejected run at the very instant of the accept does not count against it: with no order between
+    // them, the rule that does not depend on which was judged first is that only earlier runs count.
     const accept = cell.acceptedAtMs;
     if (accept === null || event.submittedAtMs < accept)
         cell.rejectedAtMs.push(event.submittedAtMs);
