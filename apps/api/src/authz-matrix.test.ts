@@ -774,6 +774,20 @@ const MATRIX: readonly Row[] = [
         object: "exm",
         body: { score: 50, note: "" },
     },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/summary",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
+    {
+        method: "GET",
+        path: "/api/v1/exams/:id/report.csv",
+        access: "user",
+        owned: true,
+        object: "exm",
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {

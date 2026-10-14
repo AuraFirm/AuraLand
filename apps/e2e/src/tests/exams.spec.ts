@@ -144,3 +144,30 @@ test("staff ask for oral-defence questions about an answer", async ({ browser })
     await expect(owner.getByText("pending", { exact: false })).toBeVisible();
     await expectAccessible(owner);
 });
+
+test("the institution's dashboard lists an exam with its counts and the draft report link", async ({
+    browser,
+}) => {
+    const ownerEmail = freshEmail();
+    const orgId = await seedTeam("E2E dashboard university", [
+        { email: ownerEmail, role: "owner" },
+    ]);
+    const versionId = await seedReleasedVersion(orgId);
+    const title = `Dashboard exam ${Date.now()}`;
+    const owner = await pageFor(browser, ownerEmail);
+    await owner.goto(`/orgs/${orgId}`);
+    await owner.getByLabel("Exam title").fill(title);
+    await owner.getByLabel("Minutes each person has").fill("60");
+    await owner.getByLabel(/^People may start from/).fill(localInput(3));
+    await owner.getByLabel(/^and until/).fill(localInput(8));
+    await owner.getByLabel("First problem label").fill("A");
+    await owner.getByLabel(/^Released task version for it/).fill(versionId);
+    await owner.getByRole("button", { name: "Create exam" }).click();
+    await expect(owner.getByRole("heading", { name: title })).toBeVisible();
+
+    await owner.goto(`/orgs/${orgId}/exam-dashboard`);
+    await expect(owner.getByRole("heading", { name: title })).toBeVisible();
+    await expect(owner.getByText("0 joined", { exact: false })).toBeVisible();
+    await expect(owner.getByRole("link", { name: /Attainment report/ })).toBeVisible();
+    await expectAccessible(owner);
+});

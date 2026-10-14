@@ -440,3 +440,17 @@ export const oralScoreRequestSchema = z
         note: z.string().max(INTEGRITY_NOTE_CHARS_MAX).default(""),
     })
     .strict();
+
+// One exam's state of play for the institution dashboard (Stage 6, slice 11): counts only, staff only.
+export const examSummarySchema = z
+    .object({
+        joined: z.number().int(),
+        consented: z.number().int(),
+        started: z.number().int(),
+        submitted: z.number().int(),
+        expired: z.number().int(),
+        flags_open: z.number().int(),
+        appeals_open: z.number().int(),
+        oral_waiting: z.number().int(),
+    })
+    .strict();
