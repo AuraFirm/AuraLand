@@ -207,3 +207,40 @@ export const CLARIFICATION_ANSWER_CHARS_MAX = 2_000;
 export const CLARIFICATIONS_PER_USER_PER_CONTEST_MAX = 20; // a contestant who needs more is not asking
 export const CLARIFICATIONS_PER_MINUTE_PER_USER_MAX = 6;
 export const CLARIFICATION_PAGE_SIZE_MAX = 50;
+
+// ---- exams (Stage 6) ----
+
+export const EXAM_TITLE_CHARS_MAX = 120;
+// A lab exam runs from five minutes (a quiz) to eight hours (kit 05).
+export const EXAM_DURATION_S_MIN = 5 * 60;
+export const EXAM_DURATION_S_MAX = 8 * 3600;
+// How long the window in which people may start can be: a day covers any sitting, a week a make-up period.
+export const EXAM_WINDOW_S_MAX = 7 * 24 * 3600;
+export const EXAM_PROBLEMS_MAX = 12;
+export const EXAM_RUBRIC_ITEMS_MAX = 20; // per problem
+// One roster upload: a large course. The CSV is a few dozen bytes a row, so 512 KiB holds well above that.
+export const EXAM_ROSTER_MAX = 5_000;
+export const EXAM_ROSTER_CSV_BYTES_MAX = 512 * 1024;
+// Extra time for an accommodation, in minutes: up to a doubling of the longest exam.
+export const EXAM_EXTRA_MINUTES_MAX = 480;
+// A draft save is one file's text; the same bound as a submission's source (kit 05: 262144).
+export const EXAM_DRAFT_BYTES_MAX = 262_144;
+// Saves one session may send per minute: an autosave every few seconds is honest; a flood is not.
+export const EXAM_SAVES_PER_MINUTE_PER_SESSION_MAX = 60;
+// Saves kept per session and problem; older ones are thinned by a later job, never refused.
+export const EXAM_SAVES_PER_PROBLEM_MAX = 20_000;
+
+// Telemetry (only after consent; kit 08 section 8): batches, not single events.
+export const TELEMETRY_BATCH_EVENTS_MAX = 200;
+export const TELEMETRY_EVENT_DATA_BYTES_MAX = 1024; // kit 05 CHECK on the column
+export const TELEMETRY_EVENTS_PER_SECOND_PER_SESSION_MAX = 40; // kit 05: 20 events/s typical, twice that is a burst
+export const TELEMETRY_RETENTION_DAYS_DEFAULT = 180; // kit 05 section 9; an institution may choose fewer
+export const TELEMETRY_RETENTION_DAYS_MAX = 365;
+
+// Integrity and oral defence.
+export const INTEGRITY_NOTE_CHARS_MAX = 2_000;
+export const APPEAL_NOTE_CHARS_MAX = 2_000;
+export const ORAL_QUESTIONS_MIN = 3;
+export const ORAL_QUESTIONS_MAX = 5;
+export const ORAL_QUESTION_CHARS_MAX = 400;
+export const ORAL_ANSWER_CHARS_MAX = 2_000;
