@@ -37,6 +37,7 @@ func TestEscapeSuite(t *testing.T) {
 		"output_flood":  {"OLE"},
 		"infinite_loop": {"TLE"},
 		"stack_bomb":    {"RTE", "MLE"},
+		"heap_bomb":     {"RTE", "MLE"},
 	}
 	// Programs that exit 3 if they got somewhere they must not: any other end is containment.
 	mustNotSucceed := []string{
@@ -54,10 +55,20 @@ func TestEscapeSuite(t *testing.T) {
 var escapeSuites = []escapeSuite{
 	{language: "cpp", directory: "escape", extension: ".cpp"},
 	{language: "c", directory: "escape-c", extension: ".c"},
+	// Java's runtime stops some attacks before the sandbox does, and the verdict says which: the JVM bounds the
+	// heap and direct memory itself (OutOfMemoryError, a runtime error, before the cgroup limit is reached), and
+	// it ignores SIGXFSZ, so a program that floods its output sees failed writes and keeps spinning until the
+	// time limit instead of being killed at the size limit. Each is stopped; none escapes.
+	{language: "java", directory: "escape-java", extension: ".java", alsoStoppedBy: map[string][]string{
+		"memory_bomb":  {"RTE"},
+		"output_flood": {"TLE"},
+	}},
 }
 
 type escapeSuite struct {
 	language, directory, extension string
+	// Extra verdicts that count as "stopped" for an attack, for languages whose runtime stops it first.
+	alsoStoppedBy map[string][]string
 }
 
 func runEscapeSuite(t *testing.T, box *Box, suite escapeSuite, limits sandbox.Limits, mustBeStopped map[string][]string, mustNotSucceed []string) {
@@ -87,6 +98,7 @@ func runEscapeSuite(t *testing.T, box *Box, suite escapeSuite, limits sandbox.Li
 		t.Logf("%-16s verdict=%s exit=%d signaled=%v cpu=%dms mem=%dKiB", name, run.Verdict, run.ExitCode, run.Signaled, run.CPUMS, run.MemoryKiB)
 		if allowed, ok := mustBeStopped[name]; ok {
 			covered++
+			allowed = append(append([]string{}, allowed...), suite.alsoStoppedBy[name]...)
 			if !contains(allowed, run.Verdict) {
 				t.Errorf("%s: verdict %s, want one of %v", name, run.Verdict, allowed)
 			}

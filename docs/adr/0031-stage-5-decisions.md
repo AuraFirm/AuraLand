@@ -138,3 +138,14 @@ open; a test pins that. The daily pick is `hash(UTC day) mod bank size` over the
 time: the same for everyone on a day, and it can change within a day if the bank does. A practice
 submission to a problem of a contest that has not ended is refused (409) on both practice routes; the
 organization route used to answer that with a 500, which this slice also fixes.
+
+## Amendment (slice 13): C and Java
+
+**C** (`gcc -std=gnu17 -static`) and **Java 21** (distribution OpenJDK) are judge languages. Each has a profile
+(data, versioned `c-1`, `java-1`) and its own set of the escape attacks, written the way that language writes
+them; the suite and its inventory run per language and refuse a language that lacks an attack C++ has. Java's
+profile adds two allowances so the task's limits stay the program's own: 1 s of CPU and wall time for the JVM
+to start, and 64 MiB of the memory limit reserved for the JVM (the heap is the limit less 64 MiB; the cgroup
+limit is never raised). It mounts only `/etc/java-21-openjdk`, read-only. `-proc:none` keeps annotation
+processors (contestant code that would run inside the compiler) off. What was observed, on the development VM
+only, is in `docs/runbooks/judge.md`; none of it is a production-node or externally reviewed claim (F32).

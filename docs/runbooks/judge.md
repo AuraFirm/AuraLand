@@ -47,10 +47,15 @@ select (payload->>'submission_id') as submission, last_error, attempt from jobs 
 ## 6. Before a node may take real work
 1. Run the escape suite on the node: `AURA_ISOLATE_BIN=/usr/local/bin/isolate go test -tags isolate ./internal/isolate -run TestEscape` (from `judge/`).
 2. Every program must be contained, for every language (the suite runs each language's attacks as a subtest:
-   `cpp` and `c` today); any "ESCAPED" line means the node does not go live. Then run
+   `cpp`, `c` and `java` today); any "ESCAPED" line means the node does not go live. Then run
    `go test -tags isolate ./internal/isolate -run TestLanguages` to see each language build and run a real
    program. A language a node cannot pass is a language it must not be offered work in.
-   Observed on the Colima VM (2026-10-14): both suites pass for `cpp` and `c`. One cold first run showed the C++
+   Observed on the Colima VM (2026-10-14): both suites pass for `cpp`, `c` and `java` (JDK 21.0.12).
+   Java is stopped by its own runtime before the sandbox in two cases and the suite says so: the JVM bounds
+   the heap and direct memory (OutOfMemoryError, a runtime error, before the cgroup limit), and it ignores
+   SIGXFSZ, so an output flood is ended by the time limit, not the size limit. Java runs get 1 s of extra CPU
+   and wall time for JVM start-up and 64 MiB of the memory limit is kept for the JVM itself (the heap is
+   the limit less 64 MiB); a contestant's class must be `public class Main`. One cold first run showed the C++
    `memory_bomb` ending by TLE (contained, but the suite expects MLE); three further runs ended MLE. It is
    timing, not an escape, and it is recorded here rather than loosened in the test.
 3. The sandbox configuration needs the external review (cutlist F32) before public use.

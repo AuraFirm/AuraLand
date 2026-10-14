@@ -6,7 +6,7 @@ Lima, Ubuntu 24.04.4, kernel 6.8, aarch64, systemd, cgroup v2, no KVM needed for
 production node. Treat anything not listed under "Verified" as unverified, and send corrections back.
 
 ## Verified on 2026-10-12 (development VM)
-- Packages: `build-essential git libcap-dev libsystemd-dev pkg-config g++ python3` (plus `asciidoc-base`,
+- Packages: `build-essential git libcap-dev libsystemd-dev pkg-config g++ python3 openjdk-21-jdk-headless` (plus `asciidoc-base`,
   not shown to be needed). Go 1.26 came from the go.dev tarball (`/usr/local/go`), as the Ubuntu
   package is older.
 - isolate v2.1.1: `make isolate isolate-cg-keeper && sudo make install` worked; `isolate.service` is
@@ -35,9 +35,11 @@ no other workloads, deny-all inbound firewall (outbound only to the control plan
 ## 1. Packages
 ```
 sudo apt-get update
-sudo apt-get install -y build-essential git libcap-dev libsystemd-dev pkg-config g++ python3 golang-go
+sudo apt-get install -y build-essential git libcap-dev libsystemd-dev pkg-config g++ python3 openjdk-21-jdk-headless golang-go
 ```
-(The Go toolchain must be at least the version in `judge/go.mod`; install from go.dev if apt is older.)
+(`openjdk-21-jdk-headless` is only for Java submissions; the Java profile expects the distribution's JDK under
+`/usr/lib/jvm/java-21-openjdk-<arch>` and its configuration in `/etc/java-21-openjdk`. A node without it fails
+`TestLanguages` and must not be offered Java work. The Go toolchain must be at least the version in `judge/go.mod`; install from go.dev if apt is older.)
 
 ## 2. isolate (pinned release)
 ```

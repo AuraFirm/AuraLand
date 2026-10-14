@@ -2,6 +2,9 @@ package isolate
 
 import (
 	"fmt"
+	"runtime"
+	"strconv"
+	"strings"
 
 	"github.com/AuraFirm/AuraLand/judge/internal/sandbox"
 )
@@ -22,11 +25,50 @@ type Profile struct {
 	// Directories are read-only host paths made visible at the same path in the box.
 	Directories []string
 	Version     string
+	// A runtime that costs something before the program starts (a JVM) gets that cost back, so the task's
+	// limits stay the program's own: TimeAllowanceMS is added to the CPU and wall limits of a run, and
+	// MemoryReserveKiB of the memory limit is kept for the runtime itself: the heap placeholder in Run is
+	// what is left. Zero for languages that start for free.
+	TimeAllowanceMS  int
+	MemoryReserveKiB int
+}
+
+// heapMiBMin keeps a tiny memory limit from producing a heap the runtime refuses to start with.
+const heapMiBMin = 16
+
+// forRun returns the limits a run is held to and the command with its placeholders filled: {heap_mib} is
+// the memory limit less the runtime's reserve. The memory limit itself is never raised: the cgroup limit
+// stays what the task says, so a program that outgrows its heap is stopped by the same limit as any other.
+func (p Profile) forRun(limits sandbox.Limits) (sandbox.Limits, []string) {
+	adjusted := limits
+	adjusted.CPUMS += p.TimeAllowanceMS
+	adjusted.WallMS += p.TimeAllowanceMS
+	heap := (limits.MemoryKiB - p.MemoryReserveKiB) / 1024
+	if heap < heapMiBMin {
+		heap = heapMiBMin
+	}
+	command := make([]string, len(p.Run))
+	for i, part := range p.Run {
+		command[i] = strings.ReplaceAll(part, "{heap_mib}", strconv.Itoa(heap))
+	}
+	return adjusted, command
 }
 
 // NodeRoot is where the node operator installs the pinned Node used to open bundles. Only that tree is
 // visible in the box, read-only.
 const NodeRoot = "/opt/aura/node"
+
+// javaHome is the JDK the node operator installs (OpenJDK 21 from the distribution). It lives under /usr, which
+// the box already shows read-only, so no extra mount is needed.
+var javaHome = "/usr/lib/jvm/java-21-openjdk-" + javaArchitecture()
+
+// The distribution names the JDK directory by its own architecture names, not Go's.
+func javaArchitecture() string {
+	if runtime.GOARCH == "arm64" {
+		return "arm64"
+	}
+	return "amd64"
+}
 
 var profiles = map[string]Profile{
 	// The bundle opener (Stage 4B): the TypeScript validator, built into one file, run by a pinned Node.
@@ -71,6 +113,34 @@ var profiles = map[string]Profile{
 		RunProcesses:     1,
 		Environment:      []string{"PATH=/usr/bin:/bin", "LANG=C"},
 		Version:          "c-1",
+	},
+	// Java 21 (Stage 5). A contestant writes `public class Main`; the compile step builds a jar whose entry
+	// point is Main, and the box runs it with a bounded heap, one serial collector and no attach/perf files
+	// (those want a writable /tmp). The JVM costs about a second of start-up, which the task is not charged
+	// for (TimeAllowanceMS), and about 64 MiB of non-heap memory, which comes out of the task's limit
+	// (MemoryReserveKiB) so the cgroup limit stays exactly what the task says. -proc:none switches off
+	// annotation processors: they would run contestant code inside the compiler.
+	"java": {
+		Language:   "java",
+		SourceName: "Main.java",
+		Compile: []string{
+			"/bin/sh", "-c",
+			javaHome + "/bin/javac -J-XX:+UseSerialGC -J-Xmx384m -J-Xss8m -J-XX:TieredStopAtLevel=1 -encoding UTF-8 -proc:none -d . Main.java && " +
+				javaHome + "/bin/jar --create --file main --main-class Main *.class",
+		},
+		Run: []string{
+			javaHome + "/bin/java", "-Xmx{heap_mib}m", "-Xms16m", "-Xss16m", "-XX:+UseSerialGC", "-XX:CICompilerCount=2",
+			"-XX:-UsePerfData", "-XX:+DisableAttachMechanism", "-Xshare:auto", "-Dfile.encoding=UTF-8", "-jar", "main",
+		},
+		CompileProcesses: 128,
+		RunProcesses:     64,
+		Environment:      []string{"PATH=/usr/bin:/bin", "LANG=C.UTF-8"},
+		// The JDK's own configuration (security and logging settings) lives in /etc, which the box does not
+		// show; only that one directory is added, read-only, and nothing else of /etc.
+		Directories:      []string{"/etc/java-21-openjdk"},
+		Version:          "java-1",
+		TimeAllowanceMS:  1000,
+		MemoryReserveKiB: 64 * 1024,
 	},
 	"python3": {
 		Language:     "python3",
