@@ -58,3 +58,20 @@ Migrations 0015 to 0019 are additive (new tables and functions, a widened role s
 Switching judging off without a deploy: revoke or drain every node; submissions then queue (and the
 queue sheds at 1,000 ready jobs with a 503). The worker is a separate process: stopping it only pauses
 housekeeping.
+
+## 7. Task validation (Stage 4B)
+- **Enrolling a node with an attestation.** `POST /api/v1/admin/judge-nodes/enrollments` takes an optional
+  body `{"attestation": "development" | "production"}`; no body means `development`. The node keeps it
+  for life. Use `production` only for a node whose sandbox has been independently reviewed (F32).
+- **Node prerequisites for validation.** Pinned Node under `/opt/aura/node`, the built opener
+  (`pnpm build:opener`, installed next to the agent and passed as `--opener-file`), `g++` and `python3`.
+  Run `go test -tags isolate ./internal/bundles ./internal/validate` on the node after the escape suite.
+- **Asking for validation.** A reviewer, admin or owner presses "Request validation" on a version in
+  review (`POST /api/v1/task-versions/:id/validate`). The version becomes `validating` and a
+  `task.validate` job is queued on the `validate` queue (at most 100 ready).
+- **Looking at it.** `select kind, state, attempt, last_error from jobs where queue = 'validate' order by created_at desc limit 20;`
+  and `select task_version_id, attestation, passed, score, created_at from validation_reports order by created_at desc limit 20;`
+- **A version stuck in `validating`.** If its job died (no node, attempts used), housekeeping returns it
+  to `uploaded` within a pass (`validations_aborted` in the cleanup log). No report is written then.
+- **A report that did not pass** lists the failing checks; the setter fixes the bundle and uploads a new
+  version. Reports are never edited or deleted.

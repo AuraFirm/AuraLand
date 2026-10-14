@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { withRequestContext } from "@aura/db/context";
 import { createMigratedTestDatabase, inRole, type TestDatabase } from "@aura/db/test-helpers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { SPEC } from "../../http-task-support.ts";
 import { createFakeClock } from "../../sim/world.ts";
 import { buildDelivery } from "./handlers.ts";
@@ -87,6 +88,36 @@ describe("buildDelivery", () => {
         const audit = await db.database
             .sql`select seq from audit_log where action = 'delivery.built' and actor_kind = 'worker'`;
         expect(audit.length).toBe(1);
+    });
+});
+
+describe("buildDelivery, validation statement", () => {
+    it("states validation as 'not performed' until a passing report exists, then names its evidence", async () => {
+        const manifestOf = async (id: string) => {
+            await buildDelivery({ delivery_id: id }, context());
+            const [row] = await db.database.sql<{ manifest: string }[]>`
+                select manifest from deliveries where id = ${id}`;
+            return z.string().parse(JSON.parse(row?.manifest ?? "").items[0].validation);
+        };
+        expect(await manifestOf(await placedDelivery())).toBe(
+            "waived by a reviewer; not performed",
+        );
+        const { sql } = db.database;
+        const [node] = await sql<
+            { id: string }[]
+        >`insert into judge_nodes (name, public_key, state, created_at)
+            values ('manifest-node', ${createHash("sha256").update("k").digest()}, 'active', now()) returning id`;
+        const [org] = await sql<
+            { org_id: string }[]
+        >`select org_id from task_versions where id = ${version}`;
+        const checks = sql.json([{ name: "reference_passes", ok: true, detail: "" }]);
+        await sql`insert into validation_reports (org_id, task_version_id, node_id, attestation, checks, observations, passed, score, score_version, created_at)
+            values (${org?.org_id ?? ""}, ${version}, ${node?.id ?? ""}, 'development', ${checks}, '{}', true, 88.5, 1, now())`;
+        const said = await manifestOf(await placedDelivery());
+        expect(said).toMatch(
+            /^validated on a development sandbox only, score 88.5\/100 \(formula v1\), report vrp_/,
+        );
+        expect(said).toContain("not been independently reviewed");
     });
 
     it("does nothing a second time and nothing for a revoked delivery", async () => {

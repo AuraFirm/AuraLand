@@ -40,6 +40,7 @@ import { commentRoutes } from "./modules/tasks/comment-routes.ts";
 import { reviewRoutes } from "./modules/tasks/review-routes.ts";
 import { taskRoutes } from "./modules/tasks/task-routes.ts";
 import { versionRoutes } from "./modules/tasks/version-routes.ts";
+import { validationRoutes } from "./modules/validation/routes.ts";
 import { assertPipelineOrder, type PipelineName } from "./pipeline.ts";
 import type { Clock } from "./platform/clock.ts";
 import type { Logger } from "./platform/log.ts";
@@ -229,6 +230,7 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", versionRoutes({ clock: deps.clock, rng: deps.rng, storage: deps.storage }));
     app.route("/v1", reviewRoutes({ clock: deps.clock }));
     app.route("/v1", assignmentRoutes({ clock: deps.clock }));
+    app.route("/v1", validationRoutes());
     app.route(
         "/v1",
         commentRoutes({

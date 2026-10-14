@@ -29,6 +29,7 @@ function input(overrides: Partial<BuildInput> = {}): BuildInput {
                 bundle_sha256: "a".repeat(64),
                 bundle_bytes: 1234,
                 waived: false,
+                validation: null,
             },
         ],
         ...overrides,
@@ -66,6 +67,28 @@ describe("buildManifest", () => {
         );
         expect(item.validation).toBe("not performed");
         expect(item.bundle).toEqual({ sha256: "a".repeat(64), bytes: 1234 });
+    });
+
+    it("says only what the validation evidence supports, and plain validated only for production", () => {
+        const first = input().items[0];
+        if (first === undefined) throw new Error("fixture has one item");
+        const report = { report_id: U(20), score: 91.5, score_version: 1 };
+        const say = (validation: BuildInput["items"][number]["validation"], waived = false) =>
+            JSON.parse(
+                buildManifest(input({ items: [{ ...first, waived, validation }] }), sha).text,
+            ).items[0].validation;
+        expect(say(null, true)).toBe("waived by a reviewer; not performed");
+        const production = say({ ...report, attestation: "production" });
+        expect(production).toMatch(
+            /^validated \(production sandbox\), score 91.5\/100 \(formula v1\), report vrp_/,
+        );
+        const development = say({ ...report, attestation: "development" });
+        expect(development).toContain("development sandbox only");
+        expect(development).toContain("not been independently reviewed");
+        expect(development.startsWith("validated (")).toBe(false);
+        expect(
+            say({ ...report, attestation: "development", score: null, score_version: null }),
+        ).not.toContain("score");
     });
 
     it("refuses a missing version and an empty delivery", () => {

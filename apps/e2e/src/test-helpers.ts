@@ -296,3 +296,90 @@ export async function seedDelivery(buyerEmail: string, built = true): Promise<st
         await database.close(5);
     }
 }
+
+// A version waiting in review, made by the setter and assigned to the reviewer, planted through the
+// same tables a real flow would fill (uploads and statements are tested elsewhere). Returns the
+// version's public id. Moves follow the legal order, so no guard has to be switched off.
+export async function seedVersionInReview(
+    setterEmail: string,
+    reviewerEmail: string,
+): Promise<string> {
+    const url = process.env["AURA_E2E_DATABASE_URL"];
+    if (url === undefined || url === "") throw new Error("AURA_E2E_DATABASE_URL must be set");
+    const database = createDatabase(url, 1);
+    try {
+        const { sql } = database;
+        const slug = randomBytes(4).toString("hex");
+        const [org] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('company', ${`val-${slug}`}, 'Validation team') returning id`;
+        const seats: Record<string, string> = {};
+        for (const [email, role] of [
+            [setterEmail, "setter"],
+            [reviewerEmail, "reviewer"],
+        ] as const) {
+            const [user] = await sql<{ id: string }[]>`
+                insert into users (email, email_verified_at) values (${email}, now())
+                on conflict (email) do update set email = excluded.email returning id`;
+            seats[role] = user?.id ?? "";
+            await sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${user?.id ?? ""}, ${role})`;
+        }
+        const [owner] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${`owner-${slug}@example.com`}, now()) returning id`;
+        await sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${owner?.id ?? ""}, 'owner')`;
+        const [task] = await sql<{ id: string }[]>`
+            insert into tasks (org_id, slug, kind, visibility, title, created_by)
+            values (${org?.id ?? ""}, ${`sum-${slug}`}, 'algorithmic', 'private', 'Sum of two numbers', ${seats["setter"] ?? ""}) returning id`;
+        await sql`insert into task_assignments (task_id, org_id, user_id, assigned_by, created_at)
+            values (${task?.id ?? ""}, ${org?.id ?? ""}, ${seats["reviewer"] ?? ""}, ${owner?.id ?? ""}, now())`;
+        const spec = {
+            spec_version: 1,
+            kind: "algorithmic",
+            title: "Sum of two numbers",
+            time_limit_ms: 1000,
+            memory_limit_kib: 262144,
+            output_limit_kib: 1024,
+            languages: ["cpp"],
+            scoring: { type: "binary", subtasks: [] },
+            tests: [{ id: "001", group: "all", points: 100, is_sample: true }],
+            checker: { type: "exact" },
+            license: { owner: "E2E team", terms: "internal use" },
+            provenance: { author: "E2E setter", created: "2026-10-10", generated_with_ai: false },
+        };
+        const [version] = await sql<{ id: string }[]>`
+            insert into task_versions (org_id, task_id, seq, created_by)
+            values (${org?.id ?? ""}, ${task?.id ?? ""}, 1, ${seats["setter"] ?? ""}) returning id`;
+        const id = version?.id ?? "";
+        await sql`update task_versions set state = 'uploaded', bundle_bytes = 12,
+            bundle_sha256 = ${createHash("sha256").update(slug).digest()} where id = ${id}`;
+        await sql`update task_versions set spec = ${sql.json(spec)}, statement = 'Add the numbers.' where id = ${id}`;
+        await sql`update task_versions set state = 'in_review' where id = ${id}`;
+        return `tsv_${id}`;
+    } finally {
+        await database.close(5);
+    }
+}
+
+// Plays a development judge node that finished validating a version: stores a passing report through
+// the same function the control plane uses. The end-to-end environment has no node, so this stands in
+// for one and exercises the report screens, not validation. Returns once the version is validated.
+export async function settleValidationAsDevelopmentNode(versionId: string): Promise<void> {
+    const url = process.env["AURA_E2E_DATABASE_URL"];
+    if (url === undefined || url === "") throw new Error("AURA_E2E_DATABASE_URL must be set");
+    const database = createDatabase(url, 1);
+    try {
+        const { sql } = database;
+        const [node] = await sql<{ id: string }[]>`
+            insert into judge_nodes (name, public_key, state, created_at)
+            values (${`e2e-${randomBytes(4).toString("hex")}`}, ${randomBytes(32)}, 'active', now()) returning id`;
+        const checks = sql.json([
+            { name: "bundle_opens", ok: true, detail: "" },
+            { name: "reference_passes", ok: true, detail: "" },
+            { name: "score_at_least_70", ok: true, detail: "score 93.00" },
+        ]);
+        const rows = await sql<{ report: string | null }[]>`
+            select settle_validation(${versionId.replace("tsv_", "")}, ${node?.id ?? ""}, ${checks}, '{}'::jsonb, 93, 1, now()) as report`;
+        if (rows[0]?.report === null) throw new Error("the version was not being validated");
+    } finally {
+        await database.close(5);
+    }
+}

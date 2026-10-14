@@ -5,7 +5,9 @@ import {
     freshEmail,
     loginAs,
     seedTeam,
+    seedVersionInReview,
     settleLatestSubmission,
+    settleValidationAsDevelopmentNode,
     watchForCspProblems,
 } from "../test-helpers.ts";
 
@@ -212,4 +214,30 @@ test("the task pages are accessible and a plain member sees no write controls", 
     await expect(member.getByRole("heading", { name: "Tasks" })).toBeVisible();
     await expect(member.getByRole("button", { name: "Create task" })).toHaveCount(0);
     await expectAccessible(member);
+});
+
+test("a reviewer asks for validation, sees the report with its sandbox caveat, and releases without a waiver", async ({
+    browser,
+}) => {
+    const setterEmail = freshEmail();
+    const reviewerEmail = freshEmail();
+    const versionId = await seedVersionInReview(setterEmail, reviewerEmail);
+    const reviewer = await pageFor(browser, reviewerEmail, true);
+    await reviewer.goto(`/versions/${versionId}`);
+    await reviewer.getByRole("button", { name: "Approve" }).click();
+    await expect(reviewer.getByText("Approved.")).toBeVisible();
+    await reviewer.getByRole("button", { name: "Request validation" }).click();
+    await expect(reviewer.getByText("Validation requested.")).toBeVisible();
+    await expect(reviewer.getByText(/Waiting for a judge node/)).toBeVisible();
+    await expectAccessible(reviewer);
+
+    // No node runs in this environment; one is played, and the page then tells the truth about it.
+    await settleValidationAsDevelopmentNode(versionId);
+    await reviewer.reload();
+    await expect(reviewer.getByText(/Validated on a development sandbox only/)).toBeVisible();
+    await expect(reviewer.getByText(/Ungameability score 93\.00 out of 100/)).toBeVisible();
+    await expect(reviewer.getByText("Passed: reference_passes")).toBeVisible();
+    await expectAccessible(reviewer);
+    await reviewer.getByRole("button", { name: "Release this validated version" }).click();
+    await expect(reviewer.getByText("Released.")).toBeVisible();
 });

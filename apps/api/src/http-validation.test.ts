@@ -2,6 +2,7 @@
 // an active node leases the job, downloads the bundle and reports raw observations; the control plane
 // derives the checks, stores an immutable report and moves the version; reports that cannot be true
 // are refused and the job tried again; a dead job returns its version to its setter.
+import { validationReportResponseSchema } from "@aura/contracts/api/validation";
 import { decodeId, encodeId } from "@aura/contracts/ids";
 import {
     enrollmentCreatedSchema,
@@ -209,6 +210,27 @@ describe("the node side, reports", () => {
         >`select passed, checks from validation_reports where task_version_id = ${decodeId("tsv", version.id)}`;
         expect(row?.passed).toBe(false);
         expect(JSON.stringify(row?.checks)).toContain("passed every test");
+    });
+});
+
+describe("reading the report", () => {
+    it("shows staff the latest report with its evidence, and others nothing", async () => {
+        const node = await activeNode("production");
+        const version = await requested();
+        const before = await world.call(CAROL, "GET", `/task-versions/${version.id}/validation`);
+        expect(validationReportResponseSchema.parse(await before.json()).report).toBeNull();
+        const job = await leaseValidation(node);
+        await report(node, job?.job_id ?? "", job?.lease_epoch ?? 0, SOUND);
+        const seen = validationReportResponseSchema.parse(
+            await (
+                await world.call(CAROL, "GET", `/task-versions/${version.id}/validation`)
+            ).json(),
+        );
+        expect(seen.report).toMatchObject({ attestation: "production", passed: true, score: 90 });
+        expect(seen.report?.checks.at(-1)?.name).toBe("score_at_least_70");
+        expect(JSON.stringify(seen)).not.toMatch(/observations|node_id|cpu_ms/);
+        const member = await world.call(DAVE, "GET", `/task-versions/${version.id}/validation`);
+        expect(member.status).toBe(404); // a member cannot see a version in review at all
     });
 });
 
