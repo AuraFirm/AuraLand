@@ -520,6 +520,13 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "cst",
     },
+    { method: "GET", path: "/api/v1/time", access: "public" },
+    {
+        method: "GET",
+        path: "/api/v1/contests/:id/problems/:label",
+        access: "public",
+        object: "cst",
+    },
     { method: "GET", path: "/api/v1/users/:handle", access: "public" },
     { method: "GET", path: "/api/v1/users/:handle/ratings", access: "public" },
     { method: "GET", path: "/api/v1/contests/:id/scoreboard", access: "public", object: "cst" },
