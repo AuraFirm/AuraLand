@@ -14,6 +14,7 @@ import type { AppEnv } from "./app-env.ts";
 import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
+import { clarificationRoutes } from "./modules/contests/clarification-routes.ts";
 import { contestRoutes } from "./modules/contests/routes.ts";
 import { createScoreboardListener } from "./modules/contests/scoreboard-listener.ts";
 import {
@@ -290,6 +291,14 @@ function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route(
         "/v1",
         contestSubmissionRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            key: loginTokenKey(deps.config),
+        }),
+    );
+    app.route(
+        "/v1",
+        clarificationRoutes({
             sql: deps.database.sql,
             clock: deps.clock,
             key: loginTokenKey(deps.config),

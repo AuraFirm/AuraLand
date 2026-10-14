@@ -46,6 +46,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `contest_problems` | `modules/contests` | The released versions a contest uses, labelled; fixed once the contest is published |
 | `registrations` | `modules/contests` | Who registered for a contest; written only by `register_for_contest` |
 | `contest_scoreboards` | `modules/contests` | The rendered board of a contest, one row per view (public, final); written only by the worker through `store_contest_scoreboard` |
+| `contest_clarifications` | `modules/contests` | Questions to a contest's organizers and their answers; written only by `ask_clarification` and `answer_clarification` |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
