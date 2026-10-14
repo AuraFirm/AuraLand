@@ -10,7 +10,9 @@ import {
     jobFailRequestSchema,
     leaseResponseSchema,
     nodeHeartbeatRequestSchema,
+    validationLeaseResponseSchema,
 } from "@aura/contracts/judge-protocol";
+import { validationCompleteRequestSchema } from "@aura/contracts/validation";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -21,6 +23,8 @@ const cases: Array<[string, z.ZodType]> = [
     ["lease-response.json", leaseResponseSchema],
     ["empty-lease-response.json", leaseResponseSchema],
     ["complete-request.json", jobCompleteRequestSchema],
+    ["validation-lease-response.json", validationLeaseResponseSchema],
+    ["validation-complete-request.json", validationCompleteRequestSchema],
     ["fail-request.json", jobFailRequestSchema],
     ["enroll-request.json", enrollRequestSchema],
     ["heartbeat-request.json", nodeHeartbeatRequestSchema],

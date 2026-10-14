@@ -7,6 +7,10 @@
         "expect": "ok",
         "compressed": true
     },
+    "golden-solved.tar.zst": {
+        "expect": "ok",
+        "compressed": true
+    },
     "empty-input.bin": {
         "expect": "empty",
         "compressed": false

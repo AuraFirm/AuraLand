@@ -1,0 +1,46 @@
+{
+    "lease_epoch": 1,
+    "result": {
+        "bundle": {
+            "opens": true
+        },
+        "runs": [
+            {
+                "solution": "reference.cpp",
+                "repeat": 1,
+                "compile_ok": true,
+                "tests": [
+                    {
+                        "test_id": "001",
+                        "verdict": "AC",
+                        "cpu_ms": 4
+                    }
+                ]
+            },
+            {
+                "solution": "reference.cpp",
+                "repeat": 2,
+                "compile_ok": true,
+                "tests": [
+                    {
+                        "test_id": "001",
+                        "verdict": "AC",
+                        "cpu_ms": 5
+                    }
+                ]
+            },
+            {
+                "solution": "wrong_off_by_one.py",
+                "repeat": 1,
+                "compile_ok": true,
+                "tests": [
+                    {
+                        "test_id": "001",
+                        "verdict": "WA",
+                        "cpu_ms": 9
+                    }
+                ]
+            }
+        ]
+    }
+}

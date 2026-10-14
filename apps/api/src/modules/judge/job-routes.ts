@@ -27,6 +27,7 @@ import {
     leaseJob,
 } from "../jobs/service.ts";
 import { summarize } from "../submissions/service.ts";
+import { readValidationWork } from "../validation/service.ts";
 import {
     backToQueue,
     lockSubmissionWork,
@@ -37,6 +38,12 @@ import {
 import { nodeAuth } from "./node-auth.ts";
 import { findNode } from "./node-queries.ts";
 import type { JudgeRouteDeps } from "./routes.ts";
+import {
+    handleValidationComplete,
+    handleValidationLease,
+    VALIDATE_KIND,
+    payloadSchema as validatePayloadSchema,
+} from "./validate-routes.ts";
 
 const WORKER = { role: "aura_worker", actorKind: "worker", userId: null, orgIds: [] } as const;
 const payloadSchema = z.object({ submission_id: z.string() });
@@ -49,6 +56,7 @@ export function jobRoutes(deps: JudgeRouteDeps): Hono<AppEnv> {
     routes.post("/lease", (c) => handleLease(c, deps));
     routes.post("/jobs/:id/heartbeat", (c) => handleHeartbeat(c, deps));
     routes.post("/jobs/:id/complete", (c) => handleComplete(c, deps));
+    routes.post("/jobs/:id/validation", (c) => handleValidationComplete(c, deps));
     routes.post("/jobs/:id/fail", (c) => handleFail(c, deps));
     routes.get("/bundles/:sha256", (c) => handleBundle(c, deps));
     return routes;
@@ -77,6 +85,7 @@ async function handleLease(c: Context<AppEnv>, deps: JudgeRouteDeps) {
     if (node === null || node.state !== "active") {
         return problemResponse(c, "conflict", "This node is not active");
     }
+    if (body.data.queue === "validate") return handleValidationLease(c, deps, body.data.wait_ms);
     // Waiting is a series of short looks, never an open transaction.
     const looks = Math.floor(body.data.wait_ms / LEASE_POLL_MS) + 1;
     for (let look = 0; look < looks; look++) {
@@ -254,7 +263,7 @@ async function settleReport(
     body: CompleteBody,
 ) {
     const owned = await ownedJob(tx, deps, jobId, nodeId, body.lease_epoch);
-    if (owned === null) return "stale" as const;
+    if (owned === null || owned.job.kind === VALIDATE_KIND) return "stale" as const;
     const work = await lockSubmissionWork(tx, payloadSchema.parse(owned.job.payload).submission_id);
     if (work === null || work.spec === null) return "stale" as const;
     const results = body.result.tests.map((t) => ({ testId: t.test_id, verdict: t.verdict }));
@@ -312,6 +321,8 @@ async function handleFail(c: Context<AppEnv>, deps: JudgeRouteDeps) {
             error: body.data.error,
             retryable: body.data.retryable,
         });
+        // A validation job needs nothing else: if it dies, housekeeping returns its version.
+        if (owned.job.kind === VALIDATE_KIND) return result;
         const payload = payloadSchema.parse(owned.job.payload);
         const nowMs = deps.clock.nowUnixMs();
         if (result === "retried") await backToQueue(tx, payload.submission_id, nowMs);
@@ -322,6 +333,23 @@ async function handleFail(c: Context<AppEnv>, deps: JudgeRouteDeps) {
 }
 
 // ---- bundle download -------------------------------------------------------------------------
+
+// The bundle a leased job is about, whichever kind of job it is: a submission's task version or the
+// version under validation. Null when the job's subject is gone or has no bundle.
+async function bundleOf(tx: Tx, job: { kind: string; payload: unknown }) {
+    if (job.kind === VALIDATE_KIND) {
+        const payload = validatePayloadSchema.safeParse(job.payload);
+        const work = payload.success
+            ? await readValidationWork(tx, payload.data.task_version_id)
+            : null;
+        if (work === null || work.bundle_sha256 === null) return null;
+        return { orgId: work.org_id, sha256: Buffer.from(work.bundle_sha256).toString("hex") };
+    }
+    const payload = payloadSchema.safeParse(job.payload);
+    const work = payload.success ? await lockSubmissionWork(tx, payload.data.submission_id) : null;
+    if (work === null || work.bundle_sha256 === null) return null;
+    return { orgId: work.org_id, sha256: Buffer.from(work.bundle_sha256).toString("hex") };
+}
 
 // A node may download only the bundle of a task it holds a live lease for, through a short-lived URL.
 async function handleBundle(c: Context<AppEnv>, deps: JudgeRouteDeps) {
@@ -336,25 +364,19 @@ async function handleBundle(c: Context<AppEnv>, deps: JudgeRouteDeps) {
         const queue = jobDepsFor(tx, deps.clock, deps.rng);
         const job = await getJob(queue, decodeId("job", jobParsed.data));
         if (job === null || job.state !== "leased" || job.leaseOwner !== nodeId) return null;
-        const payload = payloadSchema.safeParse(job.payload);
-        const work = payload.success
-            ? await lockSubmissionWork(tx, payload.data.submission_id)
-            : null;
-        const holds =
-            work?.bundle_sha256 !== null &&
-            work !== null &&
-            Buffer.from(work.bundle_sha256 ?? []).toString("hex") === sha.data;
+        const work = await bundleOf(tx, job);
+        const holds = work !== null && work.sha256 === sha.data;
         if (!holds) return null;
         // Every grant of a bundle read is on record: who (which node), what (hash) and for which job.
         await appendAudit(tx, {
             actorKind: "worker",
             actorUserId: null,
-            orgId: work.org_id,
+            orgId: work.orgId,
             action: "bundle.node_download",
             target: `sha256:${sha.data}`,
             detail: { node: encodeId("nod", nodeId), job: jobParsed.data },
         });
-        return work.org_id;
+        return work.orgId;
     });
     if (orgId === null) return problemResponse(c, "not_found", "Not found");
     const url = await deps.storage.downloadUrl(

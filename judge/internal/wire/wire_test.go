@@ -11,12 +11,14 @@ import (
 // is added on one side only, one of the two decoders refuses it.
 func TestFixturesDecodeStrictlyAndRoundTrip(t *testing.T) {
 	cases := map[string]func() any{
-		"lease-response.json":       func() any { return &LeaseResponse{} },
-		"empty-lease-response.json": func() any { return &LeaseResponse{} },
-		"complete-request.json":     func() any { return &CompleteRequest{} },
-		"fail-request.json":         func() any { return &FailRequest{} },
-		"enroll-request.json":       func() any { return &EnrollRequest{} },
-		"heartbeat-request.json":    func() any { return &HeartbeatRequest{} },
+		"lease-response.json":              func() any { return &LeaseResponse{} },
+		"empty-lease-response.json":        func() any { return &LeaseResponse{} },
+		"complete-request.json":            func() any { return &CompleteRequest{} },
+		"validation-lease-response.json":   func() any { return &ValidationLeaseResponse{} },
+		"validation-complete-request.json": func() any { return &ValidationComplete{} },
+		"fail-request.json":                func() any { return &FailRequest{} },
+		"enroll-request.json":              func() any { return &EnrollRequest{} },
+		"heartbeat-request.json":           func() any { return &HeartbeatRequest{} },
 	}
 	for name, make := range cases {
 		raw, err := os.ReadFile("../../fixtures/" + name)

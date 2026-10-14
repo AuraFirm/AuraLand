@@ -36,7 +36,7 @@ func realOpener(t *testing.T, packed []byte) (*Opener, wire.LeasedJob) {
 	}
 	digest := sha256.Sum256(packed)
 	job := wire.LeasedJob{Task: wire.Task{Bundle: wire.Bundle{SHA256: hex.EncodeToString(digest[:]), Bytes: int64(len(packed))}}}
-	fetch := func(context.Context, wire.LeasedJob) ([]byte, error) { return packed, nil }
+	fetch := func(context.Context, string, wire.Bundle) ([]byte, error) { return packed, nil }
 	return &Opener{Box: box, Fetch: fetch, Script: string(script)}, job
 }
 
@@ -50,7 +50,7 @@ func corpus(t *testing.T, name string) []byte {
 
 func TestRealBoxOpensAGoodBundle(t *testing.T) {
 	opener, job := realOpener(t, corpus(t, "golden-rich.tar.zst"))
-	files, err := opener.OpenFiles(context.Background(), job)
+	files, err := opener.OpenFiles(context.Background(), job.JobID, job.Task.Bundle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestRealBoxRefusesWhatTheValidatorRefuses(t *testing.T) {
 		"layout-no-statement.tar.zst":           "missing_file",
 	} {
 		opener, job := realOpener(t, corpus(t, name))
-		_, err := opener.OpenFiles(context.Background(), job)
+		_, err := opener.OpenFiles(context.Background(), job.JobID, job.Task.Bundle)
 		var refused *Refused
 		if !errors.As(err, &refused) || refused.Code != code {
 			t.Errorf("%s: got %v want refusal %s", name, err, code)

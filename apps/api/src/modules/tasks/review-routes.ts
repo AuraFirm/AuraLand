@@ -23,6 +23,7 @@ import {
     moveState,
     otherReleasedVersion,
     recordRelease,
+    requestValidation,
     type VersionRow,
 } from "./version-queries.ts";
 import { versionAudit, versionBody, versionIdParam } from "./version-routes.ts";
@@ -42,6 +43,7 @@ export function reviewRoutes(deps: ReviewRouteDeps): Hono<AppEnv> {
     routes.post("/task-versions/:id/retire", (c) => handleSimple(c, deps, "retire"));
     routes.post("/task-versions/:id/review", (c) => handleReview(c, deps));
     routes.post("/task-versions/:id/release", (c) => handleRelease(c, deps));
+    routes.post("/task-versions/:id/validate", (c) => handleValidate(c, deps));
     return routes;
 }
 
@@ -76,7 +78,12 @@ async function factsFor(
     return {
         state: row.state,
         creatorId: row.created_by,
-        hasApproval: row.state === "in_review" ? await hasApproval(c.get("tx"), row.id) : false,
+        // Releasing a validated version needs the same approval as releasing from review (the database
+        // checks it too); until validation existed no version reached that state, so this never mattered.
+        hasApproval:
+            row.state === "in_review" || row.state === "validated"
+                ? await hasApproval(c.get("tx"), row.id)
+                : false,
         stepUpFresh: hasFreshStepUp(stepUpAtMs, deps.clock.nowUnixMs()),
     };
 }
@@ -224,5 +231,24 @@ async function handleRelease(c: Context<AppEnv>, deps: ReviewRouteDeps) {
                 : { waiver_reason: body.data.waiver_reason }),
         }),
     );
+    return respond(c, row.id);
+}
+
+// Asks for validation of a version in review: owners, admins and reviewers may (the database checks
+// again). The version moves to validating and its job is queued in one step; a node does the work.
+async function handleValidate(c: Context<AppEnv>, deps: ReviewRouteDeps) {
+    const loaded = await load(c);
+    if (isResponse(loaded)) return loaded;
+    const { row, actor } = loaded;
+    if (actor.kind !== "person") throw new Error("only people reach this route");
+    if (row.state !== "in_review") return REFUSALS.wrong_state(c);
+    if (!["owner", "admin", "reviewer"].includes(actor.role)) return REFUSALS.wrong_role(c);
+    const tx = c.get("tx");
+    const job = await requestValidation(tx, row.id, deps.clock.nowUnixMs());
+    if (job === "queue_full") {
+        return problemResponse(c, "unavailable", "Validation is busy; try again shortly");
+    }
+    if (job === null) return raced(c);
+    await appendAudit(tx, versionAudit(actor.userId, row, "task_version.validation_requested"));
     return respond(c, row.id);
 }
