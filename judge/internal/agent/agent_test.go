@@ -18,6 +18,8 @@ type plane struct {
 	jobs        []*wire.LeasedJob
 	validations []*wire.ValidationJob
 	validated   []wire.ValidationResult
+	watermarks  []*wire.WatermarkJob
+	watermarked []any
 	completed   []wire.Result
 	failed      []string
 	failRetry   []bool
@@ -64,6 +66,24 @@ func (p *plane) CompleteValidation(_ context.Context, _ string, _ int, r wire.Va
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.validated = append(p.validated, r)
+	return nil
+}
+
+func (p *plane) LeaseWatermark(context.Context, int) (*wire.WatermarkJob, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.watermarks) == 0 {
+		return nil, nil
+	}
+	job := p.watermarks[0]
+	p.watermarks = p.watermarks[1:]
+	return job, nil
+}
+
+func (p *plane) CompleteWatermark(_ context.Context, _ string, _ int, result any) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.watermarked = append(p.watermarked, result)
 	return nil
 }
 
@@ -282,5 +302,53 @@ func TestValidationFailureIsReportedAsRetryableAndNodeWithoutValidatorSkips(t *t
 	ran, _ := newAgent(idle, &sandbox.Fake{}, &bundles{}).RunOnce(context.Background())
 	if ran || len(idle.validations) != 1 {
 		t.Fatal("a node without a validator must not lease validation jobs")
+	}
+}
+
+type watermarker struct {
+	err error
+	ran int
+}
+
+func (w *watermarker) Run(context.Context, wire.WatermarkJob) (any, error) {
+	w.ran++
+	return wire.WatermarkUnchanged{Outcome: "unchanged"}, w.err
+}
+
+// Goal: a node with a watermarker takes watermark jobs last, reports what it did, and reports its own
+// failures as retryable; submissions and validations come first.
+func TestWatermarkJobsAreRunLastAndReported(t *testing.T) {
+	p := &plane{
+		validations: []*wire.ValidationJob{{JobID: "job_v", LeaseEpoch: 1, LeaseTTLS: 30}},
+		watermarks:  []*wire.WatermarkJob{{JobID: "job_w", LeaseEpoch: 4, LeaseTTLS: 30}},
+	}
+	w := &watermarker{}
+	a := newAgent(p, &sandbox.Fake{}, &bundles{})
+	a.Validator = &validator{}
+	a.Watermarker = w
+	for i := 0; i < 2; i++ {
+		if ran, err := a.RunOnce(context.Background()); err != nil || !ran {
+			t.Fatalf("round %d: ran %v err %v", i, ran, err)
+		}
+	}
+	if len(p.validated) != 1 || len(p.watermarked) != 1 || w.ran != 1 {
+		t.Fatalf("validated %d watermarked %d", len(p.validated), len(p.watermarked))
+	}
+	if ran, _ := a.RunOnce(context.Background()); ran {
+		t.Fatal("nothing is left to do")
+	}
+}
+
+func TestWatermarkFailureIsRetryableAndNodeWithoutWatermarkerSkips(t *testing.T) {
+	p := &plane{watermarks: []*wire.WatermarkJob{{JobID: "job_w", LeaseEpoch: 1, LeaseTTLS: 30}}}
+	a := newAgent(p, &sandbox.Fake{}, &bundles{})
+	a.Watermarker = &watermarker{err: errors.New("box failed")}
+	a.RunOnce(context.Background())
+	if len(p.failed) != 1 || !p.failRetry[0] || len(p.watermarked) != 0 {
+		t.Fatalf("failed %v retry %v", p.failed, p.failRetry)
+	}
+	idle := &plane{watermarks: []*wire.WatermarkJob{{JobID: "job_w", LeaseEpoch: 1, LeaseTTLS: 30}}}
+	if ran, _ := newAgent(idle, &sandbox.Fake{}, &bundles{}).RunOnce(context.Background()); ran || len(idle.watermarks) != 1 {
+		t.Fatal("a node without a watermarker must not lease watermark jobs")
 	}
 }

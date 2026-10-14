@@ -71,3 +71,16 @@ export function bundleKey(orgUuid: string, sha256Hex: string): string {
     assert(SHA256_HEX.test(sha256Hex), "a bundle key needs a lowercase sha-256 hex digest");
     return `bundles/${orgUuid}/${sha256Hex}`;
 }
+
+// The delivered bundle of one ordered version, which differs from the original when a watermark was
+// written into it (Stage 4C). The customer organization and delivery are in the key, so one delivery's
+// bytes can never be read through another's.
+export function deliveryBundleKey(
+    customerOrgUuid: string,
+    deliveryUuid: string,
+    sha256Hex: string,
+): string {
+    assert(isUuidV7(customerOrgUuid) && isUuidV7(deliveryUuid), "keys are built from uuids only");
+    assert(SHA256_HEX.test(sha256Hex), "a bundle key needs a lowercase sha-256 hex digest");
+    return `deliveries/${customerOrgUuid}/${deliveryUuid}/${sha256Hex}`;
+}

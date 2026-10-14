@@ -28,6 +28,7 @@ import {
 } from "../jobs/service.ts";
 import { summarize } from "../submissions/service.ts";
 import { readValidationWork } from "../validation/service.ts";
+import { watermarkJobInput } from "../watermark/service.ts";
 import {
     backToQueue,
     lockSubmissionWork,
@@ -44,6 +45,13 @@ import {
     VALIDATE_KIND,
     payloadSchema as validatePayloadSchema,
 } from "./validate-routes.ts";
+import {
+    handleWatermarkComplete,
+    handleWatermarkLease,
+    handleWatermarkUpload,
+    WATERMARK_KIND,
+    watermarkPayloadSchema,
+} from "./watermark-routes.ts";
 
 const WORKER = { role: "aura_worker", actorKind: "worker", userId: null, orgIds: [] } as const;
 const payloadSchema = z.object({ submission_id: z.string() });
@@ -57,6 +65,8 @@ export function jobRoutes(deps: JudgeRouteDeps): Hono<AppEnv> {
     routes.post("/jobs/:id/heartbeat", (c) => handleHeartbeat(c, deps));
     routes.post("/jobs/:id/complete", (c) => handleComplete(c, deps));
     routes.post("/jobs/:id/validation", (c) => handleValidationComplete(c, deps));
+    routes.post("/jobs/:id/watermark/upload", (c) => handleWatermarkUpload(c, deps));
+    routes.post("/jobs/:id/watermark", (c) => handleWatermarkComplete(c, deps));
     routes.post("/jobs/:id/fail", (c) => handleFail(c, deps));
     routes.get("/bundles/:sha256", (c) => handleBundle(c, deps));
     return routes;
@@ -86,6 +96,7 @@ async function handleLease(c: Context<AppEnv>, deps: JudgeRouteDeps) {
         return problemResponse(c, "conflict", "This node is not active");
     }
     if (body.data.queue === "validate") return handleValidationLease(c, deps, body.data.wait_ms);
+    if (body.data.queue === "watermark") return handleWatermarkLease(c, deps, body.data.wait_ms);
     // Waiting is a series of short looks, never an open transaction.
     const looks = Math.floor(body.data.wait_ms / LEASE_POLL_MS) + 1;
     for (let look = 0; look < looks; look++) {
@@ -263,7 +274,7 @@ async function settleReport(
     body: CompleteBody,
 ) {
     const owned = await ownedJob(tx, deps, jobId, nodeId, body.lease_epoch);
-    if (owned === null || owned.job.kind === VALIDATE_KIND) return "stale" as const;
+    if (owned === null || owned.job.kind !== "judge.tier1") return "stale" as const;
     const work = await lockSubmissionWork(tx, payloadSchema.parse(owned.job.payload).submission_id);
     if (work === null || work.spec === null) return "stale" as const;
     const results = body.result.tests.map((t) => ({ testId: t.test_id, verdict: t.verdict }));
@@ -322,7 +333,8 @@ async function handleFail(c: Context<AppEnv>, deps: JudgeRouteDeps) {
             retryable: body.data.retryable,
         });
         // A validation job needs nothing else: if it dies, housekeeping returns its version.
-        if (owned.job.kind === VALIDATE_KIND) return result;
+        // Validation and watermark jobs need nothing else: a dead one is visible in the queue.
+        if (owned.job.kind !== "judge.tier1") return result;
         const payload = payloadSchema.parse(owned.job.payload);
         const nowMs = deps.clock.nowUnixMs();
         if (result === "retried") await backToQueue(tx, payload.submission_id, nowMs);
@@ -344,6 +356,13 @@ async function bundleOf(tx: Tx, job: { kind: string; payload: unknown }) {
             : null;
         if (work === null || work.bundle_sha256 === null) return null;
         return { orgId: work.org_id, sha256: Buffer.from(work.bundle_sha256).toString("hex") };
+    }
+    if (job.kind === WATERMARK_KIND) {
+        const payload = watermarkPayloadSchema.safeParse(job.payload);
+        const input = payload.success
+            ? await watermarkJobInput(tx, payload.data.delivery_id, payload.data.task_version_id)
+            : null;
+        return input === null ? null : { orgId: input.task_org_id, sha256: input.bundle_sha256 };
     }
     const payload = payloadSchema.safeParse(job.payload);
     const work = payload.success ? await lockSubmissionWork(tx, payload.data.submission_id) : null;

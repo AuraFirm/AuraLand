@@ -11,14 +11,18 @@ import (
 // is added on one side only, one of the two decoders refuses it.
 func TestFixturesDecodeStrictlyAndRoundTrip(t *testing.T) {
 	cases := map[string]func() any{
-		"lease-response.json":              func() any { return &LeaseResponse{} },
-		"empty-lease-response.json":        func() any { return &LeaseResponse{} },
-		"complete-request.json":            func() any { return &CompleteRequest{} },
-		"validation-lease-response.json":   func() any { return &ValidationLeaseResponse{} },
-		"validation-complete-request.json": func() any { return &ValidationComplete{} },
-		"fail-request.json":                func() any { return &FailRequest{} },
-		"enroll-request.json":              func() any { return &EnrollRequest{} },
-		"heartbeat-request.json":           func() any { return &HeartbeatRequest{} },
+		"lease-response.json":                func() any { return &LeaseResponse{} },
+		"empty-lease-response.json":          func() any { return &LeaseResponse{} },
+		"complete-request.json":              func() any { return &CompleteRequest{} },
+		"validation-lease-response.json":     func() any { return &ValidationLeaseResponse{} },
+		"validation-complete-request.json":   func() any { return &ValidationComplete{} },
+		"watermark-lease-response.json":      func() any { return &WatermarkLeaseResponse{} },
+		"watermark-upload-request.json":      func() any { return &WatermarkUploadRequest{} },
+		"watermark-complete-rewritten.json":  func() any { return &watermarkCompleteIn{} },
+		"watermark-complete-unobserved.json": func() any { return &watermarkCompleteIn{} },
+		"fail-request.json":                  func() any { return &FailRequest{} },
+		"enroll-request.json":                func() any { return &EnrollRequest{} },
+		"heartbeat-request.json":             func() any { return &HeartbeatRequest{} },
 	}
 	for name, make := range cases {
 		raw, err := os.ReadFile("../../fixtures/" + name)
@@ -57,4 +61,11 @@ func TestUnknownFieldsAndTrailingDataAreRefused(t *testing.T) {
 	if err := Decode([]byte(`{"lease_epoch":"1"}`), &out); err == nil {
 		t.Error("a wrong type must be refused")
 	}
+}
+
+// WatermarkComplete carries its result as "any", which cannot be decoded strictly into; this mirror gives
+// the fixtures a concrete shape to round-trip through.
+type watermarkCompleteIn struct {
+	LeaseEpoch int                `json:"lease_epoch"`
+	Result     WatermarkRewritten `json:"result"`
 }

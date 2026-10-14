@@ -238,3 +238,60 @@ type ValidationComplete struct {
 	LeaseEpoch int              `json:"lease_epoch"`
 	Result     ValidationResult `json:"result"`
 }
+
+// ---- delivery watermarks (Stage 4C) ----
+
+type WatermarkTask struct {
+	Bundle Bundle `json:"bundle"`
+	Spec   Spec   `json:"spec"`
+	// Tag is the 32-bit mark to write, top bit set; the node never learns what it identifies.
+	Tag uint32 `json:"tag"`
+}
+
+type WatermarkJob struct {
+	JobID      string        `json:"job_id"`
+	LeaseEpoch int           `json:"lease_epoch"`
+	LeaseTTLS  int           `json:"lease_ttl_s"`
+	Kind       string        `json:"kind"`
+	Task       WatermarkTask `json:"task"`
+}
+
+type WatermarkLeaseResponse struct {
+	Job *WatermarkJob `json:"job"`
+}
+
+type WatermarkUploadRequest struct {
+	LeaseEpoch int `json:"lease_epoch"`
+	Bytes      int `json:"bytes"`
+}
+
+type WatermarkUploadResponse struct {
+	UploadID string `json:"upload_id"`
+	URL      string `json:"url"`
+}
+
+// WatermarkUnchanged reports a bundle with no safe place for a mark: it is delivered as it is.
+type WatermarkUnchanged struct {
+	Outcome string `json:"outcome"`
+}
+
+// WatermarkObservations is the harness run on the original and on the rewritten bundle.
+type WatermarkObservations struct {
+	Original  ValidationResult `json:"original"`
+	Rewritten ValidationResult `json:"rewritten"`
+}
+
+// WatermarkRewritten reports an uploaded rewritten bundle. Observations is null (not absent) for tasks the
+// harness cannot run.
+type WatermarkRewritten struct {
+	Outcome      string                 `json:"outcome"`
+	UploadID     string                 `json:"upload_id"`
+	Answers      bool                   `json:"answers"`
+	Solutions    bool                   `json:"solutions"`
+	Observations *WatermarkObservations `json:"observations"`
+}
+
+type WatermarkComplete struct {
+	LeaseEpoch int `json:"lease_epoch"`
+	Result     any `json:"result"`
+}

@@ -144,6 +144,48 @@ func (c *Client) CompleteValidation(ctx context.Context, jobID string, epoch int
 	return staleOr(err)
 }
 
+// LeaseWatermark asks for a delivery watermark job (queue "watermark").
+func (c *Client) LeaseWatermark(ctx context.Context, waitMS int) (*wire.WatermarkJob, error) {
+	var out wire.WatermarkLeaseResponse
+	_, _, err := c.do(ctx, http.MethodPost, "/lease", true, wire.LeaseRequest{Queue: "watermark", WaitMS: waitMS}, &out)
+	return out.Job, err
+}
+
+// WatermarkUploadTarget asks where to put a rewritten bundle of the given size.
+func (c *Client) WatermarkUploadTarget(ctx context.Context, jobID string, epoch, bytes int) (wire.WatermarkUploadResponse, error) {
+	var out wire.WatermarkUploadResponse
+	_, _, err := c.do(ctx, http.MethodPost, "/jobs/"+jobID+"/watermark/upload", true, wire.WatermarkUploadRequest{LeaseEpoch: epoch, Bytes: bytes}, &out)
+	return out, staleOr(err)
+}
+
+// PutBundle sends the rewritten bundle to the storage address the control plane named. The node's
+// signature goes only to the control plane, never to storage, and the request follows no redirect.
+func (c *Client) PutBundle(ctx context.Context, url string, data []byte) error {
+	request, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	request.ContentLength = int64(len(data))
+	noRedirect := *c.http
+	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	response, err := noRedirect.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode > 299 {
+		return &Error{Status: response.StatusCode, Body: "storage refused the rewritten bundle"}
+	}
+	return nil
+}
+
+// CompleteWatermark reports the node's work on a watermark job.
+func (c *Client) CompleteWatermark(ctx context.Context, jobID string, epoch int, result any) error {
+	var out wire.Accepted
+	_, _, err := c.do(ctx, http.MethodPost, "/jobs/"+jobID+"/watermark", true, wire.WatermarkComplete{LeaseEpoch: epoch, Result: result}, &out)
+	return staleOr(err)
+}
+
 func (c *Client) Lease(ctx context.Context, waitMS int) (*wire.LeasedJob, error) {
 	var out wire.LeaseResponse
 	_, _, err := c.do(ctx, http.MethodPost, "/lease", true, wire.LeaseRequest{Queue: "judge", WaitMS: waitMS}, &out)

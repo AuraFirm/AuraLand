@@ -26,7 +26,7 @@ function bundle(tests: number, lines: number): Map<string, Uint8Array> {
         files.set(
             `tests/${id}.ans`,
             enc.encode(
-                Array.from({ length: lines }, (_, i) => `${t * 1000 + i}`).join("\n") + "\n",
+                `${Array.from({ length: lines }, (_, i) => `${t * 1000 + i}`).join("\n")}\n`,
             ),
         );
     }

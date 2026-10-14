@@ -22,6 +22,8 @@ type ControlPlane interface {
 	Lease(ctx context.Context, waitMS int) (*wire.LeasedJob, error)
 	LeaseValidation(ctx context.Context, waitMS int) (*wire.ValidationJob, error)
 	CompleteValidation(ctx context.Context, jobID string, epoch int, result wire.ValidationResult) error
+	LeaseWatermark(ctx context.Context, waitMS int) (*wire.WatermarkJob, error)
+	CompleteWatermark(ctx context.Context, jobID string, epoch int, result any) error
 	JobHeartbeat(ctx context.Context, jobID string, epoch int) error
 	Complete(ctx context.Context, jobID string, epoch int, result wire.Result) error
 	Fail(ctx context.Context, jobID string, epoch int, reason string, retryable bool) error
@@ -39,14 +41,22 @@ type Validator interface {
 	Run(ctx context.Context, job wire.ValidationJob) (wire.ValidationResult, error)
 }
 
+// Watermarker rewrites a delivery's bundles for the watermark queue (Stage 4C). A node without one never
+// asks for watermark jobs. Run returns the result to report.
+type Watermarker interface {
+	Run(ctx context.Context, job wire.WatermarkJob) (any, error)
+}
+
 type Agent struct {
 	Plane ControlPlane
 	// Validator is optional; see Validator.
 	Validator Validator
-	Box       sandbox.Sandbox
-	Bundles   Bundles
-	Version   string
-	Logf      func(format string, args ...any)
+	// Watermarker is optional; see Watermarker.
+	Watermarker Watermarker
+	Box         sandbox.Sandbox
+	Bundles     Bundles
+	Version     string
+	Logf        func(format string, args ...any)
 	// SelfTest runs the node's canary (escape suite, timing calibration). A failing node drains.
 	SelfTest func(ctx context.Context) bool
 	// LeaseWaitMS is how long a lease request may wait for work; 0 polls.
@@ -70,16 +80,32 @@ func (a *Agent) RunOnce(ctx context.Context) (bool, error) {
 		a.process(ctx, *job)
 		return true, nil
 	}
-	if a.Validator == nil {
-		return false, nil
+	return a.runOptionalWork(ctx)
+}
+
+// Submissions come first and may long-poll; the other queues are asked without waiting, in order.
+func (a *Agent) runOptionalWork(ctx context.Context) (bool, error) {
+	if a.Validator != nil {
+		job, err := a.Plane.LeaseValidation(ctx, 0)
+		if err != nil {
+			return false, err
+		}
+		if job != nil {
+			a.processValidation(ctx, *job)
+			return true, nil
+		}
 	}
-	// Submissions come first and may long-poll; validation is asked for without waiting.
-	validation, err := a.Plane.LeaseValidation(ctx, 0)
-	if err != nil || validation == nil {
-		return false, err
+	if a.Watermarker != nil {
+		job, err := a.Plane.LeaseWatermark(ctx, 0)
+		if err != nil {
+			return false, err
+		}
+		if job != nil {
+			a.processWatermark(ctx, *job)
+			return true, nil
+		}
 	}
-	a.processValidation(ctx, *validation)
-	return true, nil
+	return false, nil
 }
 
 func (a *Agent) processValidation(ctx context.Context, job wire.ValidationJob) {
@@ -175,5 +201,25 @@ func (a *Agent) keepAlive(ctx context.Context, jobID string, epoch, ttlSeconds i
 	return func() {
 		close(done)
 		<-finished
+	}
+}
+
+func (a *Agent) processWatermark(ctx context.Context, job wire.WatermarkJob) {
+	jobCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var lost sync.Once
+	stop := a.keepAlive(jobCtx, job.JobID, job.LeaseEpoch, job.LeaseTTLS, func() { lost.Do(cancel) })
+	defer stop()
+	result, err := a.Watermarker.Run(jobCtx, job)
+	if jobCtx.Err() != nil && ctx.Err() == nil {
+		a.Logf("watermark %s: lease lost, result discarded", job.JobID)
+		return
+	}
+	if err != nil {
+		a.reportFailure(ctx, job.JobID, job.LeaseEpoch, err)
+		return
+	}
+	if err := a.Plane.CompleteWatermark(ctx, job.JobID, job.LeaseEpoch, result); err != nil {
+		a.Logf("watermark %s: result not accepted: %v", job.JobID, err)
 	}
 }

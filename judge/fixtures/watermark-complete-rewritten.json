@@ -1,0 +1,229 @@
+{
+    "lease_epoch": 1,
+    "result": {
+        "outcome": "rewritten",
+        "upload_id": "up_abc",
+        "answers": false,
+        "solutions": true,
+        "observations": {
+            "original": {
+                "bundle": {
+                    "opens": true
+                },
+                "runs": [
+                    {
+                        "solution": "reference.cpp",
+                        "repeat": 1,
+                        "compile_ok": true,
+                        "tests": [
+                            {
+                                "test_id": "001",
+                                "verdict": "AC",
+                                "cpu_ms": 4
+                            }
+                        ]
+                    },
+                    {
+                        "solution": "reference.cpp",
+                        "repeat": 2,
+                        "compile_ok": true,
+                        "tests": [
+                            {
+                                "test_id": "001",
+                                "verdict": "AC",
+                                "cpu_ms": 5
+                            }
+                        ]
+                    },
+                    {
+                        "solution": "wrong_off_by_one.py",
+                        "repeat": 1,
+                        "compile_ok": true,
+                        "tests": [
+                            {
+                                "test_id": "001",
+                                "verdict": "WA",
+                                "cpu_ms": 9
+                            }
+                        ]
+                    }
+                ],
+                "mutants": [
+                    {
+                        "operator": "+ to -",
+                        "line": 3,
+                        "compile_ok": true,
+                        "killed": true
+                    },
+                    {
+                        "operator": "< to <=",
+                        "line": 5,
+                        "compile_ok": false,
+                        "killed": false
+                    }
+                ],
+                "attackers": [
+                    {
+                        "name": "sample_lookup",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "echo_input",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "first_token",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "token_count",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "sum_of_integers",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "constant_0",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "constant_1",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "constant_yes",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "constant_no",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "empty_output",
+                        "passed": 0,
+                        "total": 1
+                    }
+                ]
+            },
+            "rewritten": {
+                "bundle": {
+                    "opens": true
+                },
+                "runs": [
+                    {
+                        "solution": "reference.cpp",
+                        "repeat": 1,
+                        "compile_ok": true,
+                        "tests": [
+                            {
+                                "test_id": "001",
+                                "verdict": "AC",
+                                "cpu_ms": 4
+                            }
+                        ]
+                    },
+                    {
+                        "solution": "reference.cpp",
+                        "repeat": 2,
+                        "compile_ok": true,
+                        "tests": [
+                            {
+                                "test_id": "001",
+                                "verdict": "AC",
+                                "cpu_ms": 5
+                            }
+                        ]
+                    },
+                    {
+                        "solution": "wrong_off_by_one.py",
+                        "repeat": 1,
+                        "compile_ok": true,
+                        "tests": [
+                            {
+                                "test_id": "001",
+                                "verdict": "WA",
+                                "cpu_ms": 9
+                            }
+                        ]
+                    }
+                ],
+                "mutants": [
+                    {
+                        "operator": "+ to -",
+                        "line": 3,
+                        "compile_ok": true,
+                        "killed": true
+                    },
+                    {
+                        "operator": "< to <=",
+                        "line": 5,
+                        "compile_ok": false,
+                        "killed": false
+                    }
+                ],
+                "attackers": [
+                    {
+                        "name": "sample_lookup",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "echo_input",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "first_token",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "token_count",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "sum_of_integers",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "constant_0",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "constant_1",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "constant_yes",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "constant_no",
+                        "passed": 0,
+                        "total": 1
+                    },
+                    {
+                        "name": "empty_output",
+                        "passed": 0,
+                        "total": 1
+                    }
+                ]
+            }
+        }
+    }
+}
