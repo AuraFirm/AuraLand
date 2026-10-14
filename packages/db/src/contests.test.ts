@@ -37,7 +37,6 @@ let company = "";
 let hostVersion = "";
 let bankVersion = "";
 let companyVersion = "";
-const orgOf = new Map<string, string>(); // version id -> its organization
 beforeAll(async () => {
     db = await createMigratedTestDatabase(10);
     const { sql } = db.database;
@@ -72,7 +71,6 @@ beforeAll(async () => {
     hostVersion = await released(host, "host-task", "private");
     bankVersion = await released(bank, "bank-task", "public");
     companyVersion = await released(company, "firm-task", "private");
-    orgOf.set(hostVersion, host).set(bankVersion, bank).set(companyVersion, company);
     await sql`alter table task_versions enable trigger task_versions_guard`;
 });
 afterAll(async () => {
@@ -105,16 +103,8 @@ async function makeContest(
     }
     return id;
 }
-// Explicit organization ids: a row-level-security-filtered select would silently skip a problem the
-// organizer cannot read, which is exactly the mistake this test must not hide.
 const addProblem = (id: string, version: string, label: string) =>
-    app(
-        as(HOST_OWNER),
-        (
-            tx,
-        ) => tx`insert into contest_problems (contest_id, org_id, label, task_version_id, task_org_id)
-        values (${id}, ${host}, ${label}, ${version}, ${orgOf.get(version) ?? ""})`,
-    );
+    app(as(HOST_OWNER), (tx) => tx`select add_contest_problem(${id}, ${label}, ${version}, 100)`);
 const publish = (id: string, now = BEFORE) =>
     app(as(HOST_OWNER), (tx) => tx`select publish_contest(${id}, ${now})`);
 const register = (userId: string, id: string, now = DURING) =>
@@ -168,12 +158,14 @@ describe("creating and arranging a contest", () => {
             .sql`insert into memberships (org_id, user_id, role) values (${personal?.id ?? ""}, ${HOST_OWNER}, 'owner')`;
         await fails(insert(as(HOST_OWNER), personal?.id ?? "", HOST_OWNER), /not a personal space/);
     });
+});
 
+describe("arranging problems", () => {
     it("takes released problems from the host or the platform bank, never from another company", async () => {
         const id = await makeContest({ problems: [hostVersion, bankVersion] });
-        const add = (version: string, label: string) => addProblem(id, version, label);
-        await fails(add(companyVersion, "C"), /host's problems or the platform bank/);
-        await fails(add(hostVersion, "D"), /unique|duplicate/);
+        // Through the function an organizer cannot tell a foreign or unreleased version from a missing one.
+        await fails(addProblem(id, companyVersion, "C"), /no such released version/);
+        await fails(addProblem(id, hostVersion, "D"), /unique|duplicate/);
         const [draftTask] = await db.database.sql<
             { id: string }[]
         >`select id from tasks where org_id = ${host} limit 1`;
@@ -181,18 +173,44 @@ describe("creating and arranging a contest", () => {
             { id: string }[]
         >`insert into task_versions (org_id, task_id, seq, created_by)
             values (${host}, ${draftTask?.id ?? ""}, 2, ${HOST_OWNER}) returning id`;
-        orgOf.set(notReleased?.id ?? "", host);
-        await fails(add(notReleased?.id ?? "", "E"), /released versions only/);
+        await fails(addProblem(id, notReleased?.id ?? "", "E"), /no such released version/);
+        await fails(
+            app(
+                as(HOST_SETTER),
+                (tx) => tx`select add_contest_problem(${id}, 'F', ${hostVersion}, 100)`,
+            ),
+            /no such contest/,
+        );
+        // The guard trigger holds even for the database owner, whatever calls it.
+        const insertDirectly = (version: string, orgId: string, label: string) =>
+            db.database
+                .sql`insert into contest_problems (contest_id, org_id, label, task_version_id, task_org_id)
+                values (${id}, ${host}, ${label}, ${version}, ${orgId})`;
+        await fails(
+            insertDirectly(companyVersion, company, "G"),
+            /host's problems or the platform bank/,
+        );
+        await fails(insertDirectly(notReleased?.id ?? "", host, "H"), /released versions only/);
+        await fails(
+            app(
+                as(HOST_OWNER),
+                (
+                    tx,
+                ) => tx`insert into contest_problems (contest_id, org_id, label, task_version_id, task_org_id)
+            values (${id}, ${host}, 'I', ${hostVersion}, ${host})`,
+            ),
+            /permission denied/,
+        );
     });
 });
 
-describe("publishing a contest", () => {
+describe("publishing", () => {
     it("fixes the problem set and the rules once the contest is published", async () => {
         const id = await makeContest();
         await publish(id);
         expect(await stateOf(id)).toBe("scheduled");
         await fails(
-            app(as(HOST_OWNER), (tx) => tx`delete from contest_problems where contest_id = ${id}`),
+            app(as(HOST_OWNER), (tx) => tx`select remove_contest_problem(${id}, 'A')`),
             /do not change/,
         );
         // A published contest is not the organizer's to edit: the row is simply not updatable.
@@ -431,7 +449,6 @@ describe("the clock and the contest's life", () => {
             (org_id, task_id, seq, state, spec, statement, bundle_bytes, bundle_sha256, created_by, released_by, released_at, waived, submitted_at)
             values (${host}, ${task?.id ?? ""}, 1, 'released', '{}'::jsonb, 's', 10, ${randomBytes(32)}, ${HOST_OWNER}, ${BANK_OWNER}, now(), true, now()) returning id`;
         await db.database.sql`alter table task_versions enable trigger task_versions_guard`;
-        orgOf.set(v?.id ?? "", host);
         const id = await makeContest({ problems: [v?.id ?? ""] });
         await publish(id);
         await fails(

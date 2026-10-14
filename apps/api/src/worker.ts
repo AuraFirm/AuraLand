@@ -1,4 +1,5 @@
 import { assert } from "@aura/contracts/assert";
+import { advanceContests, CONTEST_TICK_MS } from "./modules/contests/tick.ts";
 import { HEARTBEAT_INTERVAL_MS } from "./modules/jobs/limits.ts";
 import type { JobRecord } from "./modules/jobs/rules.ts";
 import {
@@ -145,11 +146,23 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
             }
         }
     })();
+    // The contest clock ticks on its own pace, apart from the job queue: a long job must not delay it.
+    const ticks = (async () => {
+        // unbounded: the tick runs until the process is told to stop
+        while (!stopping) {
+            try {
+                await advanceContests(deps.context);
+            } catch (error) {
+                deps.logger.error({ err: error }, "contest tick error");
+            }
+            await new Promise((resolve) => setTimeout(resolve, CONTEST_TICK_MS));
+        }
+    })();
     return {
         async stop() {
             assert(!stopping, "stop is called once");
             stopping = true;
-            await loop;
+            await Promise.all([loop, ticks]);
         },
     };
 }

@@ -28,6 +28,9 @@ export function SiteHeader() {
                 <a className="font-semibold" href="/">
                     Aura<span className="text-accent">Land</span>
                 </a>
+                <a className="text-accent underline" href="/arena">
+                    Arena
+                </a>
                 {signedIn === true && (
                     <>
                         <a className="text-accent underline" href="/account">
