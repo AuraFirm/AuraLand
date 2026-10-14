@@ -52,6 +52,10 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `contest_ratings` | `modules/contests` | Marks a contest as rated or skipped; makes the rating job idempotent |
 | `practice_bank` | `modules/submissions` | Released versions of public platform tasks that anyone signed in may practice on; listed by platform administrators through `practice_list_version` |
 | `platform_status` | `modules/identity` | The one-row platform status banner; set by platform administrators through `set_platform_status` |
+| `exams` | `modules/exams` | A lab exam hosted by an organization: mode, duration, window, state; the clock and the host's owners and admins move it |
+| `exam_problems` | `modules/exams` | The released versions an exam uses, with points and rubric; fixed once the exam is published |
+| `exam_roster` | `modules/exams` | Who may sit an exam (email, name, extra minutes); replaced as a whole before it opens |
+| `exam_sessions` | `modules/exams` | One person's sitting: consent, start, deadline, state; written only by the exam functions |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
