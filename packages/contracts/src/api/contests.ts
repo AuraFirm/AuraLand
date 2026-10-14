@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
     contestAiPolicySchema,
     contestFormatSchema,
+    contestLanguageSchema,
     contestProblemInputSchema,
     contestRulesSchema,
     contestStateSchema,
@@ -17,6 +18,25 @@ import { CONTEST_TITLE_CHARS_MAX, CONTESTS_PAGE_SIZE_MAX } from "../limits.ts";
 
 export const contestProblemSchema = z
     .object({ label: z.string().regex(PROBLEM_LABEL), points: z.number().int().min(1).max(1000) })
+    .strict();
+
+// One problem as a contestant works on it. An allowlist: the statement, the limits and the languages, never
+// the tests, the checker or the bundle.
+export const contestProblemViewSchema = z
+    .object({
+        label: z.string().regex(PROBLEM_LABEL),
+        points: z.number().int().min(1).max(1000),
+        title: z.string(),
+        time_limit_ms: z.number().int().min(1),
+        memory_limit_kib: z.number().int().min(1),
+        languages: z.array(contestLanguageSchema).min(1),
+        // Rendered by the safe Markdown renderer; the page may insert it as HTML.
+        statement_html: z.string(),
+    })
+    .strict();
+
+export const serverTimeSchema = z
+    .object({ now: z.iso.datetime(), now_ms: z.number().int().min(0) })
     .strict();
 
 export const contestSchema = z

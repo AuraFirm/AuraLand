@@ -35,6 +35,26 @@ export async function versionForSubmission(
     return rows[0] === undefined ? null : versionForSubmissionSchema.parse(rows[0]);
 }
 
+const contestProblemRowSchema = z.object({
+    label: z.string(),
+    points: z.number().int(),
+    spec: taskSpecSchema.nullable(),
+    statement: z.string().nullable(),
+});
+
+// What a contestant may read of one problem. The join goes through row-level security twice: the problem
+// list is public once the contest has started, but the version row (and so the statement) is visible only
+// to a registered person of a running or finished contest, and to the host's staff. Anyone else gets null.
+export async function contestProblemView(
+    tx: Transaction,
+    input: { contestId: string; label: string },
+) {
+    const rows = await tx`select cp.label, cp.points, v.spec, v.statement
+        from contest_problems cp join task_versions v on v.id = cp.task_version_id
+        where cp.contest_id = ${input.contestId} and cp.label = ${input.label}`;
+    return rows[0] === undefined ? null : contestProblemRowSchema.parse(rows[0]);
+}
+
 const submissionRowSchema = z.object({
     id: z.string(),
     org_id: z.string(),

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { serverTimeSchema } from "@aura/contracts/api/contests";
 import { assert, InvariantError } from "@aura/contracts/assert";
 import {
     REQUEST_BODY_BYTES_MAX,
@@ -271,6 +272,14 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
 
 // Talk about and test a task version: comments and human attacks (Stage 4).
 function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
+    // The server's clock, for countdowns on the page: a person's own clock may be minutes off.
+    app.get("/v1/time", (c) => {
+        const nowMs = deps.clock.nowUnixMs();
+        c.header("Cache-Control", "no-store");
+        return c.json(
+            serverTimeSchema.parse({ now: new Date(nowMs).toISOString(), now_ms: nowMs }),
+        );
+    });
     app.route("/v1", ratingRoutes());
     const hub = defaultHub();
     app.route(

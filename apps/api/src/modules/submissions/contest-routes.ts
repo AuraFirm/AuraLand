@@ -1,3 +1,4 @@
+import { contestProblemViewSchema } from "@aura/contracts/api/contests";
 import {
     submissionCreateRequestSchema,
     submissionsResponseSchema,
@@ -11,11 +12,13 @@ import { appendAudit } from "@aura/db/audit";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../../app-env.ts";
+import { renderMarkdownSafe } from "../../platform/markdown.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import type { RateLimitRule } from "../../platform/rate-limit.ts";
 import { consumeRateLimit, refuseRateLimited } from "../../rate-limit-middleware.ts";
 import { findVisibleContest } from "../contests/service.ts";
 import {
+    contestProblemView,
     createContestSubmission,
     getSubmission,
     listMineInContest,
@@ -37,6 +40,7 @@ export function contestSubmissionRoutes(deps: SubmissionRouteDeps): Hono<AppEnv>
     const routes = new Hono<AppEnv>();
     routes.post("/contests/:id/problems/:label/submissions", (c) => handleCreate(c, deps));
     routes.get("/contests/:id/submissions", handleList);
+    routes.get("/contests/:id/problems/:label", handleProblem);
     routes.post("/contests/:id/submissions/:submission_id/rejudge", (c) => handleRejudge(c, deps));
     return routes;
 }
@@ -143,6 +147,38 @@ async function handleRejudge(c: Context<AppEnv>, deps: SubmissionRouteDeps) {
     const row = await getSubmission(tx, submissionId);
     if (row === null) throw new Error("the host's staff can read a submission they rejudged");
     return c.json(submissionBody(row, null), 202);
+}
+
+// The statement and limits of one problem, for the people who may read it (see contestProblemView).
+async function handleProblem(c: Context<AppEnv>) {
+    const contest = contestId(c);
+    const label = c.req.param("label") ?? "";
+    if (contest === null || !/^[A-Z][A-Z0-9]{0,2}$/.test(label)) {
+        return problemResponse(c, "invalid_request", "Invalid request");
+    }
+    const tx = c.get("tx");
+    const visible = await findVisibleContest(tx, contest);
+    const problem =
+        visible === null ? null : await contestProblemView(tx, { contestId: contest, label });
+    if (
+        visible === null ||
+        problem === null ||
+        problem.spec === null ||
+        problem.statement === null
+    ) {
+        return problemResponse(c, "not_found", "Not found");
+    }
+    return c.json(
+        contestProblemViewSchema.parse({
+            label: problem.label,
+            points: problem.points,
+            title: problem.spec.title,
+            time_limit_ms: problem.spec.time_limit_ms,
+            memory_limit_kib: problem.spec.memory_limit_kib,
+            languages: visible.rules.languages,
+            statement_html: renderMarkdownSafe(problem.statement).html,
+        }),
+    );
 }
 
 const listQuery = z.object({
