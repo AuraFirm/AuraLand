@@ -5,7 +5,7 @@ import {
     draftsResponseSchema,
     examSessionSchema,
 } from "@aura/contracts/api/exams";
-import { CONSENT_TEXT_VERSION, CONSENT_TEXTS } from "@aura/contracts/exams";
+import { CONSENT_TEXT_VERSION, CONSENT_TEXTS, telemetryBatchSchema } from "@aura/contracts/exams";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
 import { appendAudit } from "@aura/db/audit";
 import { CHECK_VIOLATION, postgresErrorCode } from "@aura/db/errors";
@@ -41,6 +41,7 @@ export function sessionRoutes(deps: SessionRouteDeps): Hono<AppEnv> {
     routes.post("/exams/:id/consent", (c) => handleConsent(c, deps));
     routes.post("/exams/:id/start", (c) => handleStart(c, deps));
     routes.post("/exams/:id/submit", (c) => handleSubmit(c, deps));
+    routes.post("/exams/:id/telemetry", (c) => handleTelemetry(c, deps));
     routes.put("/exams/:id/problems/:label/draft", (c) => handleSave(c, deps));
     routes.get("/exams/:id/drafts", handleDrafts);
     return routes;
@@ -249,4 +250,26 @@ async function handleSubmit(c: Context<AppEnv>, deps: SessionRouteDeps) {
         });
     }
     return respond(c, parsed.examId);
+}
+
+// A batch of events from the page. Accepted only from a sitting under way whose person consented; the database
+// decides, the closed list and the per-kind shapes are checked here first. Answers carry a reason the page acts on.
+async function handleTelemetry(c: Context<AppEnv>, deps: SessionRouteDeps) {
+    const parsed = parse(c);
+    if ("problem" in parsed) return parsed.problem;
+    const body = telemetryBatchSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return problemResponse(c, "invalid_request", "Invalid request");
+    const result = await q.ingestTelemetry(c.get("tx"), {
+        examId: parsed.examId,
+        events: body.data.events,
+        nowMs: deps.clock.nowUnixMs(),
+    });
+    if (result.kind === "accepted") return c.json({ accepted: result.events }, 202);
+    if (result.why === "unknown") return notFound(c);
+    if (result.why === "no_consent") return problemResponse(c, "forbidden", "Forbidden", "consent");
+    if (result.why === "not_under_way")
+        return problemResponse(c, "conflict", "The sitting is not under way", "over");
+    if (result.why === "too_many")
+        return problemResponse(c, "rate_limited", "Too many events; slow down");
+    return problemResponse(c, "invalid_request", "Invalid request");
 }

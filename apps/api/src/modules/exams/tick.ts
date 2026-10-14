@@ -16,6 +16,8 @@ export interface TickContext {
 // (with the clock), not by this tick: a stopped worker must not extend an exam.
 
 export const EXAM_TICK_MS = 1_000;
+// Rows of expired telemetry deleted per tick: bounded so a backlog is worked off over many ticks, not one long lock.
+const TELEMETRY_PURGE_BATCH = 5_000;
 
 const moveSchema = z.object({ exam_id: z.string(), from_state: z.string(), to_state: z.string() });
 
@@ -39,6 +41,9 @@ export async function advanceExams(context: TickContext): Promise<number> {
         // Answers of sittings that are over go to the judge (priority between contests and practice).
         const queued =
             await tx`select queue_exam_answers(${now}, ${EXAM_JUDGE_QUEUE_READY_MAX}) as n`;
+        // Partitions for the telemetry of the months to come, and the retention the institutions chose.
+        await tx`select ensure_telemetry_partitions(${now})`;
+        await tx`select purge_exam_telemetry(${now}, ${TELEMETRY_PURGE_BATCH})`;
         const count = z.object({ n: z.number() });
         return moves.length + count.parse(expired[0]).n + count.parse(queued[0]).n;
     });

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { seedOpenExam } from "../arena-seeds.ts";
+import { countTelemetry, seedOpenExam } from "../arena-seeds.ts";
 import { expectAccessible, freshEmail, loginAs } from "../test-helpers.ts";
 
 // Goal: a candidate sits down in a real browser: gets ready, sees the computer check and the wording of what is
@@ -34,6 +34,13 @@ test("a rostered candidate checks, agrees, starts and sees the timer and the sta
     await expect(page.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeVisible();
     await expect(page.getByLabel("Problem A").locator("strong")).toHaveText("two");
     await expectAccessible(page);
+
+    // The page tells the server, in counts only, when the window loses and regains focus.
+    await page.evaluate(() => {
+        window.dispatchEvent(new Event("blur"));
+        window.dispatchEvent(new Event("focus"));
+    });
+    await expect.poll(() => countTelemetry(exam), { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
 
     const answer = page.getByLabel("Your answer to problem A");
     await answer.fill("int main() { return 0; }");

@@ -1,3 +1,4 @@
+import type { TelemetryEvent } from "@aura/contracts/exams";
 import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
 
@@ -28,6 +29,46 @@ export const consent = (tx: Transaction, examId: string, version: number, nowMs:
     tx`select consent_exam(${examId}, ${version}, ${new Date(nowMs)})`;
 export const submit = (tx: Transaction, examId: string, nowMs: number) =>
     tx`select submit_exam_session(${examId}, ${new Date(nowMs)})`;
+export type TelemetryResult =
+    | { readonly kind: "accepted"; readonly events: number }
+    | {
+          readonly kind: "refused";
+          readonly why: "unknown" | "no_consent" | "not_under_way" | "too_many" | "bad_batch";
+      };
+
+const TELEMETRY_REFUSALS: Readonly<
+    Record<string, "unknown" | "no_consent" | "not_under_way" | "too_many" | "bad_batch">
+> = {
+    P0002: "unknown",
+    "42501": "no_consent",
+    "55000": "not_under_way",
+    "54000": "too_many",
+    "22023": "bad_batch",
+};
+
+export async function ingestTelemetry(
+    tx: Transaction,
+    input: {
+        examId: string;
+        events: readonly TelemetryEvent[];
+        nowMs: number;
+    },
+): Promise<TelemetryResult> {
+    try {
+        const rows =
+            await tx`select ingest_telemetry(${input.examId}, ${tx.json(input.events.map((e) => ({ kind: e.kind, t: e.t, data: e.data })))}, ${new Date(input.nowMs)}) as n`;
+        return { kind: "accepted", events: z.object({ n: z.number() }).parse(rows[0]).n };
+    } catch (error) {
+        const code =
+            typeof error === "object" && error !== null && "code" in error
+                ? String(error.code)
+                : "";
+        const why = TELEMETRY_REFUSALS[code];
+        if (why === undefined) throw error;
+        return { kind: "refused", why };
+    }
+}
+
 export const start = (tx: Transaction, examId: string, nowMs: number) =>
     tx`select * from start_exam_session(${examId}, ${new Date(nowMs)})`;
 
