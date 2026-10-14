@@ -30,7 +30,9 @@ async function tables() {
         select c.relname as name, c.relrowsecurity as rls, c.relforcerowsecurity as forced,
                (select count(*) from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname)::text as policies
         from pg_class c join pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public' and c.relkind in ('r', 'p') order by c.relname`;
+        -- A partition is the parent's storage: the application roles hold no privilege on it, they reach its rows
+        -- only through the parent, whose policies are what count (telemetry_events, Stage 6).
+        where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relispartition order by c.relname`;
 }
 
 describe("row-level security coverage", () => {

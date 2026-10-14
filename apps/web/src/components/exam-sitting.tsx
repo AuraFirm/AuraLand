@@ -11,6 +11,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, apiGet, apiSend, messageOf } from "../lib/api.ts";
 import { countdownText, showInstant } from "../lib/contest-time.ts";
+import { useExamTelemetry } from "../lib/exam-telemetry.ts";
 import { useServerNow } from "../lib/server-clock.ts";
 import { button } from "../lib/styles.ts";
 import { useLoad } from "../lib/use-load.ts";
@@ -205,6 +206,8 @@ function Working({
 }) {
     const now = useServerNow();
     const remainingMs = now === null ? null : Date.parse(deadlineAt) - now;
+    // The person consented before they could start; the server checks it again with every batch.
+    useExamTelemetry(exam.id, remainingMs === null || remainingMs > 0);
     const [spoken, setSpoken] = useState("");
     useEffect(() => {
         if (remainingMs === null) return;

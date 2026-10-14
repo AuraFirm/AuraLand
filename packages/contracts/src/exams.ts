@@ -8,6 +8,7 @@ import {
     EXAM_RUBRIC_ITEMS_MAX,
     EXAM_TITLE_CHARS_MAX,
     EXAM_WINDOW_S_MAX,
+    TELEMETRY_BATCH_EVENTS_MAX,
     TELEMETRY_RETENTION_DAYS_DEFAULT,
     TELEMETRY_RETENTION_DAYS_MAX,
 } from "./limits.ts";
@@ -162,3 +163,77 @@ export const CONSENT_TEXTS: Readonly<Record<number, string>> = {
         "If you do not agree, do not start; talk to your instructor about another arrangement.",
     ].join("\n\n"),
 };
+
+// One telemetry event as the page sends it (Stage 6, slice 6). `kind` is the closed list; `data` is small, typed
+// per kind, and carries counts and durations only: never what was pasted or typed, never a screen or a device
+// identifier. `t` is when the page saw it (unix ms); the server clamps it into the sitting.
+const count = z.number().int().min(0).max(10_000_000);
+export const telemetryEventSchema = z.discriminatedUnion("kind", [
+    z
+        .object({ kind: z.literal("focus_lost"), t: z.number().int(), data: z.object({}).strict() })
+        .strict(),
+    z
+        .object({
+            kind: z.literal("focus_gained"),
+            t: z.number().int(),
+            data: z.object({ away_ms: count }).strict(),
+        })
+        .strict(),
+    z
+        .object({
+            kind: z.literal("fullscreen_exit"),
+            t: z.number().int(),
+            data: z.object({}).strict(),
+        })
+        .strict(),
+    z
+        .object({
+            kind: z.literal("paste"),
+            t: z.number().int(),
+            data: z.object({ chars: count }).strict(),
+        })
+        .strict(),
+    z
+        .object({
+            kind: z.literal("copy"),
+            t: z.number().int(),
+            data: z.object({ chars: count }).strict(),
+        })
+        .strict(),
+    z
+        .object({
+            kind: z.literal("cut"),
+            t: z.number().int(),
+            data: z.object({ chars: count }).strict(),
+        })
+        .strict(),
+    z
+        .object({
+            kind: z.literal("edit"),
+            t: z.number().int(),
+            data: z.object({ added: count, removed: count }).strict(),
+        })
+        .strict(),
+    z
+        .object({
+            kind: z.literal("run"),
+            t: z.number().int(),
+            data: z.object({ language: z.string().max(32) }).strict(),
+        })
+        .strict(),
+    z
+        .object({ kind: z.literal("offline"), t: z.number().int(), data: z.object({}).strict() })
+        .strict(),
+    z
+        .object({
+            kind: z.literal("online"),
+            t: z.number().int(),
+            data: z.object({ offline_ms: count }).strict(),
+        })
+        .strict(),
+]);
+export type TelemetryEvent = z.infer<typeof telemetryEventSchema>;
+
+export const telemetryBatchSchema = z
+    .object({ events: z.array(telemetryEventSchema).min(1).max(TELEMETRY_BATCH_EVENTS_MAX) })
+    .strict();

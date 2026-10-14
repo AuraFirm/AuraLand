@@ -257,3 +257,16 @@ export async function seedClosedExam(staffEmail: string, candidateEmail: string)
         await database.close(5);
     }
 }
+
+// How many telemetry events a sitting of an exam has recorded (the browser tests read the record, as staff would).
+export async function countTelemetry(examPublicId: string): Promise<number> {
+    const database = createDatabase(e2eDatabaseUrl(), 1);
+    try {
+        const rows = await database.sql<{ n: number }[]>`
+            select count(*)::int as n from telemetry_events t join exam_sessions s on s.id = t.session_id
+             where s.exam_id = ${examPublicId.replace("exm_", "")}`;
+        return rows[0]?.n ?? 0;
+    } finally {
+        await database.close(5);
+    }
+}

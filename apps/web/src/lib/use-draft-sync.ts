@@ -13,6 +13,7 @@ import {
 import { type MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, apiSend } from "./api.ts";
 import { loadLocalDraft, saveLocalDraft } from "./exam-drafts-db.ts";
+import { reportEdit } from "./exam-telemetry.ts";
 
 // Local-first autosave for one answer (Stage 6, slice 4): every change goes to this computer first and then to the
 // server; nothing is forgotten until the server acknowledged it. The decisions are the pure rules of
@@ -148,6 +149,7 @@ export function useDraftSync(
 
     const change = (content: string, nextLanguage: string) => {
         if (state.current.over) return;
+        reportEdit(state.current.content.length, content.length);
         setText(content);
         setChosen(nextLanguage);
         setStatus("unsaved");

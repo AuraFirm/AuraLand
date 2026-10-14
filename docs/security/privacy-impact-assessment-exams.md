@@ -11,7 +11,7 @@ India data-protection law). It is updated as slices land; claims below are what 
 | Name, email, accommodation minutes (roster) | candidate | run the exam, give the right time | contract with the institution; accommodation is health-adjacent: explicit consent or the institution's legal duty | exam roster table | no |
 | Answers: saved drafts, submissions, grades, rubric marks | candidate | assessment | contract with the institution | drafts, submissions | no |
 | Consent record (time, text version) | candidate | prove consent | legal obligation | session row | no |
-| Telemetry: focus changes, paste/copy/cut, edit events, run events, offline/online | candidate | integrity review by a human | **consent** (and the institution's legitimate interest, to be assessed) | partitioned telemetry table | no |
+| Telemetry: focus changes, paste/copy/cut, edit events, run events, offline/online | candidate | integrity review by a human | **consent** (and the institution's legitimate interest, to be assessed) | partitioned telemetry table | **yes (slice 6)**: counts and durations only, consent-gated in the database, bounded rate, retention job |
 | Similarity pairs and spans | candidate | integrity review by a human | legitimate interest of the institution | similarity table | no |
 | Integrity flags, decisions, appeals | candidate | fair process | legitimate interest; the right to contest | integrity tables | no |
 | Oral defence questions and answers | candidate | verify understanding | contract/consent | oral table | no |
