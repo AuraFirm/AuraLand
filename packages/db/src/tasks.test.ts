@@ -114,7 +114,7 @@ async function passValidation(versionId: string) {
         "aura_worker",
         { actorKind: "worker", userId: null, orgIds: [] },
         (tx) =>
-            tx`select settle_validation(${versionId}, ${plantedNode}, ${tx.json(checks)}, ${tx.json({})}, now())`,
+            tx`select settle_validation(${versionId}, ${plantedNode}, ${tx.json(checks)}, ${tx.json({})}, 90, 1, now())`,
     );
 }
 const BUNDLE = () => ({ bundle_bytes: 1000, bundle_sha256: randomBytes(32) });

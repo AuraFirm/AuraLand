@@ -5,7 +5,10 @@ import { VALIDATION_ATTACKERS, type ValidationResult } from "@aura/contracts/val
 import { describe, expect, it } from "vitest";
 import { evaluateValidation, mutationKillRate } from "./rules.ts";
 
-const spec = ["1", "2"];
+const spec = [
+    { id: "1", group: "all" },
+    { id: "2", group: "all" },
+];
 type Verdicts = [TestVerdict, TestVerdict];
 type Run = ValidationResult["runs"][number];
 const run = (solution: string, verdicts: Verdicts, repeat = 1, compileOk = true): Run => ({
@@ -20,7 +23,7 @@ const rejected = () =>
     VALIDATION_ATTACKERS.map((name) => ({ name, passed: 0, total: spec.length }));
 const good = (): ValidationResult => ({
     bundle: { opens: true },
-    mutants: [],
+    mutants: [{ operator: "+ to -", line: 1, compile_ok: true, killed: true }],
     attackers: rejected(),
     runs: [
         run("reference.cpp", ["AC", "AC"]),
@@ -47,6 +50,7 @@ describe("evaluateValidation", () => {
             "wrong_solutions_present",
             "wrong_fails:wrong_a.py",
             ...VALIDATION_ATTACKERS.map((name) => `attacker_rejected:${name}`),
+            "score_at_least_70",
         ]);
         expect(failedNames(good())).toEqual([]);
     });
@@ -61,6 +65,7 @@ describe("evaluateValidation", () => {
         const evaluation = evaluateValidation(spec, refused);
         expect(evaluation).toEqual({
             ok: true,
+            score: null,
             checks: [{ name: "bundle_opens", ok: false, detail: "unexpected_file" }],
         });
     });
@@ -161,6 +166,7 @@ describe("mutants", () => {
     });
     it("rates the tests by the share of compiling mutants they caught", () => {
         const result = good();
+        result.mutants = [];
         expect(mutationKillRate(result)).toBeNull(); // nothing learned
         result.mutants = [
             mutant(true, true),

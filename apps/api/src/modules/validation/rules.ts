@@ -4,6 +4,7 @@ import {
     type ValidationCheck,
     type ValidationResult,
 } from "@aura/contracts/validation";
+import { type Score, scoreCheck, ungameabilityScore } from "./score.ts";
 
 // Turns what a judge node observed into the checks of a validation report. Pure: no I/O. The node
 // reports raw verdicts per solution and test; every conclusion is drawn here, so a node cannot say
@@ -11,7 +12,12 @@ import {
 // job tried on another node) instead of being recorded.
 
 export type Evaluation =
-    | { readonly ok: true; readonly checks: readonly ValidationCheck[] }
+    | {
+          readonly ok: true;
+          readonly checks: readonly ValidationCheck[];
+          // Null when the bundle did not open: there was nothing to score.
+          readonly score: Score | null;
+      }
     | { readonly ok: false; readonly reason: string };
 
 type Run = ValidationResult["runs"][number];
@@ -136,16 +142,18 @@ function mutantsProblem(result: ValidationResult): string | null {
 }
 
 export function evaluateValidation(
-    testIds: readonly string[],
+    tests: readonly { readonly id: string; readonly group: string }[],
     result: ValidationResult,
 ): Evaluation {
-    assert(testIds.length > 0, "a spec has at least one test");
+    assert(tests.length > 0, "a spec has at least one test");
+    const testIds = tests.map((test) => test.id);
     if (!result.bundle.opens) {
         if (result.runs.length + result.mutants.length + result.attackers.length > 0)
             return { ok: false, reason: "observations reported for a bundle that did not open" };
         return {
             ok: true,
             checks: [check("bundle_opens", false, result.bundle.refusal ?? "refused")],
+            score: null,
         };
     }
     const problem =
@@ -153,15 +161,16 @@ export function evaluateValidation(
         mutantsProblem(result) ??
         attackersProblem(testIds, result);
     if (problem !== null) return { ok: false, reason: problem };
-    const checks = [
+    const observed = [
         check("bundle_opens", true),
         ...referenceChecks(result.runs),
         ...wrongChecks(result.runs),
         ...attackerChecks(result),
     ];
     assert(
-        checks.length >= 3,
+        observed.length >= 3,
         "a report always carries the bundle, reference and wrong-solution checks",
     );
-    return { ok: true, checks };
+    const score = ungameabilityScore({ result, checks: observed, tests });
+    return { ok: true, checks: [...observed, scoreCheck(score)], score };
 }

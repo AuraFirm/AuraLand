@@ -210,6 +210,30 @@ describe("the node side, reports", () => {
         expect(row?.passed).toBe(false);
         expect(JSON.stringify(row?.checks)).toContain("passed every test");
     });
+});
+
+describe("the score", () => {
+    it("keeps a task whose tests catch no mutant out of validated, with its score on record", async () => {
+        const node = await activeNode();
+        const version = await requested();
+        const job = await leaseValidation(node);
+        const lax: ValidationResult = {
+            ...SOUND,
+            mutants: [{ operator: "+ to -", line: 3, compile_ok: true, killed: false }],
+        };
+        expect((await report(node, job?.job_id ?? "", job?.lease_epoch ?? 0, lax)).status).toBe(
+            200,
+        );
+        expect(await stateOf(version.id)).toBe("uploaded");
+        const [row] = await h.db.database.sql<
+            { score: string; score_version: number; checks: unknown }[]
+        >`
+            select score, score_version, checks from validation_reports
+            where task_version_id = ${decodeId("tsv", version.id)}`;
+        expect(Number(row?.score)).toBe(50);
+        expect(row?.score_version).toBe(1);
+        expect(JSON.stringify(row?.checks)).toContain("score_at_least_70");
+    });
 
     it("refuses a report that cannot be true and lets another node try", async () => {
         const first = await activeNode();

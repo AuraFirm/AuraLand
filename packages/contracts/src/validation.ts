@@ -108,3 +108,15 @@ export const validationCheckSchema = z
     .object({ name: z.string().max(100), ok: z.boolean(), detail: z.string().max(200) })
     .strict();
 export type ValidationCheck = z.infer<typeof validationCheckSchema>;
+
+// The ungameability score (ADR 0029). The weights sum to 100; the formula is versioned so a report
+// always says which one produced its number.
+export const SCORE_VERSION = 1;
+export const SCORE_WEIGHTS = {
+    mutation: 40,
+    attackers: 30,
+    consistency: 20,
+    coverage: 10,
+} as const;
+// A task under this cannot become validated, whatever else is true of it.
+export const SCORE_THRESHOLD = 70;
