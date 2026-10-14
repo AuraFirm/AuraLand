@@ -36,6 +36,7 @@ import {
     submissionRoutes,
 } from "./modules/submissions/routes.ts";
 import { assignmentRoutes } from "./modules/tasks/assignment-routes.ts";
+import { attackRoutes } from "./modules/tasks/attack-routes.ts";
 import { commentRoutes } from "./modules/tasks/comment-routes.ts";
 import { reviewRoutes } from "./modules/tasks/review-routes.ts";
 import { taskRoutes } from "./modules/tasks/task-routes.ts";
@@ -231,14 +232,7 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", reviewRoutes({ clock: deps.clock }));
     app.route("/v1", assignmentRoutes({ clock: deps.clock }));
     app.route("/v1", validationRoutes());
-    app.route(
-        "/v1",
-        commentRoutes({
-            sql: deps.database.sql,
-            clock: deps.clock,
-            key: loginTokenKey(deps.config),
-        }),
-    );
+    mountDiscussionRoutes(app, deps);
     app.route("/v1", judgeAdminRoutes({ clock: deps.clock }));
     app.route(
         "/judge/v1",
@@ -261,6 +255,26 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     );
     mountOrderRoutes(app, deps);
     mountSignInRoutes(app, deps, secureCookies);
+}
+
+// Talk about and test a task version: comments and human attacks (Stage 4).
+function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
+    app.route(
+        "/v1",
+        commentRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            key: loginTokenKey(deps.config),
+        }),
+    );
+    app.route(
+        "/v1",
+        attackRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            key: loginTokenKey(deps.config),
+        }),
+    );
 }
 
 // Selling and delivering tasks: orders, payment records and customer deliveries (Stage 4).

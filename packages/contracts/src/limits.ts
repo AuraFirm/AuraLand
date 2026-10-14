@@ -155,3 +155,9 @@ assert(TASK_PAGE_SIZE_DEFAULT <= TASK_PAGE_SIZE_MAX, "default page size within t
 assert(TASK_SLUG_LENGTH_MIN < TASK_SLUG_LENGTH_MAX, "task slug bounds");
 assert(BUNDLE_BYTES_MAX < BUNDLE_UNCOMPRESSED_BYTES_MAX, "unpacked cap exceeds the packed cap");
 assert(BUNDLE_PATH_SEGMENT_BYTES_MAX < BUNDLE_PATH_BYTES_MAX, "a segment fits in a path");
+
+// Human attacks on a task version (Stage 4B): a written method is evidence a reviewer reads, so it is
+// bounded; a person attacks a few versions a day, so ten findings a minute is far above honest use.
+export const ATTACK_METHOD_CHARS_MAX = 4_000;
+export const ATTACKS_PAGE_SIZE_MAX = 200;
+export const ATTACKS_PER_MINUTE_PER_USER_MAX = 10;

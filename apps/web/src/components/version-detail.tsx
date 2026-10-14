@@ -11,6 +11,7 @@ import { useLoad } from "../lib/use-load.ts";
 import { Notice, Section } from "./section.tsx";
 import { SubmitPanel } from "./submit-panel.tsx";
 import { VersionActions } from "./version-actions.tsx";
+import { VersionAttacks } from "./version-attacks.tsx";
 import { VersionBundle } from "./version-bundle.tsx";
 import { VersionComments } from "./version-comments.tsx";
 import { VersionContent } from "./version-content.tsx";
@@ -64,6 +65,14 @@ export function VersionDetail({ versionId }: { versionId: string }) {
             )}
             {(canWriteTasks(role) || canReviewTasks(role)) && (
                 <VersionValidation versionId={current.id} state={current.state} />
+            )}
+            {(canWriteTasks(role) || canReviewTasks(role)) && current.state !== "draft" && (
+                <VersionAttacks
+                    versionId={current.id}
+                    state={current.state}
+                    canAttack={canReviewTasks(role)}
+                    own={current.created_by === me.data.id}
+                />
             )}
             {(canWriteTasks(role) || canReviewTasks(role)) && (
                 <VersionComments versionId={current.id} />
