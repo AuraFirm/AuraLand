@@ -31,6 +31,7 @@ import { judgeRoutes } from "./modules/judge/routes.ts";
 import { deliveryRoutes } from "./modules/orders/delivery-routes.ts";
 import { orderRoutes } from "./modules/orders/routes.ts";
 import { payoutRoutes } from "./modules/payouts/routes.ts";
+import { contestSubmissionRoutes } from "./modules/submissions/contest-routes.ts";
 import {
     QUEUE_FULL_RETRY_AFTER_S,
     QueueFullError,
@@ -260,6 +261,14 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
 
 // Talk about and test a task version: comments and human attacks (Stage 4).
 function mountDiscussionRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
+    app.route(
+        "/v1",
+        contestSubmissionRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            key: loginTokenKey(deps.config),
+        }),
+    );
     app.route(
         "/v1",
         contestRoutes({

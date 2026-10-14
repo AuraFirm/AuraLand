@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { judgeLanguageSchema } from "./judging.ts";
 import {
     CONTEST_DURATION_S_MAX,
     CONTEST_DURATION_S_MIN,
@@ -38,7 +39,7 @@ export const contestVisibilitySchema = z.enum(["public", "unlisted", "private"])
 export const contestAiPolicySchema = z.enum(["none", "allowed_logged", "agents_only"]);
 
 // What the judge may run in this contest. A subset of the platform's languages.
-export const contestLanguageSchema = z.enum(["cpp", "python3", "c", "java"]);
+export const contestLanguageSchema = judgeLanguageSchema;
 
 const sharedRules = {
     // The least time between two submissions of one person to one problem.
@@ -48,7 +49,7 @@ const sharedRules = {
         .min(0)
         .max(CONTEST_SUBMIT_INTERVAL_S_MAX)
         .default(CONTEST_SUBMIT_INTERVAL_S_DEFAULT),
-    languages: z.array(contestLanguageSchema).min(1).max(4).default(["cpp", "python3"]),
+    languages: z.array(contestLanguageSchema).min(1).max(8).default(["cpp", "python3"]),
 };
 
 // ICPC: solved count, then penalty (minutes to the first accepted run plus a fixed penalty for each
