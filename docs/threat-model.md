@@ -249,6 +249,23 @@ No new personal data. Reports hold task content derivatives (verdicts, scores) a
 No new personal data. The tag identifies a delivery, which identifies a customer organization; it is
 readable only by platform administrators.
 
+## STRIDE for the Stage 5 surface (contests and the Arena, v7; design only so far)
+| Threat | Surface | Control (designed in ADR 0031; built and tested slice by slice) | Evidence |
+|---|---|---|---|
+| **Disclosure**: a stranger or an early registrant reads a contest's problems | Problem statements | Statements readable only by registered people from `running`; never in `draft` or `scheduled` | RLS matrix rows (slice 1) |
+| Disclosure: a contestant reads hidden material through the new access | Tests, solutions, bundles, reports, comments | The new rule opens only the statement and limits of a released version of the contest's own problems; response schemas stay allowlists | RLS matrix, `http-task-hidden` style tests |
+| Disclosure: per-test verdicts used to probe hidden tests | Verdicts during a contest | Contestants see the verdict and score only; per-test results appear after the end | HTTP tests (slice 3) |
+| **Elevation/Tampering**: an organizer or problem author competes with inside knowledge | Registration | Owners, admins, setters and reviewers of the host or problem organizations cannot register as competitors | db tests (slice 1) |
+| Tampering: submissions after the end, or before registration | Contest submission | Created only by a definer function with the injected clock, checking registration, state, window and problem; the app role cannot insert contest submissions | db and HTTP tests (slice 3) |
+| Repudiation: scoreboard disputes | Scoreboard | The scoreboard is a pure fold of the judged-submission log; incremental state equals a recompute from the log | simulation (slice 5) |
+| Disclosure: a frozen scoreboard reveals later events | Public view | Events after `freeze_at` are excluded from the public fold; organizers and the participant see their own | simulation (slice 5/7) |
+| Denial of service: submission floods starve a contest | Queue, routes | Contest priority above practice, practice shed first, per-person and per-problem limits, SSE caps | queue simulation, load harness (slices 3, 6, 14) |
+| Information: private profiles exposed on a public scoreboard | Scoreboard, profiles | Only public profiles are named; others are "participant N" | HTTP tests (slice 5, 10) |
+
+**Not designed away.** There is no identity proof, no proctoring and no AI-policy enforcement in Stage 5;
+a contest's results are only as trustworthy as an unproctored online contest. Similarity or plagiarism
+detection is a Stage 6 signal. Ratings are computed, never edited.
+
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;
 download events with the person's address; contractors' payout amounts and references. Download events
