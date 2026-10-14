@@ -31,6 +31,16 @@ const NodeRoot = "/opt/aura/node"
 var profiles = map[string]Profile{
 	// The bundle opener (Stage 4B): the TypeScript validator, built into one file, run by a pinned Node.
 	// Not a language a participant can pick: judge.Run refuses sandbox.OpenerLanguage.
+	// The delivery watermark rewriter (Stage 4C): the same pinned Node, a different program.
+	sandbox.RewriterLanguage: {
+		Language:     sandbox.RewriterLanguage,
+		SourceName:   "main.cjs",
+		Run:          []string{NodeRoot + "/bin/node", "--max-old-space-size=768", "main.cjs"},
+		RunProcesses: 32,
+		Environment:  []string{"PATH=/usr/bin:/bin", "LANG=C"},
+		Directories:  []string{NodeRoot},
+		Version:      "rewriter-1",
+	},
 	sandbox.OpenerLanguage: {
 		Language:     sandbox.OpenerLanguage,
 		SourceName:   "main.cjs",

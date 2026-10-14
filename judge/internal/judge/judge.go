@@ -24,7 +24,7 @@ var ErrUnsupported = errors.New("this node cannot judge that task")
 // Run judges the job. Errors are system errors: the node (not the participant) failed.
 func Run(ctx context.Context, box sandbox.Sandbox, data TestData, job wire.LeasedJob) (wire.Result, error) {
 	spec := job.Task.Spec
-	if job.Submission.Language == sandbox.OpenerLanguage {
+	if job.Submission.Language == sandbox.OpenerLanguage || job.Submission.Language == sandbox.RewriterLanguage {
 		return wire.Result{}, ErrUnsupported
 	}
 	if spec.Checker.Type == "custom" || spec.Interactive {
