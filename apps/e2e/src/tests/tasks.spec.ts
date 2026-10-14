@@ -231,6 +231,17 @@ test("a reviewer asks for validation, sees the report with its sandbox caveat, a
     await expect(reviewer.getByText(/Waiting for a judge node/)).toBeVisible();
     await expectAccessible(reviewer);
 
+    // A person tries to game it and writes down what they did; the text is shown as text.
+    await reviewer
+        .getByLabel(/^What did you try/)
+        .fill("Printed the first number; <b>passed nothing</b>.");
+    await reviewer.getByRole("button", { name: "Record finding" }).click();
+    await expect(reviewer.getByText("Finding recorded.")).toBeVisible();
+    await expect(reviewer.getByText("It held", { exact: true })).toBeVisible();
+    await expect(
+        reviewer.getByText("Printed the first number; <b>passed nothing</b>."),
+    ).toBeVisible();
+
     // No node runs in this environment; one is played, and the page then tells the truth about it.
     await settleValidationAsDevelopmentNode(versionId);
     await reviewer.reload();

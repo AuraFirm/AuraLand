@@ -205,14 +205,17 @@ original bytes, so it is not traceable to a customer by content (F41).
 | **Disclosure**: the bundle or hidden tests reach the wrong place | Node bundle download, opener | A node downloads only the bundle of a job it holds; every grant is audited; the opener runs the validator in a box and only `tests/` and `solutions/` come out as a flat stream the node parses strictly; reports show conclusions, not observations | `http-validation.test.ts`, `opener_isolate_test.go`, `bundles_test.go` |
 | Disclosure: unreviewed validation sold as validated | Delivery manifest, portal | Plain "validated" only for a `production` report; a development report says "development sandbox only"; no report says "not performed" | `rules.test.ts` (orders), `handlers.database.test.ts`, `version-validation.tsx` |
 | **Denial of service**: validation floods the judge | Queue and node | 100 ready jobs at most; 20 wrong solutions, 40 mutants, 10 attackers per job; per-run limits; a dead job returns its version to `uploaded` | `validation.test.ts` (db), `http-validation.test.ts` |
+| **Tampering/Repudiation**: an author clears their own task, or a finding is rewritten after the fact | Human attack findings | A guard trigger refuses the version's author and versions not in review, validation or release; only owners, admins and assigned reviewers write; findings never change and are never deleted; each is audited | `attacks.test.ts` (db), `http-attacks.test.ts` |
+| Tampering/XSS: markup in a finding's method | Human attack panel | The method is plain text, returned as text and shown in a text node; 4000 characters, no NUL | `http-attacks.test.ts`, `tasks.spec.ts` |
 | Elevation: the opener runs hostile code on the host | Node | The archive is parsed only by the validator inside a box; the box sees a read-only Node tree and nothing else; the node parses a flat, hash-checked stream | `opener_isolate_test.go` (zip bomb, symlink, bad names) |
 
 **What is not claimed.**
 - All sandbox evidence comes from one development VM (aarch64, isolate 2.1.1, cgroup v2). There is no
   production node and no external review (F32). Reports from it are `development` reports.
 - A task passes the harness if its own solutions behave and ten trivial programs fail; that is not
-  proof the statement is clear, the difficulty right or the tests free of mistakes. Models and people
-  have not attacked any task (F41, human-attack queue and model calibration not built).
+  proof the statement is clear, the difficulty right or the tests free of mistakes. Models have not
+  attacked any task and difficulty is not calibrated (F41); people can record attack findings, but a
+  finding is evidence for a reviewer and does not block a release.
 - Mutants are textual swaps in C++ and Python references; a surviving mutant may be an equivalent one.
   A task whose real answer is trivially computable (a sum of numbers) is rejected by the sum attacker.
 - Custom checkers and interactive tasks are not validated here (the node refuses them).

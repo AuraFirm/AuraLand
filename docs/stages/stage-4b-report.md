@@ -2,7 +2,7 @@
 
 Status: **core built, ready for your review.** Plan: [stage-4b-plan.md](stage-4b-plan.md) (you said
 "proceed", which I took as accepting its defaults). Decisions: [ADR 0029](../adr/0029-stage-4b-decisions.md).
-**Not built:** model calibration (slice 6, needs a provider account) and the human-attack queue (slice 7).
+**Not built:** model calibration (slice 6, needs a provider account). Human attacks are built as recorded findings (slice 7), not as a work queue: nobody is assigned or paid to attack, and a finding does not block a release.
 Everything that ran a sandbox ran on **one development VM**, so every report today is a `development` report.
 
 ## Read this first: what is verified and what is not
@@ -16,7 +16,8 @@ Everything that ran a sandbox ran on **one development VM**, so every report tod
 | A task with only public tests is flagged (lookup attacker); a task a generic program solves (sum of two numbers) is flagged | **Verified in a real sandbox**, and note the second one: the sample task of the test corpus is rejected by the harness |
 | Deliveries state validation honestly: plain "validated" only for a production report | **Verified** (`rules.test.ts` orders, `handlers.database.test.ts`) |
 | The portal shows the request button, the report with its sandbox caveat and the release button for validated versions | **Verified in a real browser** (`tasks.spec.ts`, with accessibility checks). A stand-in plays the node by calling `settle_validation`, so this tests the screens, not validation |
-| **Any task is validated in the sense a customer should rely on** | **No.** No production node exists and there has been no external review (F32); no model or human has attacked a task; difficulty is not measured |
+| People other than the author record whether a task held or was gamed (plain text, append-only, audited) | **Verified** (`attacks.test.ts`, `http-attacks.test.ts`, browser test) |
+| **Any task is validated in the sense a customer should rely on** | **No.** No production node exists and there has been no external review (F32); no model has attacked a task and no real human attack has been made; difficulty is not measured |
 | The real agent leasing a real job from a running API, end to end | **No.** Each half is tested (HTTP tests with signed fake nodes; real sandbox with a stubbed fetch); the two were never joined in one run |
 | Deployed anywhere | **No** (F1) |
 
@@ -44,7 +45,7 @@ reports made visible (manifest, portal, methodology, threat model v5, runbook; t
 - The stack-bomb lesson again: my own test corpus bundle was "too easy" and the attackers said so.
 
 ## Evidence at the end of the stage
-`pnpm check` clean; `pnpm test` 1,248 tests in 94 files (up from 1,198 in 89); `pnpm test:sim` five
+`pnpm check` clean; `pnpm test` 1,262 tests in 96 files (up from 1,198 in 89); `pnpm test:sim` five
 scenarios 500/500; web build passes; Go tests green; `go test -tags isolate` for `internal/bundles` and
 `internal/validate` passes on the Colima VM (Ubuntu 24.04, aarch64, isolate 2.1.1, Node 24.21.0).
 `pnpm test:e2e` 25 browser tests (up from 24), all passing; Chromium had to be reinstalled on the machine first.
