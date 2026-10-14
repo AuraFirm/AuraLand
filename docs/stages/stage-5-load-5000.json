@@ -1,62 +1,62 @@
 {
-  "when": "2026-10-14T16:29:40.698Z",
-  "node": "v26.11.1",
-  "users": 5000,
-  "rate": 100,
-  "rateSeconds": 60,
-  "accepted": 6000,
-  "lost": 0,
-  "boardVersions": 47,
-  "table": [
-    {
-      "kind": "GET /api/v1/contests/:contest",
-      "count": 5000,
-      "errors": 0,
-      "statuses": "200",
-      "p50": 2878,
-      "p95": 4870,
-      "p99": 5055,
-      "max": 5071
-    },
-    {
-      "kind": "GET /api/v1/contests/:contest/problems/A",
-      "count": 5000,
-      "errors": 0,
-      "statuses": "200",
-      "p50": 4084,
-      "p95": 4944,
-      "p99": 5051,
-      "max": 5068
-    },
-    {
-      "kind": "GET /api/v1/contests/:contest/scoreboard",
-      "count": 5000,
-      "errors": 0,
-      "statuses": "200",
-      "p50": 4084,
-      "p95": 4943,
-      "p99": 5050,
-      "max": 5067
-    },
-    {
-      "kind": "POST /api/v1/contests/:contest/problems/A/submissions",
-      "count": 5000,
-      "errors": 0,
-      "statuses": "201",
-      "p50": 10,
-      "p95": 21,
-      "p99": 52,
-      "max": 96
-    },
-    {
-      "kind": "POST /api/v1/contests/:contest/problems/B/submissions",
-      "count": 1000,
-      "errors": 0,
-      "statuses": "201",
-      "p50": 10,
-      "p95": 34,
-      "p99": 67,
-      "max": 105
-    }
-  ]
+    "when": "2026-10-14T16:29:40.698Z",
+    "node": "v26.11.1",
+    "users": 5000,
+    "rate": 100,
+    "rateSeconds": 60,
+    "accepted": 6000,
+    "lost": 0,
+    "boardVersions": 47,
+    "table": [
+        {
+            "kind": "GET /api/v1/contests/:contest",
+            "count": 5000,
+            "errors": 0,
+            "statuses": "200",
+            "p50": 2878,
+            "p95": 4870,
+            "p99": 5055,
+            "max": 5071
+        },
+        {
+            "kind": "GET /api/v1/contests/:contest/problems/A",
+            "count": 5000,
+            "errors": 0,
+            "statuses": "200",
+            "p50": 4084,
+            "p95": 4944,
+            "p99": 5051,
+            "max": 5068
+        },
+        {
+            "kind": "GET /api/v1/contests/:contest/scoreboard",
+            "count": 5000,
+            "errors": 0,
+            "statuses": "200",
+            "p50": 4084,
+            "p95": 4943,
+            "p99": 5050,
+            "max": 5067
+        },
+        {
+            "kind": "POST /api/v1/contests/:contest/problems/A/submissions",
+            "count": 5000,
+            "errors": 0,
+            "statuses": "201",
+            "p50": 10,
+            "p95": 21,
+            "p99": 52,
+            "max": 96
+        },
+        {
+            "kind": "POST /api/v1/contests/:contest/problems/B/submissions",
+            "count": 1000,
+            "errors": 0,
+            "statuses": "201",
+            "p50": 10,
+            "p95": 34,
+            "p99": 67,
+            "max": 105
+        }
+    ]
 }
