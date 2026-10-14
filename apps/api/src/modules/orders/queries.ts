@@ -153,7 +153,14 @@ export async function getDelivery(
 }
 
 const downloadDecisionSchema = z.discriminatedUnion("status", [
-    z.object({ status: z.literal("ok"), task_org_id: z.string(), bundle_sha256: z.string() }),
+    z.object({
+        status: z.literal("ok"),
+        task_org_id: z.string(),
+        customer_org_id: z.string(),
+        bundle_sha256: z.string(),
+        // True when nothing was marked and the object is the original in its organization's place.
+        is_original: z.boolean(),
+    }),
     z.object({ status: z.enum(["pending", "revoked", "expired"]) }),
 ]);
 export type DownloadDecision = z.infer<typeof downloadDecisionSchema>;

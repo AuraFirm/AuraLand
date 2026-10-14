@@ -30,6 +30,17 @@ export const buildInputSchema = z.object({
                 bundle_sha256: z.string().regex(/^[0-9a-f]{64}$/),
                 bundle_bytes: z.number().int().min(1),
                 waived: z.boolean(),
+                // What was actually delivered for this version (migration 0032): the bundle recorded by
+                // the watermark job, which is the original when nothing could be marked.
+                delivered: z.object({
+                    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+                    bytes: z.number().int().min(1),
+                    source_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+                    answers_marked: z.boolean(),
+                    solutions_marked: z.boolean(),
+                    verdicts_checked: z.boolean(),
+                    attestation: z.enum(["development", "production"]),
+                }),
                 // The latest passing validation report, if there is one (migration 0029).
                 validation: z
                     .object({
@@ -77,6 +88,19 @@ function validationStatement(item: BuildInput["items"][number]): string {
         : `validated on a development sandbox only${score}${evidence}; the sandbox has not been independently reviewed`;
 }
 
+// What marks this copy carries, in the manifest's own words. The statement canary is always there; the
+// others only where a safe carrier existed (ADR 0030). `verdicts_checked` says whether the node re-ran the
+// harness on the marked copy and saw the same verdicts as on the original.
+function watermarkStatement(delivered: BuildInput["items"][number]["delivered"]) {
+    return {
+        statement: true,
+        answers: delivered.answers_marked,
+        solutions: delivered.solutions_marked,
+        verdicts_checked: delivered.verdicts_checked,
+        checked_on: delivered.attestation,
+    };
+}
+
 const isoTime = (text: string) => new Date(text).toISOString();
 
 // The manifest, as the exact text that is stored and hashed. Keys are in a fixed order on purpose.
@@ -89,6 +113,12 @@ export function buildManifest(
         "every ordered version is still released",
     );
     assert(input.items.length >= 1, "a delivery has at least one version");
+    for (const item of input.items) {
+        assert(
+            item.delivered.source_sha256 === item.bundle_sha256,
+            "the delivered bundle was made from the version's own released bundle",
+        );
+    }
     const items = input.items.map((item) => ({
         task_version_id: encodeId("tsv", item.task_version_id),
         task_id: encodeId("tsk", item.task_id),
@@ -96,7 +126,10 @@ export function buildManifest(
         title: item.spec.title,
         spec: item.spec,
         statement: `${item.statement}\n\n---\nDelivery reference: ${deliveryCanary(input.watermark_id, item.task_version_id, sha256Hex)}`,
-        bundle: { sha256: item.bundle_sha256, bytes: item.bundle_bytes },
+        bundle: { sha256: item.delivered.sha256, bytes: item.delivered.bytes },
+        // The original's hash, so the audit trail connects what was delivered to what was released.
+        source_sha256: item.delivered.source_sha256,
+        watermark: watermarkStatement(item.delivered),
         validation: validationStatement(item),
     }));
     const text = JSON.stringify({

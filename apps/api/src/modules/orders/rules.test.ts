@@ -29,6 +29,15 @@ function input(overrides: Partial<BuildInput> = {}): BuildInput {
                 bundle_sha256: "a".repeat(64),
                 bundle_bytes: 1234,
                 waived: false,
+                delivered: {
+                    sha256: "a".repeat(64),
+                    bytes: 1234,
+                    source_sha256: "a".repeat(64),
+                    answers_marked: false,
+                    solutions_marked: false,
+                    verdicts_checked: true,
+                    attestation: "development",
+                },
                 validation: null,
             },
         ],
@@ -50,8 +59,16 @@ describe("buildManifest", () => {
             input({ watermark_id: "f".repeat(32) }),
             input({ expires_at: "2026-11-12T10:00:00+00:00" }),
             input({ items: [{ ...first, statement: "Add three numbers." }] }),
-            input({ items: [{ ...first, bundle_sha256: "b".repeat(64) }] }),
-            input({ items: [{ ...first, bundle_bytes: 1235 }] }),
+            input({
+                items: [{ ...first, delivered: { ...first.delivered, sha256: "b".repeat(64) } }],
+            }),
+            input({
+                items: [{ ...first, delivered: { ...first.delivered, solutions_marked: true } }],
+            }),
+            input({
+                items: [{ ...first, delivered: { ...first.delivered, attestation: "production" } }],
+            }),
+            input({ items: [{ ...first, delivered: { ...first.delivered, bytes: 1235 } }] }),
             input({ items: [{ ...first, waived: true }] }),
         ];
         const hashes = new Set(variants.map((variant) => buildManifest(variant, sha).sha256Hex));
@@ -89,6 +106,40 @@ describe("buildManifest", () => {
         expect(
             say({ ...report, attestation: "development", score: null, score_version: null }),
         ).not.toContain("score");
+    });
+});
+
+describe("buildManifest, delivered bytes", () => {
+    it("lists what was delivered, the original beside it, and how it is marked", () => {
+        const first = input().items[0];
+        if (first === undefined) throw new Error("fixture has one item");
+        const delivered = {
+            ...first.delivered,
+            sha256: "c".repeat(64),
+            bytes: 999,
+            solutions_marked: true,
+        };
+        const item = JSON.parse(
+            buildManifest(input({ items: [{ ...first, delivered }] }), sha).text,
+        ).items[0];
+        expect(item.bundle).toEqual({ sha256: "c".repeat(64), bytes: 999 });
+        expect(item.source_sha256).toBe("a".repeat(64));
+        expect(item.watermark).toEqual({
+            statement: true,
+            answers: false,
+            solutions: true,
+            verdicts_checked: true,
+            checked_on: "development",
+        });
+    });
+
+    it("refuses a delivered bundle made from some other bundle than the released one", () => {
+        const first = input().items[0];
+        if (first === undefined) throw new Error("fixture has one item");
+        const stranger = { ...first.delivered, source_sha256: "d".repeat(64) };
+        expect(() =>
+            buildManifest(input({ items: [{ ...first, delivered: stranger }] }), sha),
+        ).toThrow(/own released bundle/);
     });
 
     it("refuses a missing version and an empty delivery", () => {

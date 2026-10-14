@@ -6,6 +6,7 @@ import { withRequestContext } from "@aura/db/context";
 import { createMigratedTestDatabase, inRole, type TestDatabase } from "@aura/db/test-helpers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { plantDelivered } from "../../delivery-test-support.ts";
 import { SPEC } from "../../http-task-support.ts";
 import { createFakeClock } from "../../sim/world.ts";
 import { buildDelivery } from "./handlers.ts";
@@ -55,7 +56,7 @@ const context = () => ({
 });
 
 let placed = 0;
-async function placedDelivery(): Promise<string> {
+async function placedDelivery(marked: ReadonlyMap<string, Buffer> = new Map()): Promise<string> {
     const admin = { actorKind: "user", userId: ADMIN, orgIds: [] } as const;
     const rows = await inRole(db.database, "aura_app", admin, async (tx) => {
         const [order] = await tx<
@@ -66,7 +67,9 @@ async function placedDelivery(): Promise<string> {
             { id: string }[]
         >`select place_order(${order?.id ?? ""}, ${(++placed).toString(16).padStart(32, "0")}, ${NOW}) as id`;
     });
-    return rows[0]?.id ?? "";
+    const id = rows[0]?.id ?? "";
+    await plantDelivered(db.database.sql, id, marked);
+    return id;
 }
 
 describe("buildDelivery", () => {
@@ -88,6 +91,28 @@ describe("buildDelivery", () => {
         const audit = await db.database
             .sql`select seq from audit_log where action = 'delivery.built' and actor_kind = 'worker'`;
         expect(audit.length).toBe(1);
+    });
+});
+
+describe("buildDelivery, delivered bytes", () => {
+    it("lists the delivered bundle, the original beside it and the marks, and refuses to build without the record", async () => {
+        const marked = createHash("sha256").update("marked copy").digest();
+        const id = await placedDelivery(new Map([[version, marked]]));
+        await buildDelivery({ delivery_id: id }, context());
+        const [row] = await db.database.sql<
+            { manifest: string }[]
+        >`select manifest from deliveries where id = ${id}`;
+        const item = JSON.parse(row?.manifest ?? "").items[0];
+        expect(item.bundle.sha256).toBe(marked.toString("hex"));
+        expect(item.source_sha256).toBe(createHash("sha256").update("bundle").digest("hex"));
+        expect(item.watermark).toMatchObject({ statement: true, solutions: true, answers: false });
+        const bare = await placedDelivery();
+        await db.database
+            .sql`alter table delivery_bundles disable trigger delivery_bundles_no_delete`;
+        await db.database.sql`delete from delivery_bundles where delivery_id = ${bare}`;
+        await db.database
+            .sql`alter table delivery_bundles enable trigger delivery_bundles_no_delete`;
+        await expect(buildDelivery({ delivery_id: bare }, context())).rejects.toThrow();
     });
 });
 
