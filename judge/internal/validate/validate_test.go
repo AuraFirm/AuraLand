@@ -35,7 +35,7 @@ func (b *sourceBox) Run(_ context.Context, p sandbox.Program, stdin []byte, _ sa
 	switch source := p.(program).source; {
 	case strings.Contains(source, "SLOW"):
 		return sandbox.RunResult{Verdict: "TLE", CPUMS: 1000}, nil
-	case strings.Contains(source, "WRONG"):
+	case strings.Contains(source, "WRONG") || strings.Contains(source, "echo -"):
 		return sandbox.RunResult{Verdict: "OK", Stdout: []byte("nope"), CPUMS: 3}, nil
 	case strings.Contains(source, "SYSTEM"):
 		return sandbox.RunResult{Verdict: "SE"}, nil
@@ -143,5 +143,29 @@ func TestRunTreatsNodeFailuresAsErrors(t *testing.T) {
 	custom.Task.Spec.Checker.Type = "custom"
 	if _, err := (&Runner{Box: &sourceBox{}, Open: opener{stream: goodStream()}}).Run(context.Background(), custom); !errors.Is(err, judge.ErrUnsupported) {
 		t.Fatalf("a custom checker is not supported here: %v", err)
+	}
+}
+
+func TestMutantsAreKilledOrSurviveAndOnlyWhenTheReferencePasses(t *testing.T) {
+	reference := func(source string) string {
+		return stream(record("solutions/reference.cpp", source), record("tests/1.ans", "a"), record("tests/1.in", "a"), record("tests/2.ans", "b"), record("tests/2.in", "b"))
+	}
+	result, err := (&Runner{Box: &sourceBox{}, Open: opener{stream: reference("echo + 1")}}).Run(context.Background(), job())
+	if err != nil {
+		t.Fatal(err)
+	}
+	killed := map[string]bool{}
+	for _, m := range result.Mutants {
+		if !m.CompileOK || m.Line != 1 {
+			t.Errorf("%+v", m)
+		}
+		killed[m.Operator] = m.Killed
+	}
+	if len(result.Mutants) != 2 || !killed["+ to -"] || killed["1 to 2"] {
+		t.Fatalf("the swap is caught, the boundary change survives: %+v", result.Mutants)
+	}
+	broken, _ := (&Runner{Box: &sourceBox{}, Open: opener{stream: reference("echo + 1 WRONG")}}).Run(context.Background(), job())
+	if len(broken.Mutants) != 0 || broken.Mutants == nil {
+		t.Fatalf("a failing reference gives no mutants, and an empty list not null: %+v", broken.Mutants)
 	}
 }

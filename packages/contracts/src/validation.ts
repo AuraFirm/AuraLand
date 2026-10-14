@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "./ids.ts";
 import { testVerdictSchema } from "./judging.ts";
-import { BUNDLE_WRONG_SOLUTIONS_MAX, SPEC_TESTS_MAX } from "./limits.ts";
+import { BUNDLE_WRONG_SOLUTIONS_MAX, SPEC_TESTS_MAX, VALIDATION_MUTANTS_MAX } from "./limits.ts";
 import { taskSpecSchema } from "./tasks.ts";
 
 // Validation of a task version (Stage 4B, ADR 0029). A judge node runs the bundle's own solutions and
@@ -52,11 +52,23 @@ export const validationRunSchema = z
     })
     .strict();
 
+// One change to the reference (what was swapped and where), and whether the tests noticed it. A mutant
+// that does not compile proves nothing about the tests and is not counted either way.
+export const validationMutantSchema = z
+    .object({
+        operator: z.string().min(1).max(40),
+        line: z.number().int().min(1).max(1_000_000),
+        compile_ok: z.boolean(),
+        killed: z.boolean(),
+    })
+    .strict();
+
 export const validationResultSchema = z
     .object({
         // The opener's answer: opens, or the validator's refusal code (never content).
         bundle: z.object({ opens: z.boolean(), refusal: z.string().max(64).optional() }).strict(),
         runs: z.array(validationRunSchema).max(VALIDATION_RUNS_MAX),
+        mutants: z.array(validationMutantSchema).max(VALIDATION_MUTANTS_MAX),
     })
     .strict();
 export type ValidationResult = z.infer<typeof validationResultSchema>;

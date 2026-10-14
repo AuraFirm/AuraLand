@@ -41,6 +41,20 @@
                     }
                 ]
             }
+        ],
+        "mutants": [
+            {
+                "operator": "+ to -",
+                "line": 3,
+                "compile_ok": true,
+                "killed": true
+            },
+            {
+                "operator": "< to <=",
+                "line": 5,
+                "compile_ok": false,
+                "killed": false
+            }
         ]
     }
 }

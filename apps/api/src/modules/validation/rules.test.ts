@@ -3,7 +3,7 @@
 import type { TestVerdict } from "@aura/contracts/judging";
 import type { ValidationResult } from "@aura/contracts/validation";
 import { describe, expect, it } from "vitest";
-import { evaluateValidation } from "./rules.ts";
+import { evaluateValidation, mutationKillRate } from "./rules.ts";
 
 const spec = ["1", "2"];
 type Verdicts = [TestVerdict, TestVerdict];
@@ -18,6 +18,7 @@ const run = (solution: string, verdicts: Verdicts, repeat = 1, compileOk = true)
 });
 const good = (): ValidationResult => ({
     bundle: { opens: true },
+    mutants: [],
     runs: [
         run("reference.cpp", ["AC", "AC"]),
         run("reference.cpp", ["AC", "AC"], 2),
@@ -49,6 +50,7 @@ describe("evaluateValidation", () => {
     it("fails a task whose bundle did not open, naming the refusal", () => {
         const refused: ValidationResult = {
             bundle: { opens: false, refusal: "unexpected_file" },
+            mutants: [],
             runs: [],
         };
         const evaluation = evaluateValidation(spec, refused);
@@ -142,5 +144,33 @@ describe("evaluateValidation, wrong solutions and bad reports", () => {
                 tests: [{ test_id: "1", verdict: "AC", cpu_ms: 1 }],
             };
         });
+    });
+});
+
+describe("mutants", () => {
+    const mutant = (compileOk: boolean, killed: boolean) => ({
+        operator: "+ to -",
+        line: 1,
+        compile_ok: compileOk,
+        killed,
+    });
+    it("rates the tests by the share of compiling mutants they caught", () => {
+        const result = good();
+        expect(mutationKillRate(result)).toBeNull(); // nothing learned
+        result.mutants = [
+            mutant(true, true),
+            mutant(true, true),
+            mutant(true, false),
+            mutant(false, false),
+        ];
+        expect(mutationKillRate(result)).toBeCloseTo(2 / 3);
+        result.mutants = [mutant(true, true)];
+        expect(mutationKillRate(result)).toBe(1);
+    });
+
+    it("rejects a report that kills a mutant that never compiled", () => {
+        const result = good();
+        result.mutants = [mutant(false, true)];
+        expect(evaluateValidation(spec, result).ok).toBe(false);
     });
 });

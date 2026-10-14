@@ -90,6 +90,21 @@ function wrongChecks(runs: readonly Run[]): ValidationCheck[] {
     return checks;
 }
 
+// Share of the mutants that compiled which the tests caught: 1 means every change to the reference
+// failed some test. Null when no mutant compiled (nothing was learned). Used by the score (slice 5).
+export function mutationKillRate(result: ValidationResult): number | null {
+    const compiled = result.mutants.filter((mutant) => mutant.compile_ok);
+    if (compiled.length === 0) return null;
+    return compiled.filter((mutant) => mutant.killed).length / compiled.length;
+}
+
+function mutantsProblem(result: ValidationResult): string | null {
+    // A mutant that did not compile cannot have been killed by a test.
+    return result.mutants.some((mutant) => mutant.killed && !mutant.compile_ok)
+        ? "a mutant that did not compile was reported killed"
+        : null;
+}
+
 export function evaluateValidation(
     testIds: readonly string[],
     result: ValidationResult,
@@ -103,7 +118,7 @@ export function evaluateValidation(
             checks: [check("bundle_opens", false, result.bundle.refusal ?? "refused")],
         };
     }
-    const problem = runsProblem(testIds, result.runs);
+    const problem = runsProblem(testIds, result.runs) ?? mutantsProblem(result);
     if (problem !== null) return { ok: false, reason: problem };
     const checks = [
         check("bundle_opens", true),

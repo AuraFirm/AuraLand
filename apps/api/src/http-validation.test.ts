@@ -119,10 +119,12 @@ const run = (solution: string, verdict: "AC" | "WA", repeat = 1) => ({
 });
 const SOUND: ValidationResult = {
     bundle: { opens: true },
+    mutants: [{ operator: "+ to -", line: 3, compile_ok: true, killed: true }],
     runs: [run("reference.cpp", "AC"), run("reference.cpp", "AC", 2), run("wrong_a.cpp", "WA")],
 };
 const WEAK: ValidationResult = {
     bundle: { opens: true },
+    mutants: [{ operator: "+ to -", line: 3, compile_ok: true, killed: true }],
     runs: [run("reference.cpp", "AC"), run("reference.cpp", "AC", 2), run("wrong_a.cpp", "AC")],
 };
 
@@ -213,6 +215,7 @@ describe("the node side, reports", () => {
         const job = await leaseValidation(first);
         const impossible: ValidationResult = {
             bundle: { opens: true },
+            mutants: [],
             runs: [run("reference.cpp", "AC")].map((r) => ({ ...r, tests: [] })),
         };
         const refused = await report(first, job?.job_id ?? "", job?.lease_epoch ?? 0, impossible);

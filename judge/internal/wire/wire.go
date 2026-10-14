@@ -211,9 +211,18 @@ type ValidationBundle struct {
 	Refusal string `json:"refusal,omitempty"`
 }
 
+// ValidationMutant is one change to the reference and whether the tests noticed it.
+type ValidationMutant struct {
+	Operator  string `json:"operator"`
+	Line      int    `json:"line"`
+	CompileOK bool   `json:"compile_ok"`
+	Killed    bool   `json:"killed"`
+}
+
 type ValidationResult struct {
-	Bundle ValidationBundle `json:"bundle"`
-	Runs   []ValidationRun  `json:"runs"`
+	Bundle  ValidationBundle   `json:"bundle"`
+	Runs    []ValidationRun    `json:"runs"`
+	Mutants []ValidationMutant `json:"mutants"`
 }
 
 type ValidationComplete struct {

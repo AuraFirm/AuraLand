@@ -37,6 +37,10 @@ export const BUNDLE_ENTRIES_MAX = 5_000;
 // Validation (Stage 4B) runs each wrong solution in a box against every test; twenty keeps one
 // validation job to a bounded number of runs while still covering the usual wrong-answer families.
 export const BUNDLE_WRONG_SOLUTIONS_MAX = 20;
+
+// Mutants of the reference that one validation compiles and runs (judge/internal/mutate MaxPerSolution
+// must stay equal). Each costs up to one time limit, so the cap is what keeps a job to minutes.
+export const VALIDATION_MUTANTS_MAX = 40;
 export const BUNDLE_TEST_FILE_BYTES_MAX = 64 * 1024 * 1024;
 
 // Decompressed size over compressed size; above this an archive is treated as a bomb.
