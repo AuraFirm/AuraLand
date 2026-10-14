@@ -126,3 +126,15 @@ an unlisted, private or missing person is the same 404. Ratings are shown rounde
 carries the meaning (the color is decoration) and a "still settling" note below 5 contests. A rated contest
 must be **public** (contract and a database check), because a rating history names its contests and ranks to
 anyone who can read the profile. Tier names and thresholds are ours (`RATING_TIERS`), not another site's.
+
+## Amendment (slice 12): the practice bank without opening the staff routes
+
+Practice problems for people outside an organization live in `practice_bank`: released versions of public
+tasks of **platform** organizations, listed by a platform administrator (with a fresh step-up). Everyone
+reads the list, the daily pick and a problem's statement and limits through functions that return an
+allowlist; a signed-in person submits through `create_practice_submission`. The `tasks` and `task_versions`
+tables stay closed to outsiders, so the staff routes (`/task-versions/:id`, which carry the spec) do not
+open; a test pins that. The daily pick is `hash(UTC day) mod bank size` over the bank ordered by listing
+time: the same for everyone on a day, and it can change within a day if the bank does. A practice
+submission to a problem of a contest that has not ended is refused (409) on both practice routes; the
+organization route used to answer that with a 500, which this slice also fixes.

@@ -41,6 +41,7 @@ import { deliveryRoutes } from "./modules/orders/delivery-routes.ts";
 import { orderRoutes } from "./modules/orders/routes.ts";
 import { payoutRoutes } from "./modules/payouts/routes.ts";
 import { contestSubmissionRoutes } from "./modules/submissions/contest-routes.ts";
+import { practiceRoutes } from "./modules/submissions/practice-routes.ts";
 import {
     QUEUE_FULL_RETRY_AFTER_S,
     QueueFullError,
@@ -256,6 +257,14 @@ function mountProductRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
             trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
             rng: deps.rng,
             storage: deps.storage,
+        }),
+    );
+    app.route(
+        "/v1",
+        practiceRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            key: loginTokenKey(deps.config),
         }),
     );
     app.route(
