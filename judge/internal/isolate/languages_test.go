@@ -35,6 +35,12 @@ var languageCases = []struct {
 		crash:    "int main(void){ volatile int *p = 0; return *p; }\n",
 	},
 	{
+		language: "java",
+		sum:      "import java.util.Scanner;\npublic class Main { public static void main(String[] x) { Scanner s = new Scanner(System.in); long a = s.nextLong(), b = s.nextLong(); System.out.println(a + b); } }\n",
+		broken:   "public class Main { public static void main(String[] x) { int y = ; } }\n",
+		crash:    "public class Main { public static void main(String[] x) { int[] a = new int[1]; a[2] = 1; } }\n",
+	},
+	{
 		language:    "python3",
 		sum:         "a, b = map(int, input().split())\nprint(a + b)\n",
 		broken:      "def main(:\n    pass\n",

@@ -3,7 +3,7 @@ import { z } from "zod";
 // Judging vocabulary shared by the control plane, the screens and (by fixture) the Go agent.
 
 // Languages the judge can run. Each has a versioned profile in the agent (compiler, flags, limits).
-export const JUDGE_LANGUAGES = ["cpp", "c", "python3"] as const;
+export const JUDGE_LANGUAGES = ["cpp", "c", "java", "python3"] as const;
 export const judgeLanguageSchema = z.enum(JUDGE_LANGUAGES);
 export type JudgeLanguage = z.infer<typeof judgeLanguageSchema>;
 

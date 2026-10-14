@@ -12,8 +12,8 @@ import (
 func TestEveryEscapeProgramStatesItsExpectation(t *testing.T) {
 	for _, suite := range inventorySuites {
 		files, err := filepath.Glob("../../testdata/" + suite.directory + "/*" + suite.extension)
-		if err != nil || len(files) < 14 {
-			t.Fatalf("%s: expected at least 14 escape programs, found %d (%v)", suite.language, len(files), err)
+		if err != nil || len(files) < 15 {
+			t.Fatalf("%s: expected at least 15 escape programs, found %d (%v)", suite.language, len(files), err)
 		}
 		for _, file := range files {
 			source, err := os.ReadFile(file)
@@ -33,6 +33,7 @@ func TestEveryEscapeProgramStatesItsExpectation(t *testing.T) {
 var inventorySuites = []struct{ language, directory, extension string }{
 	{"cpp", "escape", ".cpp"},
 	{"c", "escape-c", ".c"},
+	{"java", "escape-java", ".java"},
 }
 
 func TestEveryLanguageHasTheSameAttacksAsCpp(t *testing.T) {
@@ -46,9 +47,15 @@ func TestEveryLanguageHasTheSameAttacksAsCpp(t *testing.T) {
 	}
 	reference := names("escape", ".cpp")
 	for _, suite := range inventorySuites[1:] {
-		got := names(suite.directory, suite.extension)
-		if strings.Join(got, ",") != strings.Join(reference, ",") {
-			t.Errorf("%s has attacks %v, C++ has %v", suite.language, got, reference)
+		have := map[string]bool{}
+		for _, name := range names(suite.directory, suite.extension) {
+			have[name] = true
+		}
+		// A language may add attacks of its own (Java has a heap bomb); it may not lack one C++ has.
+		for _, name := range reference {
+			if !have[name] {
+				t.Errorf("%s lacks the attack %q that C++ has", suite.language, name)
+			}
 		}
 	}
 }

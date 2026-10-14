@@ -17,6 +17,7 @@ const POLL_MS = 3_000;
 const SKELETON: Record<string, string> = {
     cpp: "#include <iostream>\n\nint main() {\n    return 0;\n}\n",
     c: "#include <stdio.h>\n\nint main(void) {\n    return 0;\n}\n",
+    java: "import java.util.*;\n\n// The class must be called Main.\npublic class Main {\n    public static void main(String[] args) {\n        Scanner in = new Scanner(System.in);\n    }\n}\n",
     python3: "def main():\n    pass\n\n\nmain()\n",
 };
 

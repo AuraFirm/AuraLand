@@ -231,12 +231,13 @@ func (b *Box) Run(ctx context.Context, p sandbox.Program, stdin []byte, limits s
 	if err := os.WriteFile(dir.path(name), prog.artifact, 0o755); err != nil {
 		return sandbox.RunResult{}, err
 	}
-	meta, output, err := dir.execute(ctx, prog.profile, limits, stepRun, prog.profile.Run, stdin)
+	held, command := prog.profile.forRun(limits)
+	meta, output, err := dir.execute(ctx, prog.profile, held, stepRun, command, stdin)
 	if err != nil {
 		return sandbox.RunResult{}, err
 	}
 	return sandbox.RunResult{
-		Verdict:   Verdict(meta, limits, len(output)),
+		Verdict:   Verdict(meta, held, len(output)),
 		CPUMS:     int(meta.CPUSeconds * 1000),
 		WallMS:    int(meta.WallSeconds * 1000),
 		MemoryKiB: meta.CgMemKiB,

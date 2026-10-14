@@ -132,10 +132,14 @@ func TestProfiles(t *testing.T) {
 	if err != nil || c.Compile == nil || c.RunProcesses != 1 || c.Version != "c-1" {
 		t.Fatalf("%+v %v", c, err)
 	}
+	java, err := ProfileFor("java")
+	if err != nil || java.Compile == nil || java.Version != "java-1" || java.TimeAllowanceMS <= 0 || java.MemoryReserveKiB <= 0 {
+		t.Fatalf("%+v %v", java, err)
+	}
 	if _, err := ProfileFor("brainfuck"); err == nil {
 		t.Fatal("an unknown language has no profile")
 	}
-	for _, p := range []Profile{cpp, c, python} {
+	for _, p := range []Profile{cpp, c, java, python} {
 		if !slices.ContainsFunc(p.Environment, func(e string) bool { return strings.HasPrefix(e, "PATH=") }) {
 			t.Errorf("%s: the environment is explicit", p.Language)
 		}
@@ -158,5 +162,32 @@ func TestDirectoriesAreMountedReadOnlyAndOnlyForTheOpener(t *testing.T) {
 		if err != nil || len(profile.Directories) != 0 {
 			t.Errorf("%s must have no extra mounts: %+v %v", language, profile, err)
 		}
+	}
+	// Java needs the JDK's own configuration and nothing else of /etc.
+	java, err := ProfileFor("java")
+	if err != nil || len(java.Directories) != 1 || java.Directories[0] != "/etc/java-21-openjdk" {
+		t.Errorf("java may mount only the JDK configuration: %+v %v", java, err)
+	}
+}
+
+// A JVM's cost comes back to the program: the time allowance is added to the limits of a run, the heap is the
+// memory limit less the reserve (never below the minimum), and the memory limit itself is never raised.
+func TestJavaRunLimitsAreTheTasksOwnPlusTheJVMsCost(t *testing.T) {
+	java, _ := ProfileFor("java")
+	held, command := java.forRun(sandbox.Limits{CPUMS: 1000, WallMS: 3000, MemoryKiB: 262144, OutputKiB: 64})
+	if held.CPUMS != 1000+java.TimeAllowanceMS || held.WallMS != 3000+java.TimeAllowanceMS || held.MemoryKiB != 262144 {
+		t.Errorf("limits: %+v", held)
+	}
+	if !slices.Contains(command, "-Xmx192m") {
+		t.Errorf("heap is the limit less the reserve: %v", command)
+	}
+	_, tiny := java.forRun(sandbox.Limits{CPUMS: 1, WallMS: 1, MemoryKiB: 1024, OutputKiB: 1})
+	if !slices.Contains(tiny, "-Xmx16m") {
+		t.Errorf("a tiny limit still gets the minimum heap: %v", tiny)
+	}
+	cpp, _ := ProfileFor("cpp")
+	same, _ := cpp.forRun(sandbox.Limits{CPUMS: 1000, WallMS: 3000, MemoryKiB: 262144, OutputKiB: 64})
+	if same.CPUMS != 1000 || same.WallMS != 3000 {
+		t.Errorf("a native language is held to the task's own limits: %+v", same)
 	}
 }
