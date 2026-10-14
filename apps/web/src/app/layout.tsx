@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { SiteHeader } from "../components/site-header.tsx";
+import { StatusBanner } from "../components/status-banner.tsx";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <script nonce={nonce}>{ZOD_WITHOUT_EVAL}</script>
             </head>
             <body>
+                <StatusBanner />
                 <SiteHeader />
                 {children}
             </body>

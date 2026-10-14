@@ -26,9 +26,13 @@ const SKELETON: Record<string, string> = {
 export function SubmitPanel({
     versionId,
     languages,
+    submitPath = `/task-versions/${versionId}/submissions`,
 }: {
     versionId: string;
     languages: readonly string[];
+    // Where a submission is posted. Practice-bank problems have their own address for people who are not
+    // in the task's organization.
+    submitPath?: string;
 }) {
     const [current, setCurrent] = useState<string | null>(null);
     const loadMine = useCallback(
@@ -46,7 +50,7 @@ export function SubmitPanel({
                 <Notice text="This task has no language the judge can run yet." />
             ) : (
                 <SubmitForm
-                    versionId={versionId}
+                    submitPath={submitPath}
                     languages={supported}
                     onSubmitted={(id) => {
                         setCurrent(id);
@@ -61,11 +65,11 @@ export function SubmitPanel({
 }
 
 function SubmitForm({
-    versionId,
+    submitPath,
     languages,
     onSubmitted,
 }: {
-    versionId: string;
+    submitPath: string;
     languages: readonly string[];
     onSubmitted: (id: string) => void;
 }) {
@@ -77,14 +81,10 @@ function SubmitForm({
     const submit = async (event: FormEvent) => {
         event.preventDefault();
         try {
-            const made = await apiSend(
-                `/task-versions/${versionId}/submissions`,
-                submissionSchema,
-                {
-                    method: "POST",
-                    body: { language, source },
-                },
-            );
+            const made = await apiSend(submitPath, submissionSchema, {
+                method: "POST",
+                body: { language, source },
+            });
             setFailed(false);
             setMessage("Submitted. Waiting for the judge…");
             onSubmitted(made.id);

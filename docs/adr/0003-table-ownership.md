@@ -51,6 +51,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `rating_events` | `modules/contests` | One row per person per rated contest: the rating history; never changes |
 | `contest_ratings` | `modules/contests` | Marks a contest as rated or skipped; makes the rating job idempotent |
 | `practice_bank` | `modules/submissions` | Released versions of public platform tasks that anyone signed in may practice on; listed by platform administrators through `practice_list_version` |
+| `platform_status` | `modules/identity` | The one-row platform status banner; set by platform administrators through `set_platform_status` |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
 | `rate_limit_counters` | `platform` (`rate-limit.ts`) | Fixed-window counters for the strict rate-limit class; identity role only |
