@@ -22,6 +22,7 @@ import {
     joinOrg,
     orgForEmail,
     orgHasRoom,
+    scimInactive,
     touchSsoIdentity,
     verifiedDomains,
 } from "./sso-queries.ts";
@@ -152,7 +153,8 @@ export async function resolveSso(
     const nowMs = deps.clock.nowUnixMs();
     const known = await findSsoIdentity(tx, input.org, input.subject);
     if (known !== null) {
-        if (known.status !== "active") return refused("suspended");
+        if (known.status !== "active" || (await scimInactive(tx, input.org, known.userId)))
+            return refused("suspended");
         await touchSsoIdentity(tx, input.org, input.subject, nowMs);
         return signedIn(tx, sessions, input, known.userId, false);
     }
