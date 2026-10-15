@@ -54,6 +54,8 @@ import { employerRoutes } from "./modules/passport/employer-routes.ts";
 import { holderRoutes } from "./modules/passport/holder-routes.ts";
 import { publicPassportRoutes } from "./modules/passport/public-routes.ts";
 import { payoutRoutes } from "./modules/payouts/routes.ts";
+import { createPublicOidcTransport, type OidcTransport } from "./modules/sso/oidc.ts";
+import { ssoRoutes } from "./modules/sso/routes.ts";
 import { contestSubmissionRoutes } from "./modules/submissions/contest-routes.ts";
 import { examProblemRoutes } from "./modules/submissions/exam-routes.ts";
 import { practiceRoutes } from "./modules/submissions/practice-routes.ts";
@@ -72,6 +74,7 @@ import { validationRoutes } from "./modules/validation/routes.ts";
 import { webhookRoutes as customerWebhookRoutes } from "./modules/webhooks/routes.ts";
 import { assertPipelineOrder, type PipelineName } from "./pipeline.ts";
 import type { Clock } from "./platform/clock.ts";
+import { createSystemTxtResolver, type TxtResolver } from "./platform/dns-txt.ts";
 import type { Logger } from "./platform/log.ts";
 import type { MailPort } from "./platform/mail.ts";
 import { type ObjectStorage, StorageUnavailableError } from "./platform/object-storage.ts";
@@ -92,6 +95,9 @@ export interface AppDeps {
     readonly oauthProviders: ReadonlyMap<ProviderName, OAuthProvider>;
     // The payment provider; when absent it is chosen from the configuration (the fake, or none).
     readonly paymentProvider?: PaymentProvider;
+    // OpenID Connect and DNS for single sign-on; the real ones unless a test supplies its own.
+    readonly oidcTransport?: OidcTransport;
+    readonly txtResolver?: TxtResolver;
     // Rejects when the database is unreachable. Must be cheap (a `select 1`).
     readonly pingDatabase: () => Promise<void>;
     // Called after an invariant violation, when state may be corrupt: the process should stop.
@@ -328,6 +334,15 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", employerRoutes({ clock: deps.clock }));
     app.route("/v1", environmentRoutes({ clock: deps.clock }));
     app.route("/v1", customerWebhookRoutes({ clock: deps.clock, rng: deps.rng }));
+    app.route(
+        "/v1",
+        ssoRoutes({
+            clock: deps.clock,
+            rng: deps.rng,
+            oidc: deps.oidcTransport ?? createPublicOidcTransport(),
+            dns: deps.txtResolver ?? createSystemTxtResolver(),
+        }),
+    );
     app.route(
         "/v1",
         billingRoutes({

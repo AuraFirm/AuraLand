@@ -80,6 +80,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `reconciliations` | `modules/billing` | One row per month: our usage counts, the payment provider's, and the differences between them; recorded once, never changed; worker role only |
 | `webhook_endpoints` | `modules/webhooks` | A customer's webhook address, wanted events and signing secrets; read by the organization's owners and administrators without the secrets (column privileges), created, rotated and switched off only by definer functions; the plan limits how many |
 | `webhook_deliveries` | `modules/webhooks` | One queued event for one endpoint, its attempts and outcome; queued once per (endpoint, event, source) by triggers, claimed and recorded by the worker, given up on after 24 hours |
+| `sso_connections` | `modules/sso` | An organization's OpenID Connect connection (issuer, client id and secret, discovered endpoints); owners and administrators read it without the secret (column privileges); saved and deleted by definer functions; only on plans that include SSO |
+| `sso_domains` | `modules/sso` | Email domains an organization claimed for single sign-on, with the token to publish in DNS and when it was verified; a domain can be verified by one organization only (unique partial index) |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

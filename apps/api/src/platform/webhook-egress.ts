@@ -31,6 +31,13 @@ const PORTS_DEFAULT = [443, 8443] as const;
 const HOSTNAME_BYTES_MAX = 253;
 const URL_BYTES_MAX = 2_000;
 
+// What a request to a customer-chosen address returned, with the same safeguards as a delivery: the text is capped and is only
+// ever data (an identity provider's discovery document, a key set), never trusted before it is parsed and checked.
+export type PublicResponse =
+    | { readonly outcome: "response"; readonly status: number; readonly text: string }
+    | { readonly outcome: "blocked"; readonly reason: string }
+    | { readonly outcome: "failed"; readonly reason: string };
+
 export type DeliveryResult =
     | { readonly outcome: "delivered"; readonly status: number }
     | { readonly outcome: "rejected"; readonly status: number }
@@ -164,14 +171,66 @@ export async function deliverWebhook(
     body: string,
     options: WebhookEgressOptions = {},
 ): Promise<DeliveryResult> {
+    const result = await requestPublic("POST", target, headers, body, options);
+    if (result.outcome !== "response") return result;
+    return result.status >= 200 && result.status < 300
+        ? { outcome: "delivered", status: result.status }
+        : { outcome: "rejected", status: result.status };
+}
+
+type Finish = (result: PublicResponse) => void;
+
+// Reads the reply, stopping at the byte cap.
+function collectResponse(response: http.IncomingMessage, bytesMax: number, finish: Finish): void {
+    const chunks: Buffer[] = [];
+    let received = 0;
+    const status = response.statusCode ?? 0;
+    response.on("data", (chunk: Buffer) => {
+        received += chunk.length;
+        if (received > bytesMax) {
+            response.destroy();
+            finish({ outcome: "failed", reason: "response too large" });
+            return;
+        }
+        chunks.push(chunk);
+    });
+    response.on("end", () =>
+        finish({ outcome: "response", status, text: Buffer.concat(chunks).toString("utf8") }),
+    );
+    response.on("error", () => finish({ outcome: "failed", reason: "response failed" }));
+}
+
+// Connect time limit and error mapping. Reasons are fixed words: the real cause can hold the address or the remote's text.
+function watchRequest(request: http.ClientRequest, connectTimeoutMs: number, finish: Finish): void {
+    const connectTimer = setTimeout(
+        () => request.destroy(new Error("connect timeout")),
+        connectTimeoutMs,
+    );
+    request.on("socket", (socket) => socket.once("connect", () => clearTimeout(connectTimer)));
+    request.on("close", () => clearTimeout(connectTimer));
+    request.on("error", (error) => {
+        if (error instanceof BlockedAddressError || error.cause instanceof BlockedAddressError)
+            finish({ outcome: "blocked", reason: "address not allowed" });
+        else if (error.name === "AbortError" || error.message === "connect timeout")
+            finish({ outcome: "failed", reason: "timed out" });
+        else finish({ outcome: "failed", reason: "request failed" });
+    });
+}
+
+export function requestPublic(
+    method: "GET" | "POST",
+    target: string,
+    headers: Readonly<Record<string, string>>,
+    body: string,
+    options: WebhookEgressOptions = {},
+): Promise<PublicResponse> {
     const checked = checkWebhookUrl(target, options);
-    if (!checked.ok) return { outcome: "blocked", reason: checked.reason };
+    if (!checked.ok) return Promise.resolve({ outcome: "blocked", reason: checked.reason });
     const { url } = checked;
     const client = url.protocol === "https:" ? https : http;
-    const bytesMax = options.responseBytesMax ?? RESPONSE_BYTES_MAX;
-    return new Promise<DeliveryResult>((resolve) => {
+    return new Promise<PublicResponse>((resolve) => {
         let settled = false;
-        const finish = (result: DeliveryResult) => {
+        const finish: Finish = (result) => {
             if (settled) return;
             settled = true;
             resolve(result);
@@ -182,48 +241,16 @@ export async function deliverWebhook(
                 hostname: url.hostname,
                 port: url.port === "" ? undefined : Number(url.port),
                 path: `${url.pathname}${url.search}`,
-                method: "POST",
+                method,
                 headers: { ...headers, "content-length": String(Buffer.byteLength(body)) },
                 lookup: safeLookup(options),
                 signal: AbortSignal.timeout(options.totalTimeoutMs ?? TOTAL_TIMEOUT_MS),
                 agent: false,
             },
-            (response) => {
-                let received = 0;
-                const status = response.statusCode ?? 0;
-                const done = () =>
-                    finish(
-                        status >= 200 && status < 300
-                            ? { outcome: "delivered", status }
-                            : { outcome: "rejected", status },
-                    );
-                response.on("data", (chunk: Buffer) => {
-                    received += chunk.length;
-                    if (received > bytesMax) {
-                        response.destroy();
-                        finish({ outcome: "failed", reason: "response too large" });
-                    }
-                });
-                response.on("end", done);
-                response.on("error", () =>
-                    finish({ outcome: "failed", reason: "response failed" }),
-                );
-            },
+            (response) =>
+                collectResponse(response, options.responseBytesMax ?? RESPONSE_BYTES_MAX, finish),
         );
-        const connectTimer = setTimeout(
-            () => request.destroy(new Error("connect timeout")),
-            options.connectTimeoutMs ?? CONNECT_TIMEOUT_MS,
-        );
-        request.on("socket", (socket) => socket.once("connect", () => clearTimeout(connectTimer)));
-        request.on("close", () => clearTimeout(connectTimer));
-        request.on("error", (error) => {
-            // Reasons are fixed words: the real cause can hold the address or the remote's text.
-            if (error instanceof BlockedAddressError || error.cause instanceof BlockedAddressError)
-                finish({ outcome: "blocked", reason: "address not allowed" });
-            else if (error.name === "AbortError" || error.message === "connect timeout")
-                finish({ outcome: "failed", reason: "timed out" });
-            else finish({ outcome: "failed", reason: "request failed" });
-        });
+        watchRequest(request, options.connectTimeoutMs ?? CONNECT_TIMEOUT_MS, finish);
         request.end(body);
     });
 }

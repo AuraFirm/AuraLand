@@ -57,6 +57,7 @@ export interface Harness {
         oauthProviders?: AppDeps["oauthProviders"],
         scoreboardStream?: AppDeps["scoreboardStream"],
         paymentProvider?: AppDeps["paymentProvider"],
+        extra?: Partial<AppDeps>,
     ): ReturnType<typeof createApp>;
     asIdentity<T>(work: (deps: SessionDeps) => Promise<T>): Promise<T>;
     login(userId: string, privileged?: boolean): ReturnType<typeof createSession>;
@@ -102,6 +103,7 @@ export async function createHarness(): Promise<Harness> {
         oauthProviders: AppDeps["oauthProviders"] = new Map(),
         scoreboardStream?: AppDeps["scoreboardStream"],
         paymentProvider?: AppDeps["paymentProvider"],
+        extra: Partial<AppDeps> = {},
     ) =>
         createApp({
             config: parseConfig({ ...BASE_ENV, ...env }),
@@ -116,6 +118,7 @@ export async function createHarness(): Promise<Harness> {
             onInvariantViolation,
             ...(scoreboardStream === undefined ? {} : { scoreboardStream }),
             ...(paymentProvider === undefined ? {} : { paymentProvider }),
+            ...extra,
         });
     const asIdentity = <T>(work: (deps: SessionDeps) => Promise<T>) =>
         withRequestContext(sql, IDENTITY_CONTEXT, (tx) =>
