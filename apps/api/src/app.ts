@@ -46,6 +46,7 @@ import { relyingPartyId } from "./modules/identity/passkey.ts";
 import { passkeyRoutes } from "./modules/identity/passkey-routes.ts";
 import { identityRoutes } from "./modules/identity/routes.ts";
 import { signInRoutes } from "./modules/identity/sign-in-routes.ts";
+import { ssoSignInRoutes } from "./modules/identity/sso-routes.ts";
 import { judgeAdminRoutes } from "./modules/judge/admin-routes.ts";
 import { judgeRoutes } from "./modules/judge/routes.ts";
 import { deliveryRoutes } from "./modules/orders/delivery-routes.ts";
@@ -54,6 +55,8 @@ import { employerRoutes } from "./modules/passport/employer-routes.ts";
 import { holderRoutes } from "./modules/passport/holder-routes.ts";
 import { publicPassportRoutes } from "./modules/passport/public-routes.ts";
 import { payoutRoutes } from "./modules/payouts/routes.ts";
+import { createPublicOidcTransport, type OidcTransport } from "./modules/sso/oidc.ts";
+import { ssoRoutes } from "./modules/sso/routes.ts";
 import { contestSubmissionRoutes } from "./modules/submissions/contest-routes.ts";
 import { examProblemRoutes } from "./modules/submissions/exam-routes.ts";
 import { practiceRoutes } from "./modules/submissions/practice-routes.ts";
@@ -72,6 +75,7 @@ import { validationRoutes } from "./modules/validation/routes.ts";
 import { webhookRoutes as customerWebhookRoutes } from "./modules/webhooks/routes.ts";
 import { assertPipelineOrder, type PipelineName } from "./pipeline.ts";
 import type { Clock } from "./platform/clock.ts";
+import { createSystemTxtResolver, type TxtResolver } from "./platform/dns-txt.ts";
 import type { Logger } from "./platform/log.ts";
 import type { MailPort } from "./platform/mail.ts";
 import { type ObjectStorage, StorageUnavailableError } from "./platform/object-storage.ts";
@@ -92,6 +96,9 @@ export interface AppDeps {
     readonly oauthProviders: ReadonlyMap<ProviderName, OAuthProvider>;
     // The payment provider; when absent it is chosen from the configuration (the fake, or none).
     readonly paymentProvider?: PaymentProvider;
+    // OpenID Connect and DNS for single sign-on; the real ones unless a test supplies its own.
+    readonly oidcTransport?: OidcTransport;
+    readonly txtResolver?: TxtResolver;
     // Rejects when the database is unreachable. Must be cheap (a `select 1`).
     readonly pingDatabase: () => Promise<void>;
     // Called after an invariant violation, when state may be corrupt: the process should stop.
@@ -330,6 +337,15 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", customerWebhookRoutes({ clock: deps.clock, rng: deps.rng }));
     app.route(
         "/v1",
+        ssoRoutes({
+            clock: deps.clock,
+            rng: deps.rng,
+            oidc: deps.oidcTransport ?? createPublicOidcTransport(),
+            dns: deps.txtResolver ?? createSystemTxtResolver(),
+        }),
+    );
+    app.route(
+        "/v1",
         billingRoutes({
             clock: deps.clock,
             publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
@@ -465,6 +481,20 @@ function mountSignInRoutes(app: Hono<AppEnv>, deps: AppDeps, secureCookies: bool
             publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
             logger: deps.logger,
             providers: deps.oauthProviders,
+            secureCookies,
+            trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+        }),
+    );
+    app.route(
+        "/v1",
+        ssoSignInRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            rng: deps.rng,
+            key: loginTokenKey(deps.config),
+            publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+            oidc: deps.oidcTransport ?? createPublicOidcTransport(),
+            logger: deps.logger,
             secureCookies,
             trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
         }),

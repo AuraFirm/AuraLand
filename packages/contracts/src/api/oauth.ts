@@ -23,6 +23,7 @@ export const OAUTH_FAILURE_REASONS = [
     "account_exists",
     "identity_taken",
     "suspended",
+    "sso_required",
     "unavailable",
 ] as const;
 export type OAuthFailureReason = (typeof OAUTH_FAILURE_REASONS)[number];

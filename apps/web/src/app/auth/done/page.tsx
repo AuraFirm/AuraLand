@@ -12,6 +12,10 @@ const REASONS: Record<string, string> = {
         "An account with this email already exists. Sign in with your passkey or an email link, then connect the provider from your account page.",
     identity_taken: "That provider account is already connected to a different AuraLand account.",
     suspended: "This account is suspended.",
+    sso_required:
+        "Your organization requires single sign-on. Sign in with your organization's provider.",
+    wrong_domain: "That email address does not belong to a domain your organization has verified.",
+    plan_full: "Your organization has no room for more members on its plan. Ask an administrator.",
     unavailable: "The provider could not be reached. Try again in a moment.",
 };
 

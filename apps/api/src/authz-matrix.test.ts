@@ -911,6 +911,60 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "whk",
     },
+    {
+        method: "PUT",
+        path: "/api/v1/orgs/:id/sso",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: { issuer: "https://idp.example.com", client_id: "c", client_secret: "s" },
+    },
+    { method: "GET", path: "/api/v1/orgs/:id/sso", access: "user", owned: true, object: "org" },
+    { method: "DELETE", path: "/api/v1/orgs/:id/sso", access: "user", owned: true, object: "org" },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/sso/domains",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: { domain: "acme.example" },
+    },
+    {
+        method: "GET",
+        path: "/api/v1/orgs/:id/sso/domains",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    {
+        method: "PUT",
+        path: "/api/v1/orgs/:id/sso/enforcement",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: { enforced: false },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/sso/domains/:domain/verify",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/orgs/:id/sso/domains/:domain",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/auth/sso/start",
+        access: "public",
+        body: { email: "a@b.example" },
+    },
+    { method: "GET", path: "/api/v1/auth/sso/callback", access: "public" },
     { method: "GET", path: "/api/v1/orgs/:id/usage", access: "user", owned: true, object: "org" },
     {
         method: "PUT",
@@ -1221,6 +1275,7 @@ describe("generated checks", () => {
                     .replace(":oral_id", encodeId("ora", SAMPLE_UUID))
                     .replace(":share_id", encodeId("shr", SAMPLE_UUID))
                     .replace(":appeal_id", encodeId("apl", SAMPLE_UUID))
+                    .replace(":domain", "acme.example")
                     .replace(":handle", "nobody_here")
                     .replace(":label", "A");
                 const hasBody =

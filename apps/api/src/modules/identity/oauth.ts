@@ -21,6 +21,7 @@ import {
 import { findOrCreateAccount } from "./queries.ts";
 import type { SessionDeps } from "./service.ts";
 import { issueLoginSession, type LoginSessionInput, userAudit } from "./sign-in.ts";
+import { ssoBlocks } from "./sso-queries.ts";
 
 // OAuth sign-in use-cases (ADR 0016). The rules that matter most are in `resolveSignIn`:
 //   1. A known provider identity signs its owner in, whatever their email is now.
@@ -96,6 +97,7 @@ export type RefusalReason =
     | "account_exists"
     | "identity_taken"
     | "suspended"
+    | "sso_required"
     | "invalid";
 
 export type Resolution =
@@ -125,6 +127,7 @@ export async function resolveSignIn(
     if (input.flow.purpose === "link") return resolveLink(tx, input, existing?.userId ?? null);
     if (existing !== null) {
         if (existing.userStatus !== "active") return refused("suspended");
+        if (await ssoBlocks(tx, existing.userId, input.provider)) return refused("sso_required");
         await touchIdentity(tx, existing.id, nowMs);
         const token = await issueLoginSession(tx, sessions, {
             ...input.session,

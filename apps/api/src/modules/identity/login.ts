@@ -49,7 +49,15 @@ export interface ChallengeStore {
     tryCode(bindingHash: string, codeHash: string, nowMs: number): Promise<CodeAttempt | null>;
 }
 
-export type SecretKind = "link" | "code" | "binding" | "oauth_state" | "oauth_verifier" | "invite";
+export type SecretKind =
+    | "link"
+    | "code"
+    | "binding"
+    | "oauth_state"
+    | "oauth_verifier"
+    | "sso_state"
+    | "sso_verifier"
+    | "invite";
 
 const KEY_BYTES_MIN = 32;
 
