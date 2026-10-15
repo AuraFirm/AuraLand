@@ -105,7 +105,7 @@ describe("publishing", () => {
         const list = await verifyStatusList(
             await read(statusKey(0)),
             keys,
-            `${ORIGIN}/passport/status/0`,
+            `${ORIGIN}/api/public/status-lists/0`,
         );
         expect(list.ok && [0, 1, 2].some((i) => isRevokedIn(list.bits, i))).toBe(false);
         expect(JSON.parse(await read(JWKS_KEY)).keys.map((k: { kid: string }) => k.kid)).toEqual([
@@ -141,7 +141,7 @@ describe("revoking", () => {
         const list = await verifyStatusList(
             await read(statusKey(0)),
             await worker(publishedKeys),
-            `${ORIGIN}/passport/status/0`,
+            `${ORIGIN}/api/public/status-lists/0`,
         );
         if (!list.ok) throw new Error(list.reason);
         expect(
@@ -165,8 +165,13 @@ describe("keys", () => {
         ]);
         const keys = await worker(publishedKeys);
         expect(
-            (await verifyStatusList(await read(statusKey(0)), keys, `${ORIGIN}/passport/status/0`))
-                .ok,
+            (
+                await verifyStatusList(
+                    await read(statusKey(0)),
+                    keys,
+                    `${ORIGIN}/api/public/status-lists/0`,
+                )
+            ).ok,
         ).toBe(true);
 
         await as(

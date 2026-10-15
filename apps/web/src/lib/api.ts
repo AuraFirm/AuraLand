@@ -51,6 +51,13 @@ export async function apiGet<T>(path: string, schema: z.ZodType<T>): Promise<T> 
     return schema.parse(await (await send(path, {})).json());
 }
 
+// Public documents (Passport's verification): no custom header, no cookies, and the browser's own cache may serve them.
+export async function apiGetPublic<T>(path: string, schema: z.ZodType<T>): Promise<T> {
+    const response = await fetch(`/api/public${path}`, { credentials: "omit" });
+    if (!response.ok) throw new ApiError(response.status, "unknown", "Not found");
+    return schema.parse(await response.json());
+}
+
 export async function apiSend<T>(
     path: string,
     schema: z.ZodType<T>,

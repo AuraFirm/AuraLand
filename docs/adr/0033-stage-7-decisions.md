@@ -46,3 +46,13 @@ claim without observation, so it waits with F1 and F62).
 New tables (slices 1 to 2, 6) carry RLS and rows in the RLS matrix and ADR 0003. Static artifacts (`did.json`, JWKS, status
 lists) are written by the worker to object storage under a public prefix; serving them from an edge is deployment work (F1, F33).
 Every claim about "works with the database down" is tested against those files, not a deployed edge.
+
+## Amendments
+- **Slice 4: where the public endpoints live.** `/api/public/...` (credentials, status lists, the key set, the DID document),
+  outside the `/v1` pipeline, which authenticates and opens a database transaction on every request; a verifier must not
+  depend on that. The kit's `/api/v1/public/...` names are therefore not used. `/.well-known/did.json` is a rewrite to
+  `/api/public/did.json`. A public credential is published as one static file per credential (only if its holder chose
+  `public`); the verify endpoint reads those files and nothing else.
+- **Slice 4: the page is not server-rendered.** `/verify/<id>` is a client component that calls the cacheable JSON
+  endpoint, like the rest of the thin renderer (no server-side data fetching in Next, no ISR). The plan said "SSR"; the
+  property that matters (it works while the database is down) holds and is tested at the API.

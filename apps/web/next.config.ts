@@ -23,7 +23,11 @@ const config: NextConfig = {
     // check, so type checking runs separately as `pnpm check:types` (tsc), which CI requires.
     typescript: { ignoreBuildErrors: true },
     async rewrites() {
-        return [{ source: "/api/:path*", destination: `${API_ORIGIN}/api/:path*` }];
+        return [
+            { source: "/api/:path*", destination: `${API_ORIGIN}/api/:path*` },
+            // did:web resolves a host's DID at this path (ADR 0033).
+            { source: "/.well-known/did.json", destination: `${API_ORIGIN}/api/public/did.json` },
+        ];
     },
     async headers() {
         return [{ source: "/:path*", headers: STATIC_SECURITY_HEADERS.map((h) => ({ ...h })) }];
