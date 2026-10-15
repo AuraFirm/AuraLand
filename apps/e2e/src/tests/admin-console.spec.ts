@@ -49,7 +49,11 @@ test("the admin console shows the plan, takes a domain claim and explains plan l
             .first(),
     ).toBeVisible();
     await expectAccessible(page);
-    expect(problems()).toEqual([]);
+    // This page asks for things that legitimately answer 404 (no connection yet) and 402 (plan limits); the browser logs those as
+    // "failed to load resource". Only policy violations and script errors are problems here.
+    expect(problems().filter((problem) => !problem.includes("Failed to load resource"))).toEqual(
+        [],
+    );
 });
 
 test("an ordinary member is told the console is not theirs", async ({ page }) => {
