@@ -357,6 +357,13 @@ revokes credentials only where required; the policy is the owner's).
 **Not designed away.** Firecracker, and everything the kit asks of it, is not built; gVisor shares the host kernel and is weaker. A
 run is evidence, not proof of what an agent can do, and no figure from one development VM is a capacity or cost claim.
 
+## STRIDE for the Stage 9 surface (business systems, v12; added slice by slice, ADR 0036)
+| Threat | Surface | Control | Evidence |
+|---|---|---|---|
+| Elevation: an organization gives itself a better plan | `customers` | Writes only through `set_org_plan` (platform administrator, checked in the database, fresh passkey check at the route, audited); no application role can insert or update | `http-billing.test.ts` |
+| Information disclosure: a member or stranger learns another organization's plan or billing references | `org_entitlements`, `customers` | Entitlements only to members of that organization; `customers` rows only to owners and administrators; a stranger and a missing organization answer identically | `http-billing.test.ts` |
+| Elevation: a feature check that forgets the plan | Every sold feature | One function and two pure checks; an unknown plan or missing row means the free plan | `rules.test.ts` |
+
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;
 download events with the person's address; contractors' payout amounts and references. Download events
