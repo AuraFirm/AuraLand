@@ -35,3 +35,23 @@ func Sign(key ed25519.PrivateKey, method, target string, timestampMS int64, nonc
 
 // Encode returns bytes as unpadded base64url, the encoding of keys, nonces and signatures.
 func Encode(data []byte) string { return base64.RawURLEncoding.EncodeToString(data) }
+
+// TraceDomain separates the signature of a run's trace from every request signature: the same key signs both, and a
+// signature made for one must not verify as the other.
+const TraceDomain = "AURA-TRACE-V1"
+
+func traceMessage(body []byte) []byte {
+	sum := sha256.Sum256(body)
+	return []byte(TraceDomain + "\n" + hex.EncodeToString(sum[:]))
+}
+
+// SignTrace signs the SHA-256 of a trace's canonical bytes, with a domain that no request signature uses.
+func SignTrace(key ed25519.PrivateKey, body []byte) string {
+	return base64.RawURLEncoding.EncodeToString(ed25519.Sign(key, traceMessage(body)))
+}
+
+// VerifyTrace reports whether signature is this key's signature of exactly these trace bytes.
+func VerifyTrace(key ed25519.PublicKey, body []byte, signature string) bool {
+	raw, err := base64.RawURLEncoding.DecodeString(signature)
+	return err == nil && len(raw) == ed25519.SignatureSize && ed25519.Verify(key, traceMessage(body), raw)
+}
