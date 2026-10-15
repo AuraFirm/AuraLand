@@ -10,7 +10,8 @@ test("the admin console shows the plan, takes a domain claim and explains plan l
     page,
 }) => {
     const problems = await watchForCspProblems(page);
-    await loginAs(page.context(), freshEmail());
+    // A fresh passkey check is on record, so the privileged actions below reach the plan check instead of asking for a passkey.
+    await loginAs(page.context(), freshEmail(), { stepUp: true });
     await page.goto("/orgs");
     await page.getByLabel("Name", { exact: true }).fill("Console Team");
     await page.getByLabel(/Address/).fill(uniqueSlug());
