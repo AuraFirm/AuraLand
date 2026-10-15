@@ -56,3 +56,13 @@ Every claim about "works with the database down" is tested against those files, 
 - **Slice 4: the page is not server-rendered.** `/verify/<id>` is a client component that calls the cacheable JSON
   endpoint, like the rest of the thin renderer (no server-side data fetching in Next, no ISR). The plan said "SSR"; the
   property that matters (it works while the database is down) holds and is tested at the API.
+- **Slice 6: links and QR.** Share links have no `Idempotency-Key` (a repeated request makes another revocable link; five live at
+  most) and no QR code (a library and an ADR; it waits for the optional share-card slice).
+- **Slice 7: low bands.** An exam credential is issued for every points band, including 0-24, because the band is the claim and
+  credentials start private. One line in `events.ts` changes it.
+- **Slice 8: not built.** The `IdentityVerifier` port and fake have no consumer (no event requires identity proof), so by the
+  repository rule that ports arrive with their first real consumer, they wait. Credentials carry the event's own assurance level.
+- **Slice 9: employer scope.** Search lists public credentials that name no one; a report is the verified claim, never evidence;
+  every report is logged in the same statement and shown to the holder (organization, purpose, time).
+- **Slice 10: re-issue after a revoked key.** `reissue_credential` is the only way signed text changes, and only for a credential
+  whose key is revoked; the id, claims, dates and place in the revocation list are carried over.

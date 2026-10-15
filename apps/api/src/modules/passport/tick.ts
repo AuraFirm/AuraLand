@@ -6,6 +6,7 @@ import type { Signer } from "../../platform/signer.ts";
 import { issuerDid } from "./documents.ts";
 import { issueNextEvent } from "./events.ts";
 import { publishPassport } from "./publish.ts";
+import { reissueRevoked } from "./reissue.ts";
 
 export interface PassportContext {
     readonly clock: Clock;
@@ -44,6 +45,14 @@ export async function runPassportTick(
                 ${tx.json(context.signer.publicJwk())}, ${new Date(nowMs)})`,
         );
     }
+    // Credentials of a revoked key are signed again before anything else is published about them.
+    await context.inTransaction((tx) =>
+        reissueRevoked(tx, {
+            clock: context.clock,
+            signer: context.signer,
+            issuerDid: issuing.issuerDid,
+        }),
+    );
     const issued = await context.inTransaction((tx) => issueNextEvent(tx, issuing));
     const written = await context.inTransaction((tx) =>
         publishPassport(tx, {

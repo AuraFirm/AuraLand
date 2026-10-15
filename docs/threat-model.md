@@ -300,7 +300,7 @@ finalizing needs only one owner or admin (no second approver; ASVS V2.3.5).
 plus the signals above. A person with a second device is invisible to it. The judge is still evidenced on one development
 VM (F32). Similarity compares within one exam only (no course concept yet).
 
-## STRIDE for the Stage 7 surface (Passport, v9; design, built slice by slice)
+## STRIDE for the Stage 7 surface (Passport, v9, built)
 | Threat | Surface | Control (ADR 0033) | Evidence |
 |---|---|---|---|
 | **Spoofing**: a forged credential passes as ours | Verify page, JWT | ES256 signature over the JWT checked against the published key set for its `kid`; unknown or revoked `kid` is `invalid`; claims schema is strict | tamper and wrong-key tests, independent verifier (slice 2, 4) |
@@ -313,6 +313,12 @@ VM (F32). Similarity compares within one exam only (no course concept yet).
 | Elevation: someone earns a credential they should not | Issuance | One per (subject, event) by dedupe; exam credentials withheld for a confirmed, un-overturned flag; assurance never above the event's | DST, job tests (slices 5, 7, 8) |
 | Denial of service: verification depends on the database | Verify | Verification needs only the JWT, key set and status file, all static; page degrades to those | database-stopped test (slice 4); real edge untested (F1) |
 | Tampering: status list altered or stale | Revocation | Rebuilt by the worker on every change; a bit is set iff revoked (property tested); stale-ok cache policy documented | golden file, DST (slices 3, 5) |
+
+Added while building: a **holder who could revoke** (a null role made a refusal condition null) was found by a test and fixed; a
+**share link's secret** is stored only as a hash, its answers are never shared-cacheable, and a link opens only its own
+credential; the **employer log** is written in the same statement as the report and is append-only; **re-signing after a key
+revocation** is the one case where signed text may change, allowed only through `reissue_credential` for a credential whose key is
+revoked (the guard refuses every other rewrite).
 
 **Not designed away.** Development credentials are not production credentials (F62). Identity proof comes from a vendor that does
 not exist yet; assurance 1 means the event's own rules, not a verified person. A credential proves an event happened under stated
