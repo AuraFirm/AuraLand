@@ -24,6 +24,7 @@ import {
     SCOREBOARD_STREAM_DEFAULTS,
     scoreboardRoutes,
 } from "./modules/contests/scoreboard-routes.ts";
+import { environmentRoutes } from "./modules/environments/routes.ts";
 import { gradingRoutes } from "./modules/exams/grading-routes.ts";
 import { integrityRoutes } from "./modules/exams/integrity-routes.ts";
 import { oralRoutes } from "./modules/exams/oral-routes.ts";
@@ -310,6 +311,7 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", oralRoutes({ clock: deps.clock }));
     app.route("/v1", reportRoutes());
     app.route("/v1", employerRoutes({ clock: deps.clock }));
+    app.route("/v1", environmentRoutes({ clock: deps.clock }));
     app.route(
         "/v1",
         holderRoutes({

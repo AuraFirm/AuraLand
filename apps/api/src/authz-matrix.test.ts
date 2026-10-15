@@ -32,7 +32,9 @@ interface Row {
         | "pay"
         | "cst"
         | "exm"
-        | "crd";
+        | "crd"
+        | "env"
+        | "evr";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, unknown>;
 }
@@ -824,6 +826,61 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "crd",
     },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/environments",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: {
+            slug: "matrix-env",
+            title: "Matrix",
+            spec: {
+                spec_version: 2,
+                kind: "repo_env",
+                title: "Matrix",
+                image: { digest: `sha256:${"a".repeat(64)}` },
+                agent: {
+                    command: ["agent"],
+                    workspace: "/work",
+                    time_limit_s: 60,
+                    memory_limit_mib: 128,
+                    disk_limit_mib: 64,
+                    pids_limit: 64,
+                    output_limit_kib: 64,
+                },
+                network: { mode: "none" },
+                verifier: {
+                    command: ["check"],
+                    time_limit_s: 60,
+                    memory_limit_mib: 128,
+                    canaries: 0,
+                },
+                integrity: {},
+                scoring: { type: "binary" },
+            },
+            image_key: "a",
+            hidden_key: "b",
+            hidden_sha256: "a".repeat(64),
+        },
+    },
+    { method: "GET", path: "/api/v1/environments", access: "user" },
+    {
+        method: "POST",
+        path: "/api/v1/environments/:id/runs",
+        access: "user",
+        owned: true,
+        object: "env",
+        body: { agent_label: "agent" },
+    },
+    {
+        method: "GET",
+        path: "/api/v1/environments/:id/runs",
+        access: "user",
+        owned: true,
+        object: "env",
+    },
+    { method: "GET", path: "/api/v1/env-runs/:id", access: "user", owned: true, object: "evr" },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {
@@ -1013,6 +1070,8 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "dlv") return encodeId("dlv", SAMPLE_UUID);
     if (row.object === "pay") return encodeId("pay", SAMPLE_UUID);
     if (row.object === "crd") return encodeId("crd", SAMPLE_UUID);
+    if (row.object === "env") return encodeId("env", SAMPLE_UUID);
+    if (row.object === "evr") return encodeId("evr", SAMPLE_UUID);
     if (row.object !== "pky") return encodeId("ses", sessionId);
     const [created] = await h.db.database.sql<{ id: string }[]>`
         insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)

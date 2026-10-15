@@ -29,6 +29,7 @@ import {
 import { summarize } from "../submissions/service.ts";
 import { readValidationWork } from "../validation/service.ts";
 import { watermarkJobInput } from "../watermark/service.ts";
+import { handleEnvComplete, handleEnvLease } from "./env-routes.ts";
 import {
     backToQueue,
     lockSubmissionWork,
@@ -67,6 +68,7 @@ export function jobRoutes(deps: JudgeRouteDeps): Hono<AppEnv> {
     routes.post("/jobs/:id/validation", (c) => handleValidationComplete(c, deps));
     routes.post("/jobs/:id/watermark/upload", (c) => handleWatermarkUpload(c, deps));
     routes.post("/jobs/:id/watermark", (c) => handleWatermarkComplete(c, deps));
+    routes.post("/jobs/:id/env", (c) => handleEnvComplete(c, deps));
     routes.post("/jobs/:id/fail", (c) => handleFail(c, deps));
     routes.get("/bundles/:sha256", (c) => handleBundle(c, deps));
     return routes;
@@ -97,6 +99,7 @@ async function handleLease(c: Context<AppEnv>, deps: JudgeRouteDeps) {
     }
     if (body.data.queue === "validate") return handleValidationLease(c, deps, body.data.wait_ms);
     if (body.data.queue === "watermark") return handleWatermarkLease(c, deps, body.data.wait_ms);
+    if (body.data.queue === "env") return handleEnvLease(c, deps, body.data.wait_ms);
     // Waiting is a series of short looks, never an open transaction.
     const looks = Math.floor(body.data.wait_ms / LEASE_POLL_MS) + 1;
     for (let look = 0; look < looks; look++) {

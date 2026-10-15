@@ -5,6 +5,7 @@ import {
     refreshScoreboards,
 } from "./modules/contests/scoreboard-tick.ts";
 import { advanceContests, CONTEST_TICK_MS } from "./modules/contests/tick.ts";
+import { failDeadRuns } from "./modules/environments/tick.ts";
 import { generateOralQuestions } from "./modules/exams/oral-tick.ts";
 import { advanceExams } from "./modules/exams/tick.ts";
 import { HEARTBEAT_INTERVAL_MS } from "./modules/jobs/limits.ts";
@@ -205,6 +206,7 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
             }
             try {
                 await advanceExams(deps.context);
+                await failDeadRuns(deps.context);
             } catch (error) {
                 deps.logger.error({ err: error }, "exam tick error");
             }
