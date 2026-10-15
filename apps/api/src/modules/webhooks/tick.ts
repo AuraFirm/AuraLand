@@ -4,7 +4,8 @@ import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
 import type { Clock } from "../../platform/clock.ts";
 import { type DeliveryResult, deliverWebhook } from "../../platform/webhook-egress.ts";
-import { nextAttemptAtMs, signatureHeader, signingSecrets } from "./rules.ts";
+import { nextAttemptAtMs, signingSecrets } from "./rules.ts";
+import { signatureHeader } from "./signature.ts";
 
 export interface WebhookTickContext {
     readonly clock: Clock;

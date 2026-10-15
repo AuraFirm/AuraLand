@@ -3,13 +3,8 @@
 // ends exactly at the 24-hour window.
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import {
-    DELIVERY_WINDOW_MS,
-    nextAttemptAtMs,
-    SECRET_OVERLAP_MS,
-    signatureHeader,
-    signingSecrets,
-} from "./rules.ts";
+import { DELIVERY_WINDOW_MS, nextAttemptAtMs, SECRET_OVERLAP_MS, signingSecrets } from "./rules.ts";
+import { signatureHeader } from "./signature.ts";
 
 const NOW = 1_800_000_000_000;
 const A = "a".repeat(64);
