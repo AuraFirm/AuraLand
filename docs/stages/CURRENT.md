@@ -21,6 +21,8 @@ Open items are in [../cutlist.md](../cutlist.md); your manual tasks are the chec
 
 **Stage 6 — Exams and integrity: approved on 2026-10-15.** Plan: [stage-6-plan.md](stage-6-plan.md). Report: [stage-6-report.md](stage-6-report.md). Runbook: [../runbooks/exams.md](../runbooks/exams.md). **Not met: any real exam (no deployment, no reviewed judge node, legal review pending), a real LLM call (no provider), assurance above level 1.**
 
-**Stage 7 — Passport (credentials): built, awaiting your review.** Plan: [stage-7-plan.md](stage-7-plan.md). Report: [stage-7-report.md](stage-7-report.md). Runbook: [../runbooks/passport.md](../runbooks/passport.md). **Not met: any production credential (no KMS signer, F62), human review of the signing code (F63), identity proof (F64), real employers (F67).**
+**Stage 7 — Passport (credentials): approved on 2026-10-15.** Plan: [stage-7-plan.md](stage-7-plan.md). Report: [stage-7-report.md](stage-7-report.md). Runbook: [../runbooks/passport.md](../runbooks/passport.md). **Not met: any production credential (no KMS signer, F62), human review of the signing code (F63), identity proof (F64), real employers (F67).**
+
+**Stage 8 — Tier-2 environments and agent evals: plan drafted, awaiting your approval.** Plan: [stage-8-plan.md](stage-8-plan.md). No Stage 8 code starts until you approve it. **No KVM is reachable here, so no Firecracker work; the plan builds on gVisor and says what that does not prove.**
 
 **What only you can do, with steps: [../owner-tasks.md](../owner-tasks.md).**
