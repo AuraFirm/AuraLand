@@ -21,7 +21,12 @@ const HEADLINE: Record<Result["outcome"], string> = {
 // The public page for checking a credential. It reads only the published, signed documents (the API answers without
 // its database), so it works when the rest of the product is down.
 export function CredentialVerify({ id }: { id: string }) {
-    const load = useCallback(() => apiGetPublic(`/credentials/${id}`, verifyResponseSchema), [id]);
+    const load = useCallback(() => {
+        // A link carries its secret in the address (`?s=`); the browser sends it on to the API as it is.
+        const secret = new URLSearchParams(window.location.search).get("s");
+        const query = secret === null ? "" : `?s=${encodeURIComponent(secret)}`;
+        return apiGetPublic(`/credentials/${id}${query}`, verifyResponseSchema);
+    }, [id]);
     const { data, error } = useLoad(load);
     if (error !== "") return <Notice text="This address is not a credential." bad />;
     if (data === null) return <h1 className="text-2xl font-semibold">Checking…</h1>;

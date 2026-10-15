@@ -65,6 +65,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `signing_keys` | `modules/passport` | Public keys and the lifecycle of credential signing keys (active, retired, revoked); the private key is never stored here; written only by `register_signing_key` (worker) and the administrator functions `rotate_signing_key` and `revoke_signing_key` |
 | `credentials` | `modules/passport` | A signed credential and its holder's controls; one per (person, kind, event); recorded only by `insert_credential` (worker), never deleted, what was signed never changes |
 | `passport_artifacts` | `modules/passport` | Digests of the static documents the worker published (keys, revocation lists), so unchanged ones are not rewritten; written only by `record_passport_artifact` |
+| `credential_shares` | `modules/passport` | A holder's share links for a credential (hash of the secret, expiry, revocation); created and ended only by the holder's functions, never deleted |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

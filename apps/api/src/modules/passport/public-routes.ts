@@ -34,12 +34,23 @@ async function handleCredential(c: Context<AppEnv>, deps: PublicPassportDeps) {
     const match = /^crd_(.+)$/.exec(id);
     if (match === null || !isUuidV7(match[1] ?? ""))
         return problemResponse(c, "not_found", "Not found");
+    const token = c.req.query("s");
+    if (token !== undefined && !/^[A-Za-z0-9_-]{20,64}$/.test(token)) {
+        return problemResponse(c, "not_found", "Not found");
+    }
     const result = await verifyPublished(deps.storage, {
         id,
         publicOrigin: deps.publicOrigin,
         nowMs: deps.clock.nowUnixMs(),
+        shareToken: token,
     });
-    c.header("Cache-Control", result.outcome === "unknown" ? "public, max-age=30" : VERIFY_CACHE);
+    // A link's answer is for whoever holds the link: no shared cache may keep it.
+    if (token !== undefined) c.header("Cache-Control", "private, max-age=60");
+    else
+        c.header(
+            "Cache-Control",
+            result.outcome === "unknown" ? "public, max-age=30" : VERIFY_CACHE,
+        );
     return c.json(verifyResponseSchema.parse(result));
 }
 

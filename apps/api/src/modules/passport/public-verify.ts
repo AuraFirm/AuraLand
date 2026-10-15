@@ -1,9 +1,10 @@
+import { createHash } from "node:crypto";
 import type { VerifyResponse } from "@aura/contracts/api/passport";
 import { CREDENTIAL_JWT_BYTES_MAX } from "@aura/contracts/limits";
 import { z } from "zod";
 import type { ObjectStorage } from "../../platform/object-storage.ts";
 import type { PublicKey } from "./documents.ts";
-import { credentialKey, JWKS_KEY, statusKey } from "./publish.ts";
+import { credentialKey, JWKS_KEY, sharedKey, statusKey } from "./publish.ts";
 import { isRevokedIn, verifyStatusList } from "./status-list.ts";
 import { verifyCredentialJwt } from "./verify.ts";
 
@@ -60,10 +61,10 @@ const iso = (ms: number) => new Date(ms).toISOString();
 
 export async function verifyPublished(
     storage: ObjectStorage,
-    input: { id: string; publicOrigin: string; nowMs: number },
+    input: { id: string; publicOrigin: string; nowMs: number; shareToken?: string | undefined },
 ): Promise<VerifyResponse> {
     const uuid = input.id.slice(input.id.indexOf("_") + 1);
-    const jwt = await readText(storage, credentialKey(uuid), CREDENTIAL_JWT_BYTES_MAX);
+    const jwt = await findJwt(storage, uuid, input);
     // A private credential and one that does not exist look the same on purpose.
     if (jwt === null) return { id: input.id, outcome: "unknown", status_known: false };
     const keys = await publishedKeys(storage);
@@ -136,4 +137,29 @@ async function isRevoked(
         `${publicOrigin}/api/public/status-lists/${list}`,
     );
     return verified.ok ? isRevokedIn(verified.bits, index) : null;
+}
+
+const sharedSchema = z.object({ jwt: z.string(), expires_at: z.iso.datetime() });
+
+// A link's secret opens its file while the link lasts; failing that (or with no secret) only a public credential
+// answers. A wrong or expired secret is not told apart from no secret.
+async function findJwt(
+    storage: ObjectStorage,
+    uuid: string,
+    input: { nowMs: number; shareToken?: string | undefined },
+): Promise<string | null> {
+    if (input.shareToken !== undefined) {
+        const hash = createHash("sha256").update(input.shareToken).digest("hex");
+        const text = await readText(storage, sharedKey(hash), CREDENTIAL_JWT_BYTES_MAX + 256);
+        if (text !== null) {
+            try {
+                const parsed = sharedSchema.safeParse(JSON.parse(text));
+                if (parsed.success && input.nowMs < Date.parse(parsed.data.expires_at))
+                    return parsed.data.jwt;
+            } catch {
+                // an unreadable file is the same as no file
+            }
+        }
+    }
+    return readText(storage, credentialKey(uuid), CREDENTIAL_JWT_BYTES_MAX);
 }

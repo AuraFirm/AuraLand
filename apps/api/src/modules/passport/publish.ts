@@ -109,6 +109,7 @@ export async function publishPassport(tx: Transaction, context: PublishContext):
         if (changed) written.push(name);
     }
     written.push(...(await publishPublicCredentials(tx, context)));
+    written.push(...(await publishShares(tx, context)));
     return written;
 }
 
@@ -134,14 +135,61 @@ async function publishPublicCredentials(
         });
         if (changed) written.push(name);
     }
+    written.push(...(await removeUnwanted(tx, context, CREDENTIAL_PREFIX, wanted)));
+    return written;
+}
+
+// Files under a prefix that are no longer wanted are removed from storage and forgotten, so a credential made private
+// or a link that ended stops answering at the next run.
+async function removeUnwanted(
+    tx: Transaction,
+    context: PublishContext,
+    prefix: string,
+    wanted: ReadonlySet<string>,
+): Promise<string[]> {
+    const removed: string[] = [];
     const published =
-        await tx`select name from passport_artifacts where name like ${`${CREDENTIAL_PREFIX}%`} order by name`;
+        await tx`select name from passport_artifacts where name like ${`${prefix}%`} order by name`;
     for (const raw of published) {
         const name = z.object({ name: z.string() }).parse(raw).name;
         if (wanted.has(name)) continue;
         await context.storage.remove(name);
         await tx`select forget_passport_artifact(${name})`;
-        written.push(`-${name}`);
+        removed.push(`-${name}`);
     }
+    return removed;
+}
+
+export const SHARED_PREFIX = "public/passport/shared/";
+export const sharedKey = (tokenHashHex: string): string => `${SHARED_PREFIX}${tokenHashHex}`;
+const SHARES_PER_RUN_MAX = 20_000;
+
+// Links the holder made, while they last and while the credential is not private: one file each, named by the hash of
+// the secret (the secret itself is never stored). The file carries its own expiry, so it stops answering on time even
+// before the next run removes it.
+async function publishShares(tx: Transaction, context: PublishContext): Promise<string[]> {
+    const written: string[] = [];
+    const now = new Date(context.clock.nowUnixMs());
+    const rows = await tx`select encode(s.token_hash, 'hex') as hash, c.vc_jwt, s.expires_at
+        from credential_shares s join credentials c on c.id = s.credential_id
+        where s.revoked_at is null and s.expires_at > ${now} and c.visibility in ('link', 'public')
+        order by s.id limit ${SHARES_PER_RUN_MAX}`;
+    const wanted = new Set<string>();
+    for (const raw of rows) {
+        const row = z
+            .object({ hash: z.string(), vc_jwt: z.string(), expires_at: z.date() })
+            .parse(raw);
+        const name = sharedKey(row.hash);
+        wanted.add(name);
+        const text = JSON.stringify({ jwt: row.vc_jwt, expires_at: row.expires_at.toISOString() });
+        const changed = await writeIfChanged(tx, context, {
+            name,
+            digest: digestOf(text),
+            contentType: "application/json",
+            body: async () => text,
+        });
+        if (changed) written.push(name);
+    }
+    written.push(...(await removeUnwanted(tx, context, SHARED_PREFIX, wanted)));
     return written;
 }
