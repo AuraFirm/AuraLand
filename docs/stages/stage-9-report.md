@@ -17,10 +17,10 @@ tokens, a fake DNS. No money moved, no real identity provider or customer was in
 | 5a, 5b | SSRF-safe client for customer-chosen addresses; webhook endpoints, signed deliveries, retry and dead-letter | #136, #138 |
 | 6a, 6b | OIDC connections, DNS domain proof, id_token checks, SSO sign-in with membership and plan room, enforcement | #139 |
 | 6c, 7 | SCIM Users with bearer tokens; the organization admin console and its browser tests | #140 |
-| 8 | Setter revenue share through the ledger; payout batches | this batch |
-| 9 | Employer access needs a subscription; a developers page (no SDK: see below) | this batch |
-| 10 | Consented, read-only support access (not impersonation: see below) | this batch |
-| 11 | Residency routing primitive, evidence collector, disaster-recovery drill, bug-bounty draft, framework ADR, cost report, runbook, ASVS rows, this report | this batch |
+| 8 | Setter revenue share through the ledger; payout batches | #141 |
+| 9 | Employer access needs a subscription; a developers page (no SDK: see below) | #141 |
+| 10 | Consented, read-only support access (not impersonation: see below) | #141 |
+| 11 | Residency routing primitive, evidence collector, disaster-recovery drill, bug-bounty draft, framework ADR, cost report, runbook, ASVS rows, this report | #141 |
 
 ## Verified (with evidence)
 - **Money cannot be silently wrong**: the ledger refuses, at commit and even for writes that bypass the posting function, any transaction whose
@@ -40,7 +40,7 @@ tokens, a fake DNS. No money moved, no real identity provider or customer was in
   chain verifies with the same head. This drills the procedure, not production.
 - **SOC 2 readiness evidence** (automatic): 7 evidenced, 3 partial, 2 not evidenced; the two gaps (incident response, access review) need people.
 - Gates: `pnpm check` exit 0 on every branch (earlier branches' lint failures were hidden by a pipe I used and fixed; the lesson is in the PR history);
-  CI (`verify` with the browser tests, `images`, `semgrep`, `secrets`, CodeQL) green on #131 to #139; #140 and the batch after it are in the PR list.
+  CI (`verify` with the browser tests, `images`, `semgrep`, `secrets`, CodeQL) green on #131 to #139; #140 and #141 (which also fixed a 1-in-64 flaky Stage 8 test and an axe finding on the new developers page) green after re-runs of registry rate limits.
 
 ## Deviations from the plan (all decided under your delegation)
 1. **No SDK.** API keys reach only `GET /key`; an SDK would wrap routes it cannot call. F83 is the design that comes first.
