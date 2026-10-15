@@ -15,6 +15,7 @@ import type { AppEnv } from "./app-env.ts";
 import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
+import { billingRoutes } from "./modules/billing/routes.ts";
 import { clarificationRoutes } from "./modules/contests/clarification-routes.ts";
 import { ratingRoutes } from "./modules/contests/rating-routes.ts";
 import { contestRoutes } from "./modules/contests/routes.ts";
@@ -312,6 +313,7 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", reportRoutes());
     app.route("/v1", employerRoutes({ clock: deps.clock }));
     app.route("/v1", environmentRoutes({ clock: deps.clock }));
+    app.route("/v1", billingRoutes({ clock: deps.clock }));
     app.route(
         "/v1",
         holderRoutes({

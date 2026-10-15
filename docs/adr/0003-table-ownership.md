@@ -71,6 +71,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `credential_views` | `modules/passport` | One row per employer report opened on a public credential (which organization, which person, why, when); written only by `employer_report`, never changed or deleted; readable by the holder (without the person) and by the looking organization |
 | `environments` | `modules/environments` | An organization's Tier-2 environment recipe (spec v2, image and hidden-material keys); written only by `create_environment` |
 | `env_runs` | `modules/environments` | One agent evaluated in an environment: what was asked, the node's signed trace, the isolation that contained it and whether the result is eligible for the use it was requested for (a generated column); asked by `request_env_run`, finished once by `finish_env_run`, never changed after |
+| `plans` | `modules/billing` | The catalogue of plans: limits and switches (members, environment runs, verifications, webhook endpoints, SSO, SCIM, employer search) and a placeholder price; changed by migration only |
+| `customers` | `modules/billing` | Which plan an organization is on, with billing and contract references (owners and administrators read it); set only by `set_org_plan`, a platform administrator's function |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

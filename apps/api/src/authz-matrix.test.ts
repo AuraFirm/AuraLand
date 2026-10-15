@@ -864,6 +864,15 @@ const MATRIX: readonly Row[] = [
             hidden_sha256: "a".repeat(64),
         },
     },
+    { method: "GET", path: "/api/v1/orgs/:id/plan", access: "user", owned: true, object: "org" },
+    {
+        method: "PUT",
+        path: "/api/v1/admin/orgs/:id/plan",
+        access: "admin",
+        owned: true,
+        object: "org",
+        body: { plan: "team" },
+    },
     { method: "GET", path: "/api/v1/environments", access: "user" },
     {
         method: "POST",
