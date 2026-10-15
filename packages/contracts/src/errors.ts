@@ -6,6 +6,7 @@ export const ERROR_CODES = [
     "invalid_request",
     "unauthenticated",
     "forbidden",
+    "plan_limit_reached",
     "step_up_required",
     "not_found",
     "conflict",
@@ -18,19 +19,22 @@ export const ERROR_CODES = [
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
 // HTTP status for each code. Declared as a total record so the compiler proves no code is missing.
-export const ERROR_STATUS: Record<ErrorCode, 400 | 401 | 403 | 404 | 409 | 413 | 429 | 500 | 503> =
-    {
-        invalid_request: 400,
-        unauthenticated: 401,
-        forbidden: 403,
-        step_up_required: 403,
-        not_found: 404,
-        conflict: 409,
-        payload_too_large: 413,
-        rate_limited: 429,
-        unavailable: 503,
-        internal: 500,
-    };
+export const ERROR_STATUS: Record<
+    ErrorCode,
+    400 | 401 | 402 | 403 | 404 | 409 | 413 | 429 | 500 | 503
+> = {
+    invalid_request: 400,
+    unauthenticated: 401,
+    forbidden: 403,
+    plan_limit_reached: 402,
+    step_up_required: 403,
+    not_found: 404,
+    conflict: 409,
+    payload_too_large: 413,
+    rate_limited: 429,
+    unavailable: 503,
+    internal: 500,
+};
 
 // RFC 9457 problem details. `.strict()` so a leaked internal field fails the response-schema test.
 export const problemSchema = z

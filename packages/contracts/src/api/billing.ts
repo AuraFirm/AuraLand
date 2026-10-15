@@ -43,3 +43,14 @@ export const setPlanRequestSchema = z
 export const planChangedSchema = z
     .object({ org_id: idSchema("org"), entitlements: entitlementsSchema })
     .strict();
+
+// What an organization used in one calendar month (UTC), beside the limits of its plan.
+export const usageResponseSchema = z
+    .object({
+        period_start: z.iso.datetime(),
+        period_end: z.iso.datetime(),
+        env_runs: z.number().int().min(0),
+        employer_reports: z.number().int().min(0),
+        env_runs_limit: z.number().int().min(0),
+    })
+    .strict();

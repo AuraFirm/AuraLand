@@ -1,7 +1,11 @@
 // Goal: plans through the real HTTP app and PostgreSQL. Members read their organization's entitlements (the free plan until a
 // platform administrator says otherwise); a stranger gets the same 404 as for a missing organization; only a platform
 // administrator changes a plan, and the change shows up in the audit log; billing references are not for ordinary members.
-import { entitlementsSchema, planChangedSchema } from "@aura/contracts/api/billing";
+import {
+    entitlementsSchema,
+    planChangedSchema,
+    usageResponseSchema,
+} from "@aura/contracts/api/billing";
 import { withRequestContext } from "@aura/db/context";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -113,5 +117,42 @@ describe("changing a plan", () => {
             plan: "platinum",
         });
         expect(response.status).toBe(400);
+    });
+});
+
+describe("usage", () => {
+    it("shows a member this month's counts beside the plan's limit, and a stranger nothing", async () => {
+        const response = await call(BOB, "GET", `/orgs/${orgPublic}/usage`);
+        expect(response.status).toBe(200);
+        const usage = usageResponseSchema.parse(await response.json());
+        expect(usage).toMatchObject({ env_runs: 0, employer_reports: 0 });
+        expect(new Date(usage.period_start).getUTCDate()).toBe(1);
+        expect((await call(CAROL, "GET", `/orgs/${orgPublic}/usage`)).status).toBe(404);
+    });
+
+    it("counts an event once however often the same fact is recorded, and never changes one", async () => {
+        const { sql } = h.db.database;
+        const source = "018f0000-0000-7000-8000-0000000000aa";
+        const at = new Date(h.clock.nowUnixMs());
+        for (let i = 0; i < 3; i++)
+            await sql`insert into usage_events (org_id, kind, source_id, occurred_at)
+                values (${org}, 'env_run', ${source}, ${at}) on conflict do nothing`;
+        const usage = usageResponseSchema.parse(
+            await (await call(BOB, "GET", `/orgs/${orgPublic}/usage`)).json(),
+        );
+        expect(usage.env_runs).toBe(1);
+        await expect(sql`update usage_events set kind = 'employer_report'`).rejects.toThrow();
+        await expect(sql`delete from usage_events`).rejects.toThrow();
+    });
+
+    it("does not count last month", async () => {
+        const { sql } = h.db.database;
+        const lastMonth = new Date(h.clock.nowUnixMs() - 40 * 24 * 3600 * 1000);
+        await sql`insert into usage_events (org_id, kind, source_id, occurred_at)
+            values (${org}, 'env_run', '018f0000-0000-7000-8000-0000000000ab', ${lastMonth})`;
+        const usage = usageResponseSchema.parse(
+            await (await call(BOB, "GET", `/orgs/${orgPublic}/usage`)).json(),
+        );
+        expect(usage.env_runs).toBe(1); // still only the one from the previous test
     });
 });

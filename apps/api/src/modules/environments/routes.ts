@@ -9,12 +9,14 @@ import {
 } from "@aura/contracts/api/environments";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
 import { appendAudit } from "@aura/db/audit";
+import type { Transaction } from "@aura/db/context";
 import { CHECK_VIOLATION, postgresErrorCode } from "@aura/db/errors";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../../app-env.ts";
 import type { Clock } from "../../platform/clock.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
+import { entitlementsOf, monthBoundsUtc, usageOf, withinLimit } from "../billing/service.ts";
 import * as q from "./queries.ts";
 
 export interface EnvironmentRouteDeps {
@@ -133,6 +135,13 @@ async function handleRequest(c: Context<AppEnv>, deps: EnvironmentRouteDeps) {
     const body = requestRunSchema.safeParse(await c.req.json().catch(() => null));
     if (!env.success || !body.success) return invalid(c);
     const tx = c.get("tx");
+    if (await overMonthlyRunLimit(tx, decodeId("env", env.data), deps.clock.nowUnixMs()))
+        return problemResponse(
+            c,
+            "plan_limit_reached",
+            "Plan limit reached",
+            "this organization has used its environment runs for the month",
+        );
     try {
         const id = await q.requestRun(tx, {
             env: decodeId("env", env.data),
@@ -157,6 +166,19 @@ async function handleRequest(c: Context<AppEnv>, deps: EnvironmentRouteDeps) {
     } catch (error) {
         return translated(c, error);
     }
+}
+
+// The plan's monthly allowance of environment runs, counting finished runs and those still waiting. The check and the insert are
+// separate statements, so two requests at the same instant can both pass: the limit is soft by at most the concurrency.
+async function overMonthlyRunLimit(tx: Transaction, env: string, nowMs: number): Promise<boolean> {
+    const org = await q.environmentOrg(tx, env);
+    if (org === null) return false; // the request itself answers 404
+    const { startMs, endMs } = monthBoundsUtc(nowMs);
+    const entitlements = await entitlementsOf(tx, org);
+    const usage = await usageOf(tx, org, startMs, endMs);
+    if (entitlements === null || usage === null) return true; // fail closed
+    const used = usage.env_run + (await q.queuedRunsSince(tx, org, startMs));
+    return !withinLimit(entitlements, "env_runs_per_month", used);
 }
 
 const toRun = (row: q.RunRow) =>

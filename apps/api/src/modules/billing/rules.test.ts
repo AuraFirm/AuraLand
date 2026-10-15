@@ -2,7 +2,7 @@
 // usage is below it (zero allows none); nonsense usage is a bug and stops loudly.
 import type { Entitlements } from "@aura/contracts/api/billing";
 import { describe, expect, it } from "vitest";
-import { featureEnabled, withinLimit } from "./rules.ts";
+import { featureEnabled, monthBoundsUtc, withinLimit } from "./rules.ts";
 
 const free: Entitlements = {
     plan: "free",
@@ -36,5 +36,26 @@ describe("withinLimit", () => {
     it("refuses nonsense usage loudly", () => {
         expect(() => withinLimit(free, "members_max", -1)).toThrow();
         expect(() => withinLimit(free, "members_max", 1.5)).toThrow();
+    });
+});
+
+describe("monthBoundsUtc", () => {
+    it("is the calendar month in UTC, start included and end excluded", () => {
+        const midMonth = Date.UTC(2026, 9, 15, 12);
+        expect(monthBoundsUtc(midMonth)).toEqual({
+            startMs: Date.UTC(2026, 9, 1),
+            endMs: Date.UTC(2026, 10, 1),
+        });
+        expect(monthBoundsUtc(Date.UTC(2026, 9, 1)).startMs).toBe(Date.UTC(2026, 9, 1));
+        // The last millisecond still belongs to October; the next one is November.
+        expect(monthBoundsUtc(Date.UTC(2026, 10, 1) - 1).startMs).toBe(Date.UTC(2026, 9, 1));
+        expect(monthBoundsUtc(Date.UTC(2026, 10, 1)).startMs).toBe(Date.UTC(2026, 10, 1));
+    });
+    it("rolls over the year", () => {
+        expect(monthBoundsUtc(Date.UTC(2026, 11, 31, 23, 59)).endMs).toBe(Date.UTC(2027, 0, 1));
+    });
+    it("refuses a time that is not a time", () => {
+        expect(() => monthBoundsUtc(Number.NaN)).toThrow();
+        expect(() => monthBoundsUtc(-1)).toThrow();
     });
 });

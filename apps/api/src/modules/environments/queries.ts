@@ -42,6 +42,23 @@ export async function listEnvironments(tx: Transaction, org: string): Promise<En
     return rows.map((row) => environmentRow.parse(row));
 }
 
+// The organization an environment belongs to; null when it does not exist or the caller cannot see it.
+export async function environmentOrg(tx: Transaction, env: string): Promise<string | null> {
+    const [row] = await tx`select org_id from environments where id = ${env}`;
+    return row === undefined ? null : z.object({ org_id: z.string() }).parse(row).org_id;
+}
+
+// Runs asked for since `sinceMs` that have not finished: they will be billed when they do, so they count against the limit now.
+export async function queuedRunsSince(
+    tx: Transaction,
+    org: string,
+    sinceMs: number,
+): Promise<number> {
+    const [row] = await tx`select count(*)::int as n from env_runs
+        where org_id = ${org} and state = 'queued' and created_at >= ${new Date(sinceMs)}`;
+    return z.object({ n: z.number() }).parse(row).n;
+}
+
 export async function requestRun(
     tx: Transaction,
     input: {
