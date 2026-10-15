@@ -66,6 +66,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `credentials` | `modules/passport` | A signed credential and its holder's controls; one per (person, kind, event); recorded only by `insert_credential` (worker), never deleted, what was signed never changes |
 | `passport_artifacts` | `modules/passport` | Digests of the static documents the worker published (keys, revocation lists), so unchanged ones are not rewritten; written only by `record_passport_artifact` |
 | `credential_shares` | `modules/passport` | A holder's share links for a credential (hash of the secret, expiry, revocation); created and ended only by the holder's functions, never deleted |
+| `passport_events_done` | `modules/passport` | Which finished contests and exams have been turned into credentials, and how many were issued; written only by `mark_passport_event_done` (worker) |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
