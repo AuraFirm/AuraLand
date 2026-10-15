@@ -71,3 +71,19 @@ export const envRunSchema = z
     })
     .strict();
 export const envRunsResponseSchema = z.object({ runs: z.array(envRunSchema) }).strict();
+
+// The private leaderboard of an environment (Stage 8, slice 9): each agent's best ELIGIBLE result, so a result whose isolation
+// is not enough for what it was requested to support never ranks. Visible to the organization's members only. Runs that raised
+// integrity flags still rank but say so: a flag is evidence for a person, never a ban.
+export const leaderboardRowSchema = z
+    .object({
+        rank: z.number().int().min(1),
+        agent_label: z.string(),
+        best_score: z.number(),
+        runs: z.number().int(),
+        flagged_runs: z.number().int(),
+        isolation: isolationSchema,
+        achieved_at: z.iso.datetime(),
+    })
+    .strict();
+export const leaderboardResponseSchema = z.object({ rows: z.array(leaderboardRowSchema) }).strict();

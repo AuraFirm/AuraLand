@@ -124,3 +124,32 @@ export const finishRun = (
 ) =>
     tx`select finish_env_run(${input.run}, ${input.node}, ${input.isolation}, ${input.outcome}, ${input.score},
         ${tx.json(JSON.parse(JSON.stringify(input.trace)))}, ${input.signature}, ${new Date(input.nowMs)})`;
+
+const leaderboardRow = z.object({
+    agent_label: z.string(),
+    best_score: z.coerce.number(),
+    runs: z.coerce.number(),
+    flagged_runs: z.coerce.number(),
+    isolation: z.enum(["gvisor", "firecracker"]),
+    achieved_at: z.date(),
+});
+export type LeaderboardRow = z.infer<typeof leaderboardRow>;
+
+// Each agent's best eligible result; ties go to whoever reached it first, then to the label so the order is total.
+// `runs` counts every finished run of the agent (including ineligible ones) so the board does not hide how often they tried.
+export async function leaderboard(tx: Transaction, env: string): Promise<LeaderboardRow[]> {
+    const rows = await tx`
+        with best as (
+            select distinct on (agent_label) agent_label, score, isolation, finished_at
+              from env_runs where environment_id = ${env} and eligible and score is not null
+             order by agent_label, score desc, finished_at, id
+        ), counts as (
+            select agent_label, count(*) as runs,
+                   count(*) filter (where jsonb_array_length(coalesce(trace -> 'flags', '[]'::jsonb)) > 0) as flagged_runs
+              from env_runs where environment_id = ${env} and state = 'done' group by agent_label
+        )
+        select b.agent_label, b.score as best_score, c.runs, c.flagged_runs, b.isolation, b.finished_at as achieved_at
+          from best b join counts c using (agent_label)
+         order by b.score desc, b.finished_at, b.agent_label limit 100`;
+    return rows.map((row) => leaderboardRow.parse(row));
+}

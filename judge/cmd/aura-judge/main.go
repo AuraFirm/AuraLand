@@ -46,6 +46,7 @@ func enroll(args []string) int {
 	token := flags.String("token", "", "single-use enrollment token")
 	name := flags.String("name", "", "node name")
 	keyFile := flags.String("key-file", "", "where to write the node's private key (must not exist)")
+	tier2 := flags.Bool("tier2", false, "declare Tier 2 (environments under gVisor) as well as Tier 1")
 	flags.Parse(args)
 	if *plane == "" || *token == "" || *name == "" || *keyFile == "" {
 		fmt.Fprintln(os.Stderr, "enroll needs --control-plane, --token, --name and --key-file")
@@ -74,7 +75,7 @@ func enroll(args []string) int {
 		return 1
 	}
 	out, err := anonymous.Enroll(context.Background(), wire.EnrollRequest{
-		Token: *token, Name: *name, PublicKey: sign.Encode(public), AgentVersion: version, Tiers: []int{1},
+		Token: *token, Name: *name, PublicKey: sign.Encode(public), AgentVersion: version, Tiers: tiersFor(*tier2),
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "enroll:", err)
@@ -82,4 +83,12 @@ func enroll(args []string) int {
 	}
 	fmt.Printf("enrolled as %s; start the agent with: aura-judge run --node-id %s --key-file %s\n", out.NodeID, out.NodeID, *keyFile)
 	return 0
+}
+
+// tiersFor says which tiers a node declares. Tier 2 is only declared by a node that will be started with a runtime for it.
+func tiersFor(tier2 bool) []int {
+	if tier2 {
+		return []int{1, 2}
+	}
+	return []int{1}
 }

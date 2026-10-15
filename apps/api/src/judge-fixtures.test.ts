@@ -6,6 +6,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
     enrollRequestSchema,
+    envCompleteRequestSchema,
+    envLeaseResponseSchema,
     jobCompleteRequestSchema,
     jobFailRequestSchema,
     leaseResponseSchema,
@@ -35,6 +37,8 @@ const cases: Array<[string, z.ZodType]> = [
     ["watermark-complete-rewritten.json", watermarkCompleteRequestSchema],
     ["watermark-complete-unchanged.json", watermarkCompleteRequestSchema],
     ["watermark-complete-unobserved.json", watermarkCompleteRequestSchema],
+    ["env-lease-response.json", envLeaseResponseSchema],
+    ["env-complete-request.json", envCompleteRequestSchema],
     ["fail-request.json", jobFailRequestSchema],
     ["enroll-request.json", enrollRequestSchema],
     ["heartbeat-request.json", nodeHeartbeatRequestSchema],

@@ -144,6 +144,20 @@ func (c *Client) CompleteValidation(ctx context.Context, jobID string, epoch int
 	return staleOr(err)
 }
 
+// LeaseEnv asks for an environment run (queue "env"); only a node that declared Tier 2 is ever given one.
+func (c *Client) LeaseEnv(ctx context.Context, waitMS int) (*wire.EnvJob, error) {
+	var out wire.EnvLeaseResponse
+	_, _, err := c.do(ctx, http.MethodPost, "/lease", true, wire.LeaseRequest{Queue: "env", WaitMS: waitMS}, &out)
+	return out.Job, err
+}
+
+// CompleteEnv reports the signed trace of an environment run.
+func (c *Client) CompleteEnv(ctx context.Context, jobID string, epoch int, trace, signature string) error {
+	var out wire.Accepted
+	_, _, err := c.do(ctx, http.MethodPost, "/jobs/"+jobID+"/env", true, wire.EnvComplete{LeaseEpoch: epoch, Trace: trace, TraceSignature: signature}, &out)
+	return staleOr(err)
+}
+
 // LeaseWatermark asks for a delivery watermark job (queue "watermark").
 func (c *Client) LeaseWatermark(ctx context.Context, waitMS int) (*wire.WatermarkJob, error) {
 	var out wire.WatermarkLeaseResponse

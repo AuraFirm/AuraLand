@@ -880,6 +880,13 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "env",
     },
+    {
+        method: "GET",
+        path: "/api/v1/environments/:id/leaderboard",
+        access: "user",
+        owned: true,
+        object: "env",
+    },
     { method: "GET", path: "/api/v1/env-runs/:id", access: "user", owned: true, object: "evr" },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },

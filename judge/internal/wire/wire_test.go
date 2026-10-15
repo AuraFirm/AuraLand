@@ -20,6 +20,8 @@ func TestFixturesDecodeStrictlyAndRoundTrip(t *testing.T) {
 		"watermark-upload-request.json":      func() any { return &WatermarkUploadRequest{} },
 		"watermark-complete-rewritten.json":  func() any { return &watermarkCompleteIn{} },
 		"watermark-complete-unobserved.json": func() any { return &watermarkCompleteIn{} },
+		"env-lease-response.json":            func() any { return &EnvLeaseResponse{} },
+		"env-complete-request.json":          func() any { return &EnvComplete{} },
 		"fail-request.json":                  func() any { return &FailRequest{} },
 		"enroll-request.json":                func() any { return &EnrollRequest{} },
 		"heartbeat-request.json":             func() any { return &HeartbeatRequest{} },

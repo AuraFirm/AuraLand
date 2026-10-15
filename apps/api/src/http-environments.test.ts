@@ -4,7 +4,11 @@
 // result records its isolation, and a gVisor result is eligible only for what gVisor may support.
 
 import { createHash } from "node:crypto";
-import { environmentSchema, envRunSchema } from "@aura/contracts/api/environments";
+import {
+    environmentSchema,
+    envRunSchema,
+    leaderboardResponseSchema,
+} from "@aura/contracts/api/environments";
 import { decodeId } from "@aura/contracts/ids";
 import {
     enrollmentCreatedSchema,
@@ -341,6 +345,48 @@ async function leased(env: string, n: Node) {
         });
     return { id, job, send };
 }
+
+describe("the private leaderboard", () => {
+    it("ranks each agent's best eligible result, shows how often they tried and which runs were flagged, and is private", async () => {
+        const env = await makeEnvironment("board");
+        const tier2 = await node([2]);
+        const finish = async (
+            label: string,
+            score: number,
+            extra: Record<string, unknown> = {},
+            flags: unknown[] = [],
+        ) => {
+            await request(env, extra, label);
+            const job = await leaseRun(tier2);
+            const text = trace({ verifier: { score, detail: "x", dropped: [] }, flags });
+            await nodeCall(tier2, "POST", `/jobs/${job?.job_id}/env`, {
+                lease_epoch: job?.lease_epoch,
+                trace: text,
+                trace_signature: signTrace(tier2.key, text),
+            });
+            h.clock.advance(1000);
+        };
+        await finish("alpha", 0.4);
+        await finish("beta", 0.9, {}, [
+            { kind: "honeypot_touched", subject: "h", explanation: "read" },
+        ]);
+        await finish("alpha", 0.7);
+        await finish("gamma", 1, { assurance_level: 2 }); // best score, but not eligible at level 2 under gVisor
+        await finish("delta", 0.7); // ties alpha's best, later
+        const board = leaderboardResponseSchema.parse(
+            await (await call(ALICE, "GET", `/environments/${env}/leaderboard`)).json(),
+        ).rows;
+        expect(board.map((r) => [r.rank, r.agent_label, r.best_score])).toEqual([
+            [1, "beta", 0.9],
+            [2, "alpha", 0.7],
+            [3, "delta", 0.7],
+        ]);
+        expect(board[0]).toMatchObject({ runs: 1, flagged_runs: 1, isolation: "gvisor" });
+        expect(board[1]).toMatchObject({ runs: 2, flagged_runs: 0 });
+        expect((await call(BOB, "GET", `/environments/${env}/leaderboard`)).status).toBe(200); // a member reads
+        expect((await call(CAROL, "GET", `/environments/${env}/leaderboard`)).status).toBe(404); // a stranger does not
+    });
+});
 
 describe("refusing reports that cannot be trusted", () => {
     it("rejects an unsigned, edited, another node's or inconsistent trace, and the run stays unfinished", async () => {

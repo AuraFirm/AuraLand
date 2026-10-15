@@ -87,7 +87,7 @@ export async function waitUntilListening(port = PORT): Promise<void> {
 
 // Builds the agent in the VM, enrolls it with the token and starts it in the background with the programs
 // it needs. `seconds` bounds how long the agent runs, so a forgotten one cannot linger.
-export async function startAgent(token: string, seconds: number): Promise<string> {
+export async function startAgent(token: string, seconds: number, tier2 = false): Promise<string> {
     const repo = ROOT.replace(/\/$/, "");
     const build = await vm(
         `cd ${repo}/judge && export PATH=$PATH:/usr/local/go/bin && go build -o /tmp/aura-judge ./cmd/aura-judge && echo built`,
@@ -95,12 +95,12 @@ export async function startAgent(token: string, seconds: number): Promise<string
     if (!build.includes("built")) throw new Error(`agent build failed: ${build}`);
     const plane = `http://host.lima.internal:${PORT}/api/judge/v1`;
     const enrolled = await vm(
-        `rm -f /tmp/e2e.key && /tmp/aura-judge enroll --control-plane ${plane} --token ${token} --name e2e-node --key-file /tmp/e2e.key`,
+        `rm -f /tmp/e2e.key && /tmp/aura-judge enroll --control-plane ${plane} --token ${token} --name e2e-node --key-file /tmp/e2e.key${tier2 ? " --tier2" : ""}`,
     );
     const nodeId = /enrolled as (nod_[0-9a-f-]+)/.exec(enrolled)?.[1];
     if (nodeId === undefined) throw new Error(`enrollment failed: ${enrolled}`);
     void vm(
-        `timeout ${seconds} /tmp/aura-judge run --control-plane ${plane} --node-id ${nodeId} --key-file /tmp/e2e.key --opener-file ${repo}/packages/bundle/dist/open-bundle.cjs --rewriter-file ${repo}/packages/bundle/dist/rewrite-bundle.cjs > /tmp/e2e-agent.log 2>&1`,
+        `timeout ${seconds} /tmp/aura-judge run --control-plane ${plane} --node-id ${nodeId} --key-file /tmp/e2e.key --opener-file ${repo}/packages/bundle/dist/open-bundle.cjs --rewriter-file ${repo}/packages/bundle/dist/rewrite-bundle.cjs${tier2 ? " --tier2-runsc /usr/local/bin/runsc --tier2-dir /var/tmp/aura-tier2 --tier2-elevate 'sudo -n'" : ""} > /tmp/e2e-agent.log 2>&1`,
         true,
     );
     return nodeId;

@@ -177,6 +177,10 @@ func (g *GVisor) prepareWorkspace(scratch, workspace string, env Env) error {
 	if err := g.elevated("cp", "-a", "--no-dereference", workspace+"/.", scratch); err != nil {
 		return err
 	}
+	// The host copy belongs to the node's user, which cannot chown it to anyone else; the in-memory copy is ours to give.
+	if err := g.elevated("chown", "-R", "-h", fmt.Sprintf("%d:%d", env.UID, env.GID), scratch); err != nil {
+		return err
+	}
 	// Access times start at the epoch, so that any later read by the agent (the file system records access times
 	// strictly) is visible as a time after it; copying the files in must not look like a read.
 	return g.elevated("find", scratch, "-type", "f", "-exec", "touch", "-a", "-d", "@0", "{}", "+")
@@ -188,7 +192,11 @@ func (g *GVisor) collectWorkspace(scratch, workspace string) error {
 	if err := g.elevated("find", workspace, "-mindepth", "1", "-delete"); err != nil {
 		return err
 	}
-	return g.elevated("cp", "-a", "--no-dereference", scratch+"/.", workspace)
+	if err := g.elevated("cp", "-a", "--no-dereference", scratch+"/.", workspace); err != nil {
+		return err
+	}
+	// Back to the node's own user, so that hashing, snapshots and cleanup need no privilege.
+	return g.elevated("chown", "-R", "-h", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()), workspace)
 }
 
 func (g *GVisor) unmount(path string) {
