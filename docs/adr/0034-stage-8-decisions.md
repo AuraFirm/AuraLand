@@ -34,3 +34,15 @@ definition, and **no KVM is reachable from the development machine**, so a Firec
 New tables and a job kind (slice 8) carry RLS and rows in the RLS matrix and ADR 0003. The Go agent gains a second sandbox driver
 behind the existing sandbox interface. Task kinds `repo_env` and `agent_env` stay unsupported in `TASK_KINDS_SUPPORTED` until
 slice 8 turns them on together with their validation.
+
+## Amendments
+- **Slice 3: no in-guest init and no vsock.** The kit's `aura-init` and vsock channel exist because a microVM has to be
+  driven from outside. With gVisor each step (a setup command, then the agent) is its own sandbox over the same workspace,
+  about 35 ms apiece, so the host needs no channel into anything running inside and every step gets a clean process table and
+  the same containment. A `Session` runs the steps under one shared wall budget, stops at the first failed setup command, and
+  hashes the workspace after every step (`HashTree`: paths, kinds, permission bits and contents, never following links), which
+  is what the trace (slice 7) and the tamper check (slice 5) are built on. When a Firecracker driver exists it may bring an
+  in-guest init back; the `Runtime` interface does not change.
+- **Slice 2: the workspace is a memory file system of exactly the disk limit**, copied in and out without following links,
+  because the escape suite showed a per-file limit does not bound the total. The agent's disk therefore counts against host
+  memory.
