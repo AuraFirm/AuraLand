@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 )
@@ -22,6 +23,11 @@ type VerifierSpec struct {
 	UID    int
 	GID    int
 	Limits Limits
+	// Protected paths (relative to the workspace) are put back from Pristine, the workspace as it was before the agent ran,
+	// before the verifier looks: a check the agent edited is the recipe's check again, whatever the agent did to it. The
+	// change is still reported by Detect; restoring only removes the reward.
+	Pristine string
+	Restore  []string
 }
 
 // VerifierResult is the verifier's judgement of the workspace, read from the last line it printed.
@@ -86,6 +92,9 @@ func (v VerifierSpec) Verify(ctx context.Context, rt Runtime, workspace string, 
 	if err != nil {
 		return out, err
 	}
+	if err := restoreProtected(v.Pristine, snapshot, v.Restore, int64(v.Limits.DiskMiB)<<20); err != nil {
+		return out, err
+	}
 	if v.UID > 0 {
 		if err := os.Chown(snapshot, v.UID, v.GID); err != nil {
 			return out, err
@@ -103,4 +112,35 @@ func (v VerifierSpec) Verify(ctx context.Context, rt Runtime, workspace string, 
 	}
 	out.Score, out.Detail, err = ParseVerifierOutput(out.Sandbox.Stdout)
 	return out, err
+}
+
+// restoreProtected replaces each protected path in the snapshot with the pristine copy (or removes it if there was none).
+func restoreProtected(pristine, snapshot string, paths []string, bytesMax int64) error {
+	for _, rel := range paths {
+		target := filepath.Join(snapshot, rel)
+		if err := os.RemoveAll(target); err != nil {
+			return err
+		}
+		from := filepath.Join(pristine, rel)
+		info, err := os.Lstat(from)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if _, err := Snapshot(from, target, bytesMax); err != nil {
+				return err
+			}
+		} else if info.Mode().IsRegular() {
+			if _, err := copyRegular(from, target, bytesMax); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

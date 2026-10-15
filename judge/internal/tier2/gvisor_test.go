@@ -106,7 +106,7 @@ func TestAMemoryHogDoesNotSurviveItsLimit(t *testing.T) {
 }
 
 func TestAForkBombIsBoundedByThePidLimit(t *testing.T) {
-	r, _ := run(t, `i=0; while [ $i -lt 400 ]; do sleep 100 & i=$((i+1)); done 2>/dev/null; ps | grep -c '[s]leep 100'`, Limits{WallSeconds: 8, MemoryMiB: 128, PIDs: 32, DiskMiB: 64, OutputKiB: 64})
+	r, _ := run(t, `i=0; while [ $i -lt 400 ]; do sleep 100 & i=$((i+1)); done 2>/dev/null; sleep 1; ps | grep -c '[s]leep 100'`, Limits{WallSeconds: 8, MemoryMiB: 128, PIDs: 32, DiskMiB: 64, OutputKiB: 64})
 	t.Logf("fork bomb: verdict=%s pidsLimitHit=%v peak=%d", r.Verdict, r.PidsLimitHit, r.PidsPeak)
 	if !r.PidsLimitHit {
 		t.Fatalf("the kernel did not count the process limit being reached: %+v", r)

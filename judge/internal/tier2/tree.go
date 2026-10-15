@@ -62,7 +62,7 @@ func HashTree(root string) (string, error) {
 }
 
 func fileDigest(path string) (string, error) {
-	f, err := os.Open(path)
+	f, err := openRead(path)
 	if err != nil {
 		return "", err
 	}
