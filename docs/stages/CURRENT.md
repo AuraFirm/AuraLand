@@ -25,4 +25,6 @@ Open items are in [../cutlist.md](../cutlist.md); your manual tasks are the chec
 
 **Stage 8 — Tier-2 environments and agent evals: approved on 2026-10-15.** Plan: [stage-8-plan.md](stage-8-plan.md). Report: [stage-8-report.md](stage-8-report.md). Runbook: [../runbooks/environments.md](../runbooks/environments.md). ADRs 0034 and 0035. **Not met: any Firecracker microVM (no KVM here, F68), a network allowlist (F69), an external sandbox review (F73), a real agent or model (F72); every result is gVisor on one development VM and level-1-only by rule.**
 
+**Stage 9 — Business systems, scale, compliance: built, awaiting your review.** Plan: [stage-9-plan.md](stage-9-plan.md). Report: [stage-9-report.md](stage-9-report.md). Runbook: [../runbooks/business.md](../runbooks/business.md). ADRs 0036 to 0038. **Not met: any real payment (no Stripe account, F77), any real identity provider (SSO and SCIM ran against fakes, F78), a real recovery drill or second region (F79), residency as a promise (ADR 0038), a SOC 2 report (readiness evidence only).**
+
 **What only you can do, with steps: [../owner-tasks.md](../owner-tasks.md).**

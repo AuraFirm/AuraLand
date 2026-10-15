@@ -1,0 +1,6 @@
+{
+    "_note": "ILLUSTRATIVE PLACEHOLDERS chosen by the engineer, not measured and not from any bill. Replace with real figures before quoting any cost.",
+    "currency": "USD",
+    "perEvent": { "env_run": 5, "employer_report": 1 },
+    "fixedPerMonth": 50000
+}

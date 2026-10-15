@@ -42,6 +42,9 @@ export function OrgAdminConsole({ orgId }: { orgId: string }) {
             <OrgSso org={data} />
             <OrgScim org={data} />
             <OrgWebhooks org={data} />
+            <a className="text-accent underline" href="/developers">
+                Developer documentation
+            </a>
             <a className="text-accent underline" href={`/orgs/${orgId}`}>
                 Back to {data.name}
             </a>

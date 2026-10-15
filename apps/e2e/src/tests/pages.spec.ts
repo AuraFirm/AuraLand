@@ -8,6 +8,7 @@ test("the home page and the sign-in result pages are accessible and violate no p
     for (const path of [
         "/",
         "/methodology",
+        "/developers",
         "/auth/done?status=failed&reason=account_exists",
         "/auth/done?status=signed_in",
     ]) {

@@ -37,3 +37,15 @@ conformance tests.
 
 ## Revisit trigger
 The owner sets real prices or plans; a customer needs SAML; a real Stripe account exists.
+
+## Amendments
+- **Slice 9: no SDK.** The plan listed a TypeScript SDK. API keys reach only `GET /key` (every other route asks for a person), so an
+  SDK would wrap routes it cannot call. What would make keys useful (scopes, an organization acting under row-level security) is a
+  design of its own and is cutlist F83. The developer page says so. Employer subscriptions are done: `employer_is_approved` now needs
+  the platform administrator's approval AND a plan with employer search.
+- **Slice 10: consented read-only access instead of impersonation.** The plan said "impersonation with consent". Acting as a person
+  would put a second kind of actor into every authorization check, session store and audit row of a codebase whose security rests on
+  those checks being simple. What support actually needs is to see an account summary, so that is what is built: the person's own
+  grant, a read-only summary, a record written with the data, visible to the person. If real impersonation is ever needed it gets its
+  own ADR and its own review.
+

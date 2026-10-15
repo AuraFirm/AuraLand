@@ -1,0 +1,29 @@
+# ASVS 5.0 mapping: business systems (Stage 9: plans, billing, webhooks, SSO, SCIM, revenue share, support access)
+
+Standard: OWASP ASVS 5.0.0, requirement text read from the official CSV (`v5.0.0` tag, `OWASP/ASVS`) on 2026-10-15. **Everything below was exercised against fakes:
+a fake payment provider, a fake OpenID Connect provider that mints real signed tokens, a fake DNS. Nothing was tried against a real provider.**
+
+| ID | L | Requirement (shortened) | Status | Evidence or reason |
+|---|---|---|---|---|
+| v5.0.0-V6.8.1 | 2 | If multiple identity providers are supported, the user's identity cannot be spoofed via another provider | Met | A person is recognised by (organization, provider subject) (`sso_identities`); an existing account is attached only when the verified email is in a domain that organization proved by DNS (one organization can hold a verified domain); other sign-in methods keep their own identities. `http-sso-sign-in.test.ts` |
+| v5.0.0-V6.8.2 | 2 | Presence and integrity of signatures on authentication assertions always validated | Met | `verifyIdToken` accepts only RS256/ES256 signed by the provider's own key set; unsigned, `alg: none`, wrong-key and tampered tokens are refused (`oidc.test.ts`) |
+| v5.0.0-V10.1.2 | 2 | The client accepts values only from a flow it started in the same browser | Met | State and a PKCE verifier (cookie) are stored as hashes, used once within ten minutes, and the callback must present both |
+| v5.0.0-V10.2.1 | 2 | Code-flow clients are protected against CSRF | Met | Same: state plus verifier cookie; a callback from another browser is refused (`http-sso-sign-in.test.ts`) |
+| v5.0.0-V10.2.2 | 2 | Mix-up defence when the client talks to more than one authorization server | Partial | The flow row names the organization, the token is checked against that organization's issuer and client id, and discovery must return exactly the issuer typed. A dedicated `iss` response parameter check is not implemented |
+| v5.0.0-V10.2.3 | 3 | Only the required scopes are requested | Met | `openid email` only |
+| v5.0.0-V10.5.1 | 2 | ID Token replay mitigated with the nonce | Met | A random nonce is stored with the flow and must come back in the token (`oidc.test.ts`, `http-sso-sign-in.test.ts`) |
+| v5.0.0-V10.5.2 | 2 | The user is identified from the `sub` claim | Met | `sub` plus organization is the identity; email changes do not change who signs in |
+| v5.0.0-V10.5.3 | 2 | A malicious authorization server cannot impersonate another through its metadata | Met | The issuer in the discovery document must equal the issuer typed; every endpoint must pass the strict public-address policy (`parseDiscovery`) |
+| v5.0.0-V10.5.4 | 2 | The ID Token's audience is this client | Met | `aud` must be the client id; with several audiences `azp` must be too |
+| v5.0.0-V1.3.6 | 2 | SSRF protection for requests built from untrusted data | Met | Customer webhook addresses and identity-provider addresses go through `webhook-egress.ts`: https only, ports 443/8443, names not IP literals, every resolved address must be public (checked in the connection's own lookup, so the checked address is the connected one), no redirects, capped replies, time limits (`webhook-egress.test.ts`) |
+| v5.0.0-V13.2.1 | 2 | Service-to-service communication without a session is authenticated | Met | SCIM uses a per-organization 256-bit bearer token, only its hash stored, shown once, revocable, bound to a plan with provisioning; the payment webhook uses an HMAC signature over the exact bytes with a five-minute window |
+| v5.0.0-V13.2.3 | 2 | No default credentials for service authentication | Met | All tokens and secrets are generated randomly; none has a default |
+| v5.0.0-V13.2.4 | 2 | An allowlist of external systems the application may talk to | Partial | The guest of an environment has no network; customer-chosen addresses must be public, but they are not an allowlist of named hosts |
+| v5.0.0-V13.3.1 | 2 | A secrets-management solution holds key material | Partial | Webhook secrets, SSO client secrets and SCIM tokens' hashes live in PostgreSQL; secrets are unreadable to the application role by column privileges and never returned after creation, but there is no vault or KMS (F1, F62) |
+| v5.0.0-V2.4.1 | 2 | Anti-automation controls protect functions from excessive calls | Partial | `/v1` has per-address limits and the monthly run allowance is enforced; the SCIM and payment-webhook paths have none yet (F80) |
+| v5.0.0-V4.1.5 | 3 | Per-message signatures for highly sensitive requests across systems | Partial | Outbound webhooks are signed (`X-Aura-Signature`, HMAC-SHA-256, timestamp) and inbound payment events are verified; the signing secret is symmetric and shared with the receiver by design |
+| v5.0.0-V8.4.1 | 2 | Cross-tenant controls so operations never affect tenants the caller cannot reach | Met | Every new table has forced RLS and a row in the RLS matrix test; definer functions check the caller's role in the organization first; a stranger and a missing object answer the same (`http-*.test.ts`, `authz-matrix.test.ts`) |
+| v5.0.0-V16.3.1 | 2 | All authentication operations are logged | Partial | SSO sign-ins and refusals, enforcement refusals, SCIM token changes and plan/billing changes are audit rows; successful SCIM calls are not individually audited (counts in `scim_tokens.last_used_at` only) |
+| v5.0.0-V11.5.1 | 2 | Non-guessable values come from a CSPRNG with at least 128 bits | Met | State, verifier, nonce, SCIM tokens and webhook secrets are 256 random bits from the injected `Rng`; domain proof tokens are 128 bits |
+
+Not applicable: V6.8.3 (SAML assertions: SAML is not built, F78), V10.5.5 and V10.6.x (we are not an OpenID Provider and use no back-channel logout).

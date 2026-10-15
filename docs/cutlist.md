@@ -86,4 +86,4 @@ Nothing here blocks Stage 1 or Stage 2. Ranked by how much it matters; "owner" i
 | F80 | A rate limit on the SCIM path (`/api/scim/v2`), which sits outside `/v1` and therefore outside the per-address limit | Engineering time | engineering |
 | F81 | SCIM Groups and the remaining User attributes; SSO session mapping to SCIM deactivation across several organizations | A customer asking | engineering |
 | F82 | Webhook events beyond `env_run.finished` (`credential.issued` is accepted in endpoints but nothing raises it yet), a delivery-log screen, a "send test event" action | Product decision | engineering |
-
+| F83 | API-key scopes and key-reachable routes (a key acting as an organization service principal under row-level security), then a TypeScript SDK; today a key reaches only `GET /key`, so an SDK would be a client for nothing | A design decision on key scopes (ADR) | engineering |

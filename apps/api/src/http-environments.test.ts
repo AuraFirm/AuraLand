@@ -186,6 +186,10 @@ async function expectQueuedWebhook(runId: string): Promise<void> {
     });
 }
 
+// A signature with its first character changed to a DIFFERENT one. (Replacing it with a fixed letter left the signature intact one time in
+// sixty-four, when it already began with that letter, and the test then failed by accepting a "forged" signature that was the real one.)
+const damaged = (signature: string) => (signature.startsWith("A") ? "B" : "A") + signature.slice(1);
+
 async function makeEnvironment(slug: string): Promise<string> {
     const made = await call(ALICE, "POST", `/orgs/${orgPublic}/environments`, body(slug));
     expect(made.status).toBe(201);
@@ -461,7 +465,7 @@ describe("refusing reports that cannot be trusted", () => {
             string,
             (send: (t: string, s: string) => Promise<Response>) => Promise<Response>,
         ][] = [
-            ["forged signature", (send) => send(good, signTrace(a.key, good).replace(/^./, "A"))],
+            ["forged signature", (send) => send(good, damaged(signTrace(a.key, good)))],
             [
                 "edited after signing",
                 (send) => send(good.replace('"score":1', '"score":0.5'), signTrace(a.key, good)),

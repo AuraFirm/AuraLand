@@ -152,6 +152,15 @@ mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRU
    agent runs (F72).
 5. Decide whether any customer may opt in to gVisor-grade scores being delivered to them (the code refuses otherwise).
 
+### 3.11 Stage 9 (business systems and compliance): what only you can do
+1. **A legal entity and a Stripe (or merchant-of-record) account** (D1, D2, F77), then I write and test the real adapter. Until then nothing is charged and plan prices are placeholders: **set real plan names, limits and prices** (they are rows in `plans`).
+2. **A customer who needs SAML** (F78), and a real identity provider (Okta, Entra ID, Google Workspace) to test OIDC and SCIM against; so far both ran only against fakes.
+3. **A cloud account with backups** (F1, F79) for a real recovery drill, and a decision on regions (ADR 0038) before anyone is promised residency.
+4. **A SOC 2 auditor, and the policies the company adopts** (incident response, access review, vendor register): `docs/compliance/evidence-*.md` lists exactly what is not evidenced.
+5. **Choose a security contact address and publish `security.txt`**; decide on a bug-bounty platform and budget (`docs/security/bug-bounty-policy.md`); have a lawyer read its safe-harbour sentence.
+6. **Real unit costs** from a bill, to replace `docs/compliance/unit-costs.json`, so cost per verification means something.
+7. **Decide the key-scopes design** (F83) if you want an SDK, and whether employers should self-serve the employer plan (it can be bought by card today).
+
 ## 4. Routine
 - [ ] Weekly: `pnpm audit:verify`; keep the printed audit-chain head outside the database (until F8).
 - [ ] Within 72 hours of a high or critical Next.js advisory: update (ADR 0005); CI shows it.

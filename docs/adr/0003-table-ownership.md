@@ -86,6 +86,12 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `sso_flows` | `modules/identity` | One single sign-on attempt in flight: hashed state and verifier, the nonce, used once within ten minutes |
 | `scim_tokens` | `modules/sso` | An organization's SCIM bearer tokens (SHA-256 only, unreadable to the application role), made and revoked by owners and administrators on a plan with provisioning |
 | `scim_users` | `modules/sso` | The people an organization's identity provider provisioned, whether they are switched on, and the provider's own id; a switched-off person cannot return through single sign-on |
+| `setter_terms` | `modules/revenue` | A setter's share (basis points) of a task's revenue, set by platform administrators; shares on one task add up to at most 100% |
+| `order_revenue` | `modules/revenue` | Revenue booked for one order item, once, with the ledger transaction that split it; never changed |
+| `payout_batches` | `modules/revenue` | A run of payments to setters: created (reserves amounts), paid (posts the ledger transaction) or cancelled |
+| `payout_batch_lines` | `modules/revenue` | How much of a batch goes to which setter |
+| `support_grants` | `modules/support` | A person's consent to let support staff see an account summary for up to 24 hours; theirs to make and end |
+| `support_views` | `modules/support` | Each time staff looked, written in the same statement that returned the data; the person sees it; never changed |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
