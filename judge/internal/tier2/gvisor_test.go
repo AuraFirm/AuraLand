@@ -106,7 +106,7 @@ func TestAMemoryHogDoesNotSurviveItsLimit(t *testing.T) {
 }
 
 func TestAForkBombIsBoundedByThePidLimit(t *testing.T) {
-	r, _ := run(t, `i=0; while [ $i -lt 400 ]; do sleep 100 & i=$((i+1)); done 2>/dev/null; ps | grep -c '[s]leep 100'`, Limits{WallSeconds: 8, MemoryMiB: 128, PIDs: 32, DiskMiB: 64, OutputKiB: 64})
+	r, _ := run(t, `i=0; while [ $i -lt 400 ]; do sleep 100 & i=$((i+1)); done 2>/dev/null; sleep 1; ps | grep -c '[s]leep 100'`, Limits{WallSeconds: 8, MemoryMiB: 128, PIDs: 32, DiskMiB: 64, OutputKiB: 64})
 	t.Logf("fork bomb: verdict=%s pidsLimitHit=%v peak=%d", r.Verdict, r.PidsLimitHit, r.PidsPeak)
 	if !r.PidsLimitHit {
 		t.Fatalf("the kernel did not count the process limit being reached: %+v", r)
@@ -147,4 +147,36 @@ func TestStartTimesAreMeasured(t *testing.T) {
 	}
 	sort.Ints(ms)
 	t.Logf("20 runs of /bin/true under gvisor (systrap, this VM): min=%d ms p50=%d ms max=%d ms", ms[0], ms[len(ms)/2], ms[len(ms)-1])
+}
+
+func TestASessionRunsSetupThenTheAgentOverOneWorkspaceAndRepeatsExactly(t *testing.T) {
+	g, rootfs := driver(t)
+	once := func() SessionResult {
+		ws := workspace(t)
+		if err := os.WriteFile(filepath.Join(ws, "input.txt"), []byte("21\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_ = os.Chown(filepath.Join(ws, "input.txt"), 1000, 1000)
+		spec := SessionSpec{
+			Rootfs: rootfs, Workspace: ws, WorkDir: "/work", UID: 1000, GID: 1000,
+			Setup:  [][]string{{"/bin/sh", "-c", "echo ready > /work/setup.txt"}},
+			Agent:  []string{"/bin/sh", "-c", "n=$(cat /work/input.txt); echo $((n*2)) > /work/answer.txt; cat /work/setup.txt"},
+			Limits: roomy,
+		}
+		r, err := spec.Run(context.Background(), g)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	a, b := once(), once()
+	if a.Outcome != "completed" || len(a.Steps) != 2 || strings.TrimSpace(string(a.Steps[1].Result.Stdout)) != "ready" {
+		t.Fatalf("got %+v", a)
+	}
+	if a.StartHash == a.Steps[0].TreeHash || a.Steps[0].TreeHash == a.Steps[1].TreeHash {
+		t.Fatal("every step should have changed the workspace")
+	}
+	if a.Steps[1].TreeHash != b.Steps[1].TreeHash {
+		t.Fatalf("the same session must leave the same workspace: %s vs %s", a.Steps[1].TreeHash, b.Steps[1].TreeHash)
+	}
 }

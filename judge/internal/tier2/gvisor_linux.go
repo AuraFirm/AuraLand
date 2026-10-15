@@ -170,11 +170,16 @@ func (g *GVisor) prepareWorkspace(scratch, workspace string, env Env) error {
 	if err := os.MkdirAll(scratch, 0o700); err != nil {
 		return err
 	}
-	options := fmt.Sprintf("size=%dm,uid=%d,gid=%d,mode=0700,nosuid,nodev", env.Limits.DiskMiB, env.UID, env.GID)
+	options := fmt.Sprintf("size=%dm,uid=%d,gid=%d,mode=0700,nosuid,nodev,strictatime", env.Limits.DiskMiB, env.UID, env.GID)
 	if err := g.elevated("mount", "-t", "tmpfs", "-o", options, "tmpfs", scratch); err != nil {
 		return err
 	}
-	return g.elevated("cp", "-a", "--no-dereference", workspace+"/.", scratch)
+	if err := g.elevated("cp", "-a", "--no-dereference", workspace+"/.", scratch); err != nil {
+		return err
+	}
+	// Access times start at the epoch, so that any later read by the agent (the file system records access times
+	// strictly) is visible as a time after it; copying the files in must not look like a read.
+	return g.elevated("find", scratch, "-type", "f", "-exec", "touch", "-a", "-d", "@0", "{}", "+")
 }
 
 // collectWorkspace replaces the host workspace's contents with what the agent left. Links are copied as links and never

@@ -31,6 +31,13 @@ type Limits struct {
 // Env describes one run. Rootfs is a directory holding the image's file system (read-only inside the
 // sandbox). Workspace is a directory on the host that appears writable at WorkDir; what the agent leaves
 // there is what the verifier later receives. The Env never names a host path other than these two.
+// Mount is a host directory shown read-only inside the sandbox. Only the verifier uses it; the workspace is the only
+// writable host path an Env can name.
+type Mount struct {
+	Host string
+	Dest string
+}
+
 type Env struct {
 	Rootfs    string
 	Workspace string
@@ -41,6 +48,8 @@ type Env struct {
 	Limits    Limits
 	// CgroupName, when set, places the sandbox in /aura/<name> so its memory and process counters can be read after it ends.
 	CgroupName string
+	// Mounts are read-only host directories (the verifier's hidden material); never writable, never the workspace.
+	Mounts []Mount
 }
 
 // Result is what the sandbox itself observed. Whether the agent succeeded at its task is decided elsewhere.
@@ -92,6 +101,12 @@ func (e Env) Validate() error {
 	for _, kv := range e.Env {
 		if !strings.Contains(kv, "=") || strings.ContainsRune(kv, 0) {
 			problems = append(problems, "environment entries are KEY=VALUE")
+		}
+	}
+	for _, m := range e.Mounts {
+		if !strings.HasPrefix(m.Host, "/") || m.Host == "/" || !strings.HasPrefix(m.Dest, "/") || strings.Contains(m.Dest, "..") ||
+			m.Dest == "/" || m.Dest == e.WorkDir || strings.HasPrefix(m.Dest, "/proc") || strings.HasPrefix(m.Dest, "/tmp") {
+			problems = append(problems, "a mount names an absolute host directory and a destination that is not the root, the work dir, /proc or /tmp")
 		}
 	}
 	l := e.Limits
