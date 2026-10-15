@@ -27,15 +27,14 @@ var DefaultLimits = ExtractLimits{Entries: 200_000, Bytes: 4 << 30, Depth: 64}
 //   - a name must stay inside dir (no absolute path, no ".." segment);
 //   - nothing is ever written THROUGH a symbolic link: every parent directory of an entry is checked with Lstat first, so a
 //     link created by the archive cannot redirect a later entry out of dir;
-//   - devices, pipes and sockets are skipped (the sandbox provides its own /dev), a hard link is copied from an
-//     already extracted regular file inside dir (never linked, so no inode is shared), and refused otherwise;
+//   - devices, pipes and sockets are skipped (the sandbox provides its own /dev), a hard link is made only to an
+//     already extracted regular file inside dir (reached through no link), and refused otherwise;
 //   - entry count, total bytes and depth are capped.
 //
 // A link's target is stored as written: it is only ever followed inside the sandbox, where the root is read-only.
 //
-// NOTE (cutlist F70): the repository rule is that archives are parsed only inside a sandbox. This extractor is hardened and
-// tested, and the archive comes from an organization's author rather than from a candidate, but it does run in the agent's
-// process. Moving it into a Tier-1 box is the follow-up.
+// This function parses untrusted archives, so the node runs it INSIDE a sandbox by default (SandboxExtractor, cutlist F70): the helper
+// subcommand `extract-archive` calls it there. Calling it directly in the agent's process is the explicit opt-out.
 func Extract(r io.Reader, dir string, limits ExtractLimits) error {
 	reader := tar.NewReader(r)
 	var entries int
@@ -85,13 +84,8 @@ func Extract(r io.Reader, dir string, limits ExtractLimits) error {
 				return err
 			}
 		case tar.TypeLink:
-			size, err := copyHardLink(dir, target, header, limits.Depth)
-			if err != nil {
+			if err := linkHardLink(dir, target, header, limits.Depth); err != nil {
 				return err
-			}
-			total += size
-			if total > limits.Bytes {
-				return fmt.Errorf("extract: more than %d bytes", limits.Bytes)
 			}
 		default:
 			// devices, pipes, sockets: not created.
@@ -99,30 +93,28 @@ func Extract(r io.Reader, dir string, limits ExtractLimits) error {
 	}
 }
 
-// copyHardLink makes target a copy of the regular file the link names. Real images use hard links (Debian's /bin/adduser),
-// so refusing them would refuse the images. Copying instead of linking keeps every file its own inode.
-func copyHardLink(dir, target string, header *tar.Header, depthMax int) (int64, error) {
+// linkHardLink makes target a hard link to the regular file the entry names. Real images use hard links (Debian's /bin/adduser, and every
+// applet of busybox), and copying them would multiply a small image into hundreds of megabytes. The link is made only after the
+// target was checked: it is a regular file already unpacked inside dir, reached through no link, so a link can never point outside dir
+// or at anything but file contents we wrote. It adds no bytes, so it adds nothing to the byte total (the entry cap still counts it).
+func linkHardLink(dir, target string, header *tar.Header, depthMax int) error {
 	linkName, err := cleanName(header.Linkname, depthMax)
 	if err != nil || linkName == "" {
-		return 0, fmt.Errorf("extract: hard link %q has a bad target %q", header.Name, header.Linkname)
+		return fmt.Errorf("extract: hard link %q has a bad target %q", header.Name, header.Linkname)
 	}
 	source := filepath.Join(dir, linkName)
 	if err := noLinkInParents(dir, source); err != nil {
-		return 0, err
+		return err
 	}
 	info, err := os.Lstat(source)
 	if err != nil || !info.Mode().IsRegular() {
-		return 0, fmt.Errorf("extract: hard link %q targets %q, which is not an extracted regular file", header.Name, header.Linkname)
+		return fmt.Errorf("extract: hard link %q targets %q, which is not an extracted regular file", header.Name, header.Linkname)
 	}
-	file, err := os.Open(source)
-	if err != nil {
-		return 0, err
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
 	}
-	defer file.Close()
-	if err := writeFile(file, target, info.Mode().Perm()); err != nil {
-		return 0, err
-	}
-	return info.Size(), nil
+	_ = os.Remove(target)
+	return os.Link(source, target)
 }
 
 func cleanName(name string, depthMax int) (string, error) {

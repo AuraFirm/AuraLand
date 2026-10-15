@@ -56,11 +56,11 @@ If `--init --cg` fails, fix this before anything else; the agent refuses to run 
 
 ## 3. The agent
 ```
-cd judge && go build -o /usr/local/bin/aura-judge ./cmd/aura-judge
+cd judge && CGO_ENABLED=0 go build -o /usr/local/bin/aura-judge ./cmd/aura-judge
 sudo useradd --system --home /var/lib/aura-judge --shell /usr/sbin/nologin aura-judge
 sudo install -d -o aura-judge -m 0700 /etc/aura /var/lib/aura-judge
 ```
-Build with `GOOS=linux go build -o /usr/local/bin/aura-judge ./cmd/aura-judge`; the agent then runs as
+Build with `CGO_ENABLED=0 GOOS=linux go build -o /usr/local/bin/aura-judge ./cmd/aura-judge`; the agent then runs as
 `aura-judge run --control-plane URL --node-id ID --key-file F --opener-file /usr/local/lib/aura/open-bundle.cjs`
 (its health canary is only a compile-and-run smoke test, not the escape suite). Add
 `--rewriter-file /usr/local/lib/aura/rewrite-bundle.cjs` for a node that also takes delivery watermark jobs. Enroll once with a token from an administrator (`docs/runbooks/judge.md` section 3), then install
@@ -155,3 +155,14 @@ canary was untouched, and the next run was healthy.
   mid-run). The driver has no startup sweep of stale `aura-*` cgroups and state directories; a node needs one (F71).
 - 49 defunct `runsc-fd-parking` processes were children of the VM's init and never reaped. Not caused by our process (their parent is
   PID 1); cause unknown. A production node must run under a supervisor that reaps and the node baseline must check for it (F71).
+
+### Tier-2 archives are unpacked in a sandbox (cutlist F70), 2026-10-15
+`--tier2-extract=sandbox` (the default) runs this very binary inside a gVisor sandbox as `extract-archive`: no network, the archive read-only, the
+output a memory file system of `--tier2-extract-mib` (default 1024), 64 processes, 256 MiB, 10 minutes. The binary must be **statically linked
+(`CGO_ENABLED=0`)** because the sandbox's root file system holds nothing else; the node proves it can run the helper on an empty archive before it
+takes work and refuses to start if it cannot. Cost: one unpack holds up to the limit in memory, and an image larger than the limit is refused;
+`--tier2-extract=in-process` unpacks in the agent's own process (hardened, tested, but outside any sandbox, which the repository rule forbids for
+untrusted archives) and exists only for a node that cannot spare the memory. Verified on the VM: the same tree as the in-process unpack,
+every hostile archive of the unit suite refused with nothing written outside, a 3 MiB file refused under a 1 MiB limit. Two things the first run
+taught: the sandbox's own helper processes count against the process limit (16 stopped it from starting; 64 works), and the archive must be
+readable by the sandbox's user.

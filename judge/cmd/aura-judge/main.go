@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/AuraFirm/AuraLand/judge/internal/client"
+	"github.com/AuraFirm/AuraLand/judge/internal/envnode"
 	"github.com/AuraFirm/AuraLand/judge/internal/sign"
 	"github.com/AuraFirm/AuraLand/judge/internal/wire"
 )
@@ -34,6 +35,8 @@ func main() {
 		os.Exit(enroll(os.Args[2:]))
 	case "run":
 		os.Exit(run(os.Args[2:]))
+	case "extract-archive":
+		os.Exit(extractArchive(os.Args[2:]))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", os.Args[1])
 		os.Exit(2)
@@ -91,4 +94,31 @@ func tiersFor(tier2 bool) []int {
 		return []int{1, 2}
 	}
 	return []int{1}
+}
+
+// extractArchive is run INSIDE a sandbox by the node (envnode.SandboxExtractor): it unpacks one tar into one directory under the
+// extractor's rules and says why in one short line when it refuses. It is not a command for people.
+func extractArchive(args []string) int {
+	flags := flag.NewFlagSet("extract-archive", flag.ExitOnError)
+	archive := flags.String("archive", "", "the tar to unpack")
+	into := flags.String("into", "", "the directory to unpack into")
+	limitMiB := flags.Int("limit-mib", 1024, "most bytes to unpack, in MiB")
+	flags.Parse(args)
+	if *archive == "" || *into == "" || *limitMiB < 1 {
+		fmt.Fprintln(os.Stderr, "extract-archive needs --archive, --into and a positive --limit-mib")
+		return 2
+	}
+	file, err := os.Open(*archive)
+	if err != nil {
+		fmt.Println("cannot open the archive")
+		return 1
+	}
+	defer file.Close()
+	limits := envnode.DefaultLimits
+	limits.Bytes = int64(*limitMiB) << 20
+	if err := envnode.Extract(file, *into, limits); err != nil {
+		fmt.Println(err)
+		return 1
+	}
+	return 0
 }

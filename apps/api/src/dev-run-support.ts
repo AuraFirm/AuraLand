@@ -90,7 +90,7 @@ export async function waitUntilListening(port = PORT): Promise<void> {
 export async function startAgent(token: string, seconds: number, tier2 = false): Promise<string> {
     const repo = ROOT.replace(/\/$/, "");
     const build = await vm(
-        `cd ${repo}/judge && export PATH=$PATH:/usr/local/go/bin && go build -o /tmp/aura-judge ./cmd/aura-judge && echo built`,
+        `cd ${repo}/judge && export PATH=$PATH:/usr/local/go/bin && CGO_ENABLED=0 go build -o /tmp/aura-judge ./cmd/aura-judge && echo built`,
     );
     if (!build.includes("built")) throw new Error(`agent build failed: ${build}`);
     const plane = `http://host.lima.internal:${PORT}/api/judge/v1`;
