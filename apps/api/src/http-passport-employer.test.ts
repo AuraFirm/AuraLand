@@ -32,6 +32,19 @@ const call = async (user: string | null, method: string, path: string, stale = f
     if (stale) h.clock.advance(16 * 60_000);
     return h.request(path, { method, headers: browser(token) });
 };
+// The four credentials issued in setup were queued for the host's endpoint, and the payloads name no person.
+async function expectCredentialIssuedQueued(): Promise<void> {
+    const queued = await h.db.database
+        .sql`select payload from webhook_deliveries where event_type = 'credential.issued'`;
+    expect(queued).toHaveLength(4);
+    for (const row of queued) {
+        expect(row["payload"]).toMatchObject({
+            type: "credential.issued",
+            data: { kind: "contest_rank" },
+        });
+        expect(JSON.stringify(row["payload"])).not.toContain(CAROL);
+    }
+}
 const acmePath = () => encodeId("org", acme);
 
 // Four credentials of CAROL's in four states: public, private, link-only and public-but-revoked.
@@ -210,17 +223,7 @@ describe("search and reports", () => {
             { n: number }[]
         >`select count(*)::int as n from usage_events where kind = 'employer_report'`;
         expect(metered?.n).toBe(2);
-        // The four credentials issued in setup were queued for the host's endpoint, and the payloads name no person.
-        const queued = await h.db.database
-            .sql`select payload from webhook_deliveries where event_type = 'credential.issued'`;
-        expect(queued).toHaveLength(4);
-        for (const row of queued) {
-            expect(row["payload"]).toMatchObject({
-                type: "credential.issued",
-                data: { kind: "contest_rank" },
-            });
-            expect(JSON.stringify(row["payload"])).not.toContain(CAROL);
-        }
+        await expectCredentialIssuedQueued();
     });
 });
 
