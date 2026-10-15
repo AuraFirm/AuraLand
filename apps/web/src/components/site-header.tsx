@@ -42,6 +42,9 @@ export function SiteHeader() {
                         <a className="text-accent underline" href="/passport">
                             Passport
                         </a>
+                        <a className="text-accent underline" href="/employer">
+                            Employer
+                        </a>
                         <a className="text-accent underline" href="/orgs">
                             Organizations
                         </a>

@@ -67,6 +67,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `passport_artifacts` | `modules/passport` | Digests of the static documents the worker published (keys, revocation lists), so unchanged ones are not rewritten; written only by `record_passport_artifact` |
 | `credential_shares` | `modules/passport` | A holder's share links for a credential (hash of the secret, expiry, revocation); created and ended only by the holder's functions, never deleted |
 | `passport_events_done` | `modules/passport` | Which finished contests and exams have been turned into credentials, and how many were issued; written only by `mark_passport_event_done` (worker) |
+| `employer_orgs` | `modules/passport` | Company organizations a platform administrator approved to search public credentials; written only by `approve_employer_org` and `revoke_employer_org` |
+| `credential_views` | `modules/passport` | One row per employer report opened on a public credential (which organization, which person, why, when); written only by `employer_report`, never changed or deleted; readable by the holder (without the person) and by the looking organization |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

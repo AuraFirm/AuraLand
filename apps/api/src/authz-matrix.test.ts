@@ -813,6 +813,17 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "crd",
     },
+    { method: "PUT", path: "/api/v1/admin/employers/:org_id", access: "admin", object: "org" },
+    { method: "DELETE", path: "/api/v1/admin/employers/:org_id", access: "admin", object: "org" },
+    { method: "GET", path: "/api/v1/employer/credentials", access: "user" },
+    { method: "GET", path: "/api/v1/employer/reports/:credential_id", access: "user" },
+    {
+        method: "GET",
+        path: "/api/v1/credentials/:id/views",
+        access: "user",
+        owned: true,
+        object: "crd",
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {
@@ -903,6 +914,10 @@ const concrete = (row: Row) =>
         .replace(":flag_id", encodeId("ifl", SAMPLE_UUID))
         .replace(":oral_id", encodeId("ora", SAMPLE_UUID))
         .replace(":share_id", encodeId("shr", SAMPLE_UUID))
+        .replace(":org_id", encodeId("org", SAMPLE_UUID))
+        .replace(":credential_id", encodeId("crd", SAMPLE_UUID))
+        .replace(":org_id", encodeId("org", SAMPLE_UUID))
+        .replace(":credential_id", encodeId("crd", SAMPLE_UUID))
         .replace(":appeal_id", encodeId("apl", SAMPLE_UUID))
         .replace(":handle", "nobody_here")
         .replace(":label", "A");

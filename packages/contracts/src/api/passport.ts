@@ -62,3 +62,53 @@ export const createShareRequestSchema = z
 export const createShareResponseSchema = z
     .object({ share_id: idSchema("shr"), url: z.string(), expires_at: z.iso.datetime() })
     .strict();
+
+// Employer access (Stage 7, slice 9): invite-only, public credentials only, every report logged and shown to the holder.
+export const EMPLOYER_PURPOSES = ["hiring_screening", "verification"] as const;
+export const employerPurposeSchema = z.enum(EMPLOYER_PURPOSES);
+export const employerSearchItemSchema = z
+    .object({
+        id: idSchema("crd"),
+        kind: credentialKindSchema,
+        name: z.string(),
+        assurance_level: assuranceLevelSchema,
+        issued_at: z.iso.datetime(),
+        expires_at: z.iso.datetime().nullable(),
+    })
+    .strict();
+export const employerSearchResponseSchema = z
+    .object({
+        credentials: z.array(employerSearchItemSchema),
+        next_after: idSchema("crd").nullable(),
+    })
+    .strict();
+export const employerReportSchema = z
+    .object({
+        id: idSchema("crd"),
+        outcome: verifyOutcomeSchema,
+        reason: z.string().optional(),
+        name: z.string(),
+        issuer: z.string(),
+        kind: credentialKindSchema,
+        assurance_level: assuranceLevelSchema,
+        environment: z.enum(["development", "production"]),
+        summary: z.array(z.string()),
+        issued_at: z.iso.datetime(),
+        expires_at: z.iso.datetime().nullable(),
+        // Said plainly on every report: the holder sees that this look happened.
+        logged: z.literal(true),
+    })
+    .strict();
+export const credentialViewsResponseSchema = z
+    .object({
+        views: z.array(
+            z
+                .object({
+                    org_name: z.string(),
+                    purpose: employerPurposeSchema,
+                    viewed_at: z.iso.datetime(),
+                })
+                .strict(),
+        ),
+    })
+    .strict();
