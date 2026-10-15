@@ -141,6 +141,17 @@ mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRU
 6. **A pilot employer**, if you want one, only after (4).
 7. An identity-verification vendor, if you want assurance above the event's own (F64).
 
+### 3.10 Stage 8 (Tier-2 environments): what only you can do
+1. **A KVM-capable Linux host** (bare metal or nested virtualization; the production judge node of F32 would do) so I can build and
+   observe the Firecracker driver (F68). Without it every Tier-2 result stays gVisor.
+2. **Decide build or buy** (ADR 0035): whether to buy a managed microVM sandbox for the first customer who needs credentials above
+   level 1 or customer-delivered scores before our own driver exists. Check its price, regions, who can see code and traces, and its
+   security record; I cannot know those.
+3. **A sandbox reviewer or pentester** (F73), using `docs/security/red-team-tier2.md`.
+4. **A customer who wants environments or evals**, to say which environment first; and a **model provider account** (F41) for real
+   agent runs (F72).
+5. Decide whether any customer may opt in to gVisor-grade scores being delivered to them (the code refuses otherwise).
+
 ## 4. Routine
 - [ ] Weekly: `pnpm audit:verify`; keep the printed audit-chain head outside the database (until F8).
 - [ ] Within 72 hours of a high or critical Next.js advisory: update (ADR 0005); CI shows it.
@@ -161,4 +172,5 @@ mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRU
 | A production signer; credentials that may be called production credentials; identity proof; real employers | Need KMS, a reviewer, a vendor and legal review | F62 to F67 |
 | A real exam with real people; identity proof, proctoring or a lockdown browser; a real LLM provider call | Need review, a deployment and accounts; assurance above level 1 is not built | F32, F41, F55 to F61 |
 | Contest pilot with real people, the scoreboard at kit load, a calibrated rating | Need a deployment, an edge and a reviewed judge fleet | F1, F32, F49, F50 |
+| Firecracker, a network allowlist for environments, an unpacker inside a sandbox, a real agent or model, a cost model | Need a KVM host, time, a provider account and prices | F68 to F76 |
 | Platform-administrator screens (nodes, orgs) | API only for now | F13 |

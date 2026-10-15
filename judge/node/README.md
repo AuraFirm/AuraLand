@@ -139,3 +139,19 @@ A trace (steps with verdict, exit status, wall time, peak memory, process peak, 
 step; the integrity flags; the verifier's result) is canonical JSON, capped at 8 MiB, and signed by the node's Ed25519 key under its
 own domain. Replay re-runs the session from a pristine copy: a deterministic sample replays equal; a step that reads `/dev/urandom` is
 reported as "the workspace afterwards differs". **The network is off for every run** (no allowlist implementation; see ADR 0034).
+
+### Tier-2 measurements and the compromised-guest drill, 2026-10-15 (same VM, same caveats)
+`measure_gvisor_test.go` (`-run Measure -v`): 4 CPUs, 5.9 GiB. First run 57 ms; 20 sequential runs p50 42 ms, p95 54 ms; 40 runs at
+1/2/4/8 workers 23.4/39.2/49.3/47.0 runs per second; a sleeping sandbox peaks at 15 MiB in its cgroup. The workspace memory file
+system is charged to the node, not the sandbox cgroup, so host memory per run is the cgroup peak plus the workspace limit. Trivial
+program, one VM, no Firecracker: see ADR 0035.
+
+`drill_gvisor_test.go` (`-run Drill -v`): two hostile workloads (a spinner, a memory hog, a disk flood and a sleeper; and a fork
+bomb), two rounds each. Observed: TLE and MLE kills and a process-limit stop; after every round no process, mount or cgroup of the run
+was left (compared with a snapshot taken before, so older debris is not blamed on the run), the base directory was empty, the host
+canary was untouched, and the next run was healthy.
+- **Debris from an earlier session was found while writing the drill**: a sandbox (`runsc-gofer`, `runsc-sandbox`) and its cgroup from
+  a test run killed about 90 minutes earlier were still alive. The cause was not determined (most likely a test process killed
+  mid-run). The driver has no startup sweep of stale `aura-*` cgroups and state directories; a node needs one (F71).
+- 49 defunct `runsc-fd-parking` processes were children of the VM's init and never reaped. Not caused by our process (their parent is
+  PID 1); cause unknown. A production node must run under a supervisor that reaps and the node baseline must check for it (F71).

@@ -332,7 +332,7 @@ search, every view is logged and shown to the candidate, accounts are invited an
 jurisdiction before any real employer is invited**, as does the effect of a credential outliving an account (the kit says deletion
 revokes credentials only where required; the policy is the owner's).
 
-## STRIDE for the Stage 8 surface (Tier-2 environments and agent evals, v10; design, built slice by slice)
+## STRIDE for the Stage 8 surface (Tier-2 environments and agent evals, v11)
 | Threat | Surface | Control (ADR 0034) | Evidence |
 |---|---|---|---|
 | **Elevation**: an agent escapes its sandbox | gVisor sandbox on a judge node | runs only on judge nodes, never API/web hosts; no host paths; no network by default; limits on memory, pids, disk, time and output; escape suite with positive controls | slice 2 (Go tests on the Colima VM). **gVisor is a lower assurance than a microVM; no microVM was run (F68)** |
@@ -344,6 +344,15 @@ revokes credentials only where required; the policy is the owner's).
 | **Repudiation**: a run cannot be explained afterwards | Trace | append-only, size-capped, node-signed trace of commands, workspace hashes and flows | slice 7 |
 | **Denial of service**: a hostile or runaway agent starves a node | Resource limits | per-run caps; wall limit; output cap; trace cap; one run per sandbox; poison-job rules as Tier-1 | escape suite resource probes (slice 2) |
 | Spoofing: a forged result for a run | Node protocol | as Tier-1: mTLS, lease epochs, schema/bounds/consistency validation; node signs traces | slice 8 |
+
+**Added by slices 8 to 10 (v11), observed on one development VM.**
+| Threat | Surface | Control | Evidence |
+|---|---|---|---|
+| Elevation: a malicious image archive writes outside its directory, through a link, or via a hard link | The node's unpacker | Names cleaned and kept inside; nothing written through a link; hard links copied from an unpacked regular file and refused otherwise; entry, byte and depth caps; archives pinned by SHA-256 | `extract_test.go`. **The unpacker runs in the agent's process, not in a sandbox (F70)** |
+| Elevation: an unprivileged node needs privilege to run `runsc` | Node host | Helper commands run through a configurable elevation prefix; the agent itself is unprivileged; files go back to the node's user after each run | End-to-end run on the VM. **The VM's sudo is unrestricted; narrowing it is not done** |
+| Tampering: a node reports a forged or altered trace | Control plane | Ed25519 signature over the exact bytes, checked before parsing; strict shape; parts must agree | slice 8 tests |
+| Denial of service: leftovers accumulate on a node | Judge node | Run directory, mount and cgroup removed on every path; the drill finds none after hostile runs | `TestCompromisedGuestDrill...`. **No startup sweep of stale sandboxes; unreaped zombies seen (F71)** |
+| Denial of service: many runs exhaust node memory | Workspace memory file system | Per-run disk limit equals the memory file system size | Sizing rule in the runbook. **No admission control (F74)** |
 
 **Not designed away.** Firecracker, and everything the kit asks of it, is not built; gVisor shares the host kernel and is weaker. A
 run is evidence, not proof of what an agent can do, and no figure from one development VM is a capacity or cost claim.
