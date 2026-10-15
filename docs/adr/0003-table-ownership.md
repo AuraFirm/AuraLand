@@ -84,6 +84,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `sso_domains` | `modules/sso` | Email domains an organization claimed for single sign-on, with the token to publish in DNS and when it was verified; a domain can be verified by one organization only (unique partial index) |
 | `sso_identities` | `modules/identity` | Which person an organization's identity provider subject is (unique per organization and per person); written only by the sign-in role |
 | `sso_flows` | `modules/identity` | One single sign-on attempt in flight: hashed state and verifier, the nonce, used once within ten minutes |
+| `scim_tokens` | `modules/sso` | An organization's SCIM bearer tokens (SHA-256 only, unreadable to the application role), made and revoked by owners and administrators on a plan with provisioning |
+| `scim_users` | `modules/sso` | The people an organization's identity provider provisioned, whether they are switched on, and the provider's own id; a switched-off person cannot return through single sign-on |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

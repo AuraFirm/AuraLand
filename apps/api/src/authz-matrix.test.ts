@@ -35,7 +35,8 @@ interface Row {
         | "crd"
         | "env"
         | "evr"
-        | "whk";
+        | "whk"
+        | "sct";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, unknown>;
 }
@@ -965,6 +966,27 @@ const MATRIX: readonly Row[] = [
         body: { email: "a@b.example" },
     },
     { method: "GET", path: "/api/v1/auth/sso/callback", access: "public" },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/scim-tokens",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    {
+        method: "GET",
+        path: "/api/v1/orgs/:id/scim-tokens",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/scim-tokens/:id",
+        access: "user",
+        owned: true,
+        object: "sct",
+    },
     { method: "GET", path: "/api/v1/orgs/:id/usage", access: "user", owned: true, object: "org" },
     {
         method: "PUT",
@@ -1181,6 +1203,20 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
         await h.db.database
             .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${owner?.id ?? ""}, 'owner')`;
         return encodeId("org", org?.id ?? "");
+    }
+    if (row.object === "sct") {
+        const [owner] = await h.db.database.sql<{ id: string }[]>`
+            insert into users (email, email_verified_at)
+            values (${`scim-${randomBytes(4).toString("hex")}@example.com`}, now()) returning id`;
+        const [org] = await h.db.database.sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('company', ${`scim-${randomBytes(4).toString("hex")}`}, 'Scim team')
+            returning id`;
+        await h.db.database
+            .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${owner?.id ?? ""}, 'owner')`;
+        const [token] = await h.db.database.sql<{ id: string }[]>`
+            insert into scim_tokens (org_id, token_hash, created_by, created_at)
+            values (${org?.id ?? ""}, ${randomBytes(32)}, ${owner?.id ?? ""}, now()) returning id`;
+        return encodeId("sct", token?.id ?? "");
     }
     if (row.object === "whk") {
         const [owner] = await h.db.database.sql<{ id: string }[]>`
