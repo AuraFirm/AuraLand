@@ -5,6 +5,112 @@ reports (`docs/stages/stage-N-report.md`) hold the evidence behind each item; th
 **steps**. Tick items in a pull request, or tell me and I will. Anything marked **BLOCKS** stops a
 whole class of work until it is done.
 
+## START HERE: the accounts to create, one step at a time
+
+**If the rest of this file feels like too much, ignore it and work only through this list, top to bottom.** It covers only the free first release.
+You need no programming knowledge for any of it. You are creating accounts and filling in forms; I do the technical work.
+
+Three rules that keep you safe:
+1. **Never paste a password, secret key or token into chat, an email or git.** When I need a value, I will say whether it is safe to share. Names,
+   domain names and "ids" are safe. Anything labelled *secret*, *password*, *token* or *key* is not.
+2. **Turn on two-step login (an authenticator app) on every account below, the moment you create it.** These accounts will hold the whole service.
+3. **The screens of these websites change.** If a button is not where I say, look for the same words, or take a screenshot and ask me.
+
+Expect about **2 to 3 hours** for steps 0 to 5, spread over a few days (some steps wait for a verification email or for the web to catch up).
+
+| Step | Platform | What it is for | Cost |
+|---|---|---|---|
+| 0 | A password manager and an authenticator app | Keeps the other accounts safe | Free |
+| 1 | A domain name (bought at a registrar) | The web address of the service | Yearly fee (check the price on the page before buying) |
+| 2 | Cloudflare | Looks after the domain's address book (DNS) and protects the site from abuse | Free tier is enough to start |
+| 3 | Amazon Web Services (AWS) | The computers, database, storage and email that run the service | Pay for what you use; you will set a spending cap alarm |
+| 4 | GitHub (you already have it) and a Google Cloud project | "Sign in with GitHub / Google" buttons | Free |
+| 5 | Email sending (inside AWS) | So the site can send sign-in emails | Very small usage fee |
+| later | A lawyer and a security reviewer | Not websites: people. See section A3 and A4 | Paid |
+
+---
+### Step 0. A password manager and an authenticator app (15 minutes)
+1. Install a password manager (for example Bitwarden; it has a free plan) on your computer and phone. Create a long master password and **write it on
+   paper and keep the paper somewhere safe**. If you lose it, nobody can recover it.
+2. Install an authenticator app on your phone (for example Google Authenticator, Microsoft Authenticator or Aegis). This is what produces the 6-digit
+   codes for "two-step login".
+3. From now on: every new account gets a **unique, long, generated password** saved in the password manager, and **two-step login using the authenticator
+   app**. When a site shows you "backup codes", save them in the password manager too.
+4. Use one email address that you control for all of these accounts (a new address just for this project is ideal, for example a fresh Gmail or a mailbox
+   on your own domain later). Nobody else should read it.
+
+### Step 1. Buy the domain name (20 minutes)
+This is the one choice you cannot undo later: **the domain is also the permanent address that credentials are issued from.** Pick a name you will keep for years.
+1. Decide the name. Short, easy to say and spell, no hyphens or numbers if possible. Pick the ending (.com is the safest; others are fine).
+2. Choose where to buy it. Two simple options: **Cloudflare Registrar** (you will have a Cloudflare account anyway, so buy it there after Step 2; it sells domains
+   at cost) or a registrar such as Namecheap or Porkbun. If you buy elsewhere, you will point it to Cloudflare in Step 2.
+3. Search for the name on the registrar's site. If it is free, add it to the cart. **Turn on "WHOIS privacy" / "domain privacy" if offered (it is usually free)** so your
+   home address is not public. **Turn on auto-renew**, so you do not lose the domain by forgetting.
+4. Pay, and save the receipt. Tell me the domain name (safe to share).
+
+### Step 2. Cloudflare (30 minutes)
+Cloudflare answers "which computer is this domain?" and shields the site from floods of fake visitors.
+1. Go to cloudflare.com, click **Sign up**, use the project email and a generated password from the password manager. Confirm the email.
+2. Turn on two-step login: top right profile menu, **My Profile**, **Authentication**, **Two-Factor Authentication**, follow the steps with your authenticator app. Save the backup codes.
+3. Click **Add a domain** (sometimes "Add a site"), type your domain, choose the **Free** plan.
+4. If you bought the domain at Cloudflare, it is done. If you bought it elsewhere, Cloudflare shows two "nameservers" (names like `xxx.ns.cloudflare.com`).
+   Go to your registrar, find the domain's **Nameservers** setting, choose "custom", and replace the old ones with Cloudflare's two. This can take from minutes to a day;
+   Cloudflare emails you when it is active.
+5. Create a **Turnstile** site (this is the "are you a human" check on sign-up): left menu **Turnstile**, **Add widget**, name it "AuraLand sign-in", add your domain, choose
+   "Managed". Cloudflare shows a **Site key** (safe to share) and a **Secret key** (**not** safe: save it in the password manager only).
+6. Tell me: the domain is active on Cloudflare, and the Turnstile **site key**.
+
+### Step 3. Amazon Web Services (AWS) (60 to 90 minutes)
+AWS is where the service will actually run. It is also where mistakes cost money, so we start with safety.
+1. Go to aws.amazon.com, click **Create an AWS Account**. Use the project email, a generated password, and an account name like "auraland".
+2. Enter your details and a payment card (required even for small use) and your phone number for verification. Choose the **Basic support (free)** plan.
+3. **Secure the "root user" at once.** Sign in as the root user, click your account name (top right), **Security credentials**, **Multi-factor authentication (MFA)**,
+   **Assign MFA device**, choose Authenticator app, scan the QR code. Save the recovery information in the password manager.
+   After this you will almost never use the root user again.
+4. **Set a spending alarm so you can never be surprised.** In the search bar type **Budgets**, open **AWS Budgets**, **Create budget**, **Cost budget**, **Monthly**, enter an
+   amount you are comfortable losing in a month (you choose), and add your email for alerts at 50 percent, 80 percent and 100 percent. Also, in **Billing preferences**, turn on
+   "Receive billing alerts" and "Free tier usage alerts".
+5. Create your own everyday login (so you do not use the root user): search **IAM Identity Center**, click **Enable**, create a user for yourself, give it **AdministratorAccess**,
+   set up MFA for it too. Use this login from now on.
+6. Choose a **region** (the top-right drop-down with place names). For an EU-focused service pick Frankfurt or Ireland; for the US, N. Virginia or Ohio. **Tell me which; do not change it later.**
+7. Later, I will ask you to create two separate accounts inside AWS, one for testing ("staging") and one for the real service ("production"), so a mistake in testing cannot touch real users.
+   The place for that is **AWS Organizations**, **Add an AWS account**, **Create an AWS account**; each needs its own email address (with Gmail, `yourname+aura-staging@gmail.com` works). Do not do this yet.
+8. Tell me: the region, and that the budget alarm and MFA are on. **Do not send me any AWS keys.** When it is time to build, I will give you exact commands to copy and paste into a terminal
+   (I explain each one), so the keys stay with you.
+
+### Step 4. "Sign in with GitHub" and "Sign in with Google" (30 minutes, after Steps 1 to 3)
+These let people log in without a new password. You create two small "apps"; each gives you a client id (safe) and a client secret (not safe).
+**GitHub:**
+1. Sign in to github.com. Top right profile picture, **Settings**, left menu bottom **Developer settings**, **OAuth Apps**, **New OAuth App**.
+2. Application name: "AuraLand". Homepage URL: `https://` plus your domain. **Authorization callback URL:** `https://YOUR-DOMAIN/api/v1/auth/oauth/github/callback`
+   (replace YOUR-DOMAIN with the real one, keep the rest exactly). Click **Register application**.
+3. Copy the **Client ID** (safe to share). Click **Generate a new client secret** and save it **only** in the password manager (GitHub shows it once).
+
+**Google:**
+1. Go to console.cloud.google.com and sign in with the project email. Top bar project menu, **New project**, name it "AuraLand".
+2. Left menu **APIs & Services**, **OAuth consent screen**. Choose **External**, fill in the app name "AuraLand", your support email, and the developer contact email. You can skip optional fields. Save.
+3. **Credentials**, **Create credentials**, **OAuth client ID**, type **Web application**. Under **Authorized redirect URIs** add `https://YOUR-DOMAIN/api/v1/auth/oauth/google/callback`. Create.
+4. Copy the **Client ID** (safe); save the **Client secret** in the password manager only. Google may later ask you to "publish" the app so anyone can sign in; I will tell you when.
+
+Tell me both **Client IDs** (safe). The secrets go into AWS's secret store later, with my step-by-step help.
+
+### Step 5. Email sending, so the site can send sign-in emails (30 minutes, after Step 3)
+We use AWS's email service, SES, because it is already inside AWS.
+1. In the AWS search bar type **SES** (Simple Email Service) and open it. Make sure the region (top right) is the one you chose in Step 3.
+2. Left menu **Identities**, **Create identity**, choose **Domain**, type your domain, and leave "Easy DKIM" on. AWS shows several DNS records (they look like names and long values).
+3. Open Cloudflare, your domain, **DNS**, **Records**, and **Add record** for each one AWS listed (type, name and value copied exactly; set the proxy to **DNS only** (grey cloud) for these).
+   Within an hour or so, SES shows the identity as **Verified**.
+4. New SES accounts can only send to addresses you have verified (a "sandbox"). In SES, **Account dashboard**, click **Request production access**, say honestly what it is for
+   ("sign-in emails for a free coding-contest website; users request them themselves; we handle bounces"), and submit. Approval usually takes about a day. 
+5. Tell me when the identity is Verified and the production request is submitted.
+
+### What happens next
+When Steps 0 to 5 are done, tell me. I then (a) build the staging environment on AWS with commands you run, (b) wire sign-in, email and Turnstile, and (c) ask you for the two things
+that need people rather than websites: **a security reviewer for the judging computers** and **a lawyer for the privacy policy and terms** (section A3 and A4 below explain both).
+You can start looking for those two people while the accounts are being created, since they take the longest.
+
+---
+
 ## A. The initial release: free for everyone, for the first year
 
 **Decision (2026-10-15): the first release is free for all kinds of users, to build a user base over about a year.** That removes a whole class of
