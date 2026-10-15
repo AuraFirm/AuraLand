@@ -106,8 +106,17 @@ func serve(plane, nodeID, keyFile, isolateBin, openerFile, rewriterFile string, 
 		if err := os.MkdirAll(tier2Config.dir, 0o755); err != nil {
 			return err
 		}
+		runtime := &tier2.GVisor{Binary: tier2Config.runsc, Elevate: tier2Config.elevate, BaseDir: tier2Config.dir}
+		// What a node that died left behind is cleaned up before this one takes work (cutlist F71).
+		swept, err := runtime.SweepStale()
+		if err != nil {
+			return fmt.Errorf("sweeping stale sandboxes: %w", err)
+		}
+		if swept > 0 {
+			node.Logf("removed %d stale sandbox(es) left by a node that is gone", swept)
+		}
 		node.EnvRunner = &envnode.Runner{
-			Runtime: &tier2.GVisor{Binary: tier2Config.runsc, Elevate: tier2Config.elevate, BaseDir: tier2Config.dir},
+			Runtime: runtime,
 			Key:     key, HTTP: &http.Client{Timeout: 10 * time.Minute}, WorkDir: tier2Config.dir,
 		}
 	}

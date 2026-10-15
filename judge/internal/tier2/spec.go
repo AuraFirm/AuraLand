@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
+	"strings"
 )
 
 var cgroupNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
@@ -62,4 +64,22 @@ func Spec(e Env) ([]byte, error) {
 		cfg["linux"].(map[string]any)["cgroupsPath"] = "/aura/" + e.CgroupName
 	}
 	return json.MarshalIndent(cfg, "", "  ")
+}
+
+// RunPID reads the process id out of a run's name ("aura-<pid>-<counter>", made by the GVisor driver). The startup sweep uses it to
+// tell a run that belongs to a node still alive from one a dead node left behind. ok is false for any other name, which the sweep
+// must never touch.
+func RunPID(name string) (pid int, ok bool) {
+	parts := strings.Split(name, "-")
+	if len(parts) != 3 || parts[0] != "aura" {
+		return 0, false
+	}
+	pid, err := strconv.Atoi(parts[1])
+	if err != nil || pid <= 0 || strconv.Itoa(pid) != parts[1] {
+		return 0, false
+	}
+	if n, err := strconv.Atoi(parts[2]); err != nil || n <= 0 || strconv.Itoa(n) != parts[2] {
+		return 0, false
+	}
+	return pid, true
 }
