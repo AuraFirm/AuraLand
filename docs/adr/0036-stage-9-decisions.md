@@ -37,3 +37,10 @@ conformance tests.
 
 ## Revisit trigger
 The owner sets real prices or plans; a customer needs SAML; a real Stripe account exists.
+
+## Amendments
+- **Slice 9: no SDK.** The plan listed a TypeScript SDK. API keys reach only `GET /key` (every other route asks for a person), so an
+  SDK would wrap routes it cannot call. What would make keys useful (scopes, an organization acting under row-level security) is a
+  design of its own and is cutlist F83. The developer page says so. Employer subscriptions are done: `employer_is_approved` now needs
+  the platform administrator's approval AND a plan with employer search.
+

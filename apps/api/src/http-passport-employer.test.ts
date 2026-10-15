@@ -133,6 +133,12 @@ describe("approving employers", () => {
             404,
         ); // not approved yet
         expect((await call(ALICE, "PUT", `/admin/employers/${acmePath()}`)).status).toBe(204);
+        // Approved, but not subscribed: still no access. The plan is what makes the approval usable.
+        expect((await call(BOB, "GET", `/employer/credentials?org_id=${acmePath()}`)).status).toBe(
+            404,
+        );
+        await h.db.database
+            .sql`insert into customers (org_id, plan, updated_by, updated_at) values (${acme}, 'employer', ${ALICE}, now())`;
     });
 });
 
@@ -225,6 +231,17 @@ describe("what the holder sees", () => {
 });
 
 describe("ending access", () => {
+    it("stops an employer at once when its subscription ends, and again when it is renewed", async () => {
+        const search = () => call(BOB, "GET", `/employer/credentials?org_id=${acmePath()}`);
+        expect((await search()).status).toBe(200);
+        await h.db.database
+            .sql`update customers set plan = 'free', updated_at = now() where org_id = ${acme}`;
+        expect((await search()).status).toBe(404);
+        await h.db.database
+            .sql`update customers set plan = 'employer', updated_at = now() where org_id = ${acme}`;
+        expect((await search()).status).toBe(200);
+    });
+
     it("stops an employer at once when the platform administrator revokes it", async () => {
         expect((await call(ALICE, "DELETE", `/admin/employers/${acmePath()}`)).status).toBe(204);
         expect((await call(BOB, "GET", `/employer/credentials?org_id=${acmePath()}`)).status).toBe(
