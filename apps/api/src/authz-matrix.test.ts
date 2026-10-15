@@ -31,7 +31,8 @@ interface Row {
         | "dlv"
         | "pay"
         | "cst"
-        | "exm";
+        | "exm"
+        | "crd";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, unknown>;
 }
@@ -788,6 +789,30 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "exm",
     },
+    { method: "GET", path: "/api/v1/me/credentials", access: "user" },
+    {
+        method: "PUT",
+        path: "/api/v1/credentials/:id/visibility",
+        access: "user",
+        owned: true,
+        object: "crd",
+        body: { visibility: "private" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/credentials/:id/shares",
+        access: "user",
+        owned: true,
+        object: "crd",
+        body: { days: 7 },
+    },
+    {
+        method: "DELETE",
+        path: "/api/v1/credentials/:id/shares/:share_id",
+        access: "user",
+        owned: true,
+        object: "crd",
+    },
     { method: "GET", path: "/api/v1/time", access: "public" },
     { method: "GET", path: "/api/v1/status", access: "public" },
     {
@@ -877,6 +902,7 @@ const concrete = (row: Row) =>
         .replace(":session_id", encodeId("exs", SAMPLE_UUID))
         .replace(":flag_id", encodeId("ifl", SAMPLE_UUID))
         .replace(":oral_id", encodeId("ora", SAMPLE_UUID))
+        .replace(":share_id", encodeId("shr", SAMPLE_UUID))
         .replace(":appeal_id", encodeId("apl", SAMPLE_UUID))
         .replace(":handle", "nobody_here")
         .replace(":label", "A");
@@ -971,6 +997,7 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "ord") return encodeId("ord", SAMPLE_UUID);
     if (row.object === "dlv") return encodeId("dlv", SAMPLE_UUID);
     if (row.object === "pay") return encodeId("pay", SAMPLE_UUID);
+    if (row.object === "crd") return encodeId("crd", SAMPLE_UUID);
     if (row.object !== "pky") return encodeId("ses", sessionId);
     const [created] = await h.db.database.sql<{ id: string }[]>`
         insert into passkeys (user_id, credential_id, public_key, device_type, backed_up, name)
@@ -1035,6 +1062,7 @@ describe("generated checks", () => {
                     .replace(":session_id", encodeId("exs", SAMPLE_UUID))
                     .replace(":flag_id", encodeId("ifl", SAMPLE_UUID))
                     .replace(":oral_id", encodeId("ora", SAMPLE_UUID))
+                    .replace(":share_id", encodeId("shr", SAMPLE_UUID))
                     .replace(":appeal_id", encodeId("apl", SAMPLE_UUID))
                     .replace(":handle", "nobody_here")
                     .replace(":label", "A");

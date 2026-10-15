@@ -270,3 +270,41 @@ export async function countTelemetry(examPublicId: string): Promise<number> {
         await database.close(5);
     }
 }
+
+// A credential for a person, as the worker would have recorded it. The token is not a real signed one (the Passport
+// page lists and controls credentials; it never checks signatures, and the browser tests of the verify page answer the
+// request themselves), so this seeds a row the schema accepts and nothing more.
+export async function seedCredential(email: string, title: string): Promise<string> {
+    const database = createDatabase(e2eDatabaseUrl(), 1);
+    try {
+        const { sql } = database;
+        const slug = randomBytes(4).toString("hex");
+        const [user] = await sql<{ id: string }[]>`
+            insert into users (email, email_verified_at) values (${email}, now())
+            on conflict (email) do update set email = excluded.email returning id`;
+        const [org] = await sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('university', ${`cred-${slug}`}, 'Credential University') returning id`;
+        await sql`insert into signing_keys (kid, alg, public_jwk, environment, status, not_before)
+            values (${`e2e-${slug}`}, 'ES256', '{"kty":"EC","crv":"P-256","x":"x","y":"y"}'::jsonb, 'development', 'retired', now())`;
+        const claim = {
+            kind: "contest_rank",
+            event_title: title,
+            host_name: "Credential University",
+            rank: 1,
+            participants: 3,
+            solved: 2,
+            finalized_at: new Date().toISOString(),
+        };
+        const [slot] = await sql<
+            { status_list: number; status_index: number }[]
+        >`select * from reserve_credential_status_slot()`;
+        const [row] = await sql<{ id: string }[]>`
+            insert into credentials (id, subject_user_id, issuer_org_id, kind, event_id, assurance_level, claim, vc_jwt, kid, status_list, status_index, issued_at)
+            values (uuidv7(), ${user?.id ?? ""}, ${org?.id ?? ""}, 'contest_rank', uuidv7(), 0, ${sql.json(claim)},
+                    ${`${"a".repeat(40)}.${"b".repeat(40)}.${"c".repeat(40)}`}, ${`e2e-${slug}`}, ${slot?.status_list ?? 0}, ${slot?.status_index ?? 0}, now())
+            returning id`;
+        return `crd_${row?.id ?? ""}`;
+    } finally {
+        await database.close(5);
+    }
+}

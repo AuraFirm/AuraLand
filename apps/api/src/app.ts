@@ -46,6 +46,7 @@ import { judgeAdminRoutes } from "./modules/judge/admin-routes.ts";
 import { judgeRoutes } from "./modules/judge/routes.ts";
 import { deliveryRoutes } from "./modules/orders/delivery-routes.ts";
 import { orderRoutes } from "./modules/orders/routes.ts";
+import { holderRoutes } from "./modules/passport/holder-routes.ts";
 import { publicPassportRoutes } from "./modules/passport/public-routes.ts";
 import { payoutRoutes } from "./modules/payouts/routes.ts";
 import { contestSubmissionRoutes } from "./modules/submissions/contest-routes.ts";
@@ -307,6 +308,14 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", integrityRoutes({ clock: deps.clock }));
     app.route("/v1", oralRoutes({ clock: deps.clock }));
     app.route("/v1", reportRoutes());
+    app.route(
+        "/v1",
+        holderRoutes({
+            clock: deps.clock,
+            rng: deps.rng,
+            publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+        }),
+    );
     app.route("/v1", examProblemRoutes());
 }
 
