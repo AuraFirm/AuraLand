@@ -332,6 +332,22 @@ search, every view is logged and shown to the candidate, accounts are invited an
 jurisdiction before any real employer is invited**, as does the effect of a credential outliving an account (the kit says deletion
 revokes credentials only where required; the policy is the owner's).
 
+## STRIDE for the Stage 8 surface (Tier-2 environments and agent evals, v10; design, built slice by slice)
+| Threat | Surface | Control (ADR 0034) | Evidence |
+|---|---|---|---|
+| **Elevation**: an agent escapes its sandbox | gVisor sandbox on a judge node | runs only on judge nodes, never API/web hosts; no host paths; no network by default; limits on memory, pids, disk, time and output; escape suite with positive controls | slice 2 (Go tests on the Colima VM). **gVisor is a lower assurance than a microVM; no microVM was run (F68)** |
+| Elevation: a gVisor result is passed off as microVM-grade | Credentials, customer delivery | `isolation` recorded on every run; `isolationAllows` refuses gVisor above level 1 and for customer delivery without opt-in; opting in never raises the level | contract tests (slice 0), db and HTTP tests (slice 8) |
+| **Tampering**: the agent changes the checker or its config | Verifier | verifier and hidden files in a second sandbox that gets only the final workspace; protected paths hashed before and after | slices 4 and 5 |
+| Tampering: the agent games the score (reads answers, edits tests, detects the harness) | Reward hacking | honeypots, per-run canaries, tamper hashes, recorded probes; a flag is evidence for a person, never an automatic verdict | purpose-built hacking environment is flagged, an honest run is not (slice 5) |
+| **Disclosure**: hidden tests or the verifier leak to the agent | Image, mounts | hidden material never in the agent's image or mounts; verifier separate | slice 4 |
+| Disclosure: the agent reaches the host's or another tenant's network | Network | default none; an allowlist of DNS names pinned at start, default-drop, flows logged; no address literals or private names in the spec | spec tests (slice 0); containment tests (slice 6) or documented as off |
+| **Repudiation**: a run cannot be explained afterwards | Trace | append-only, size-capped, node-signed trace of commands, workspace hashes and flows | slice 7 |
+| **Denial of service**: a hostile or runaway agent starves a node | Resource limits | per-run caps; wall limit; output cap; trace cap; one run per sandbox; poison-job rules as Tier-1 | escape suite resource probes (slice 2) |
+| Spoofing: a forged result for a run | Node protocol | as Tier-1: mTLS, lease epochs, schema/bounds/consistency validation; node signs traces | slice 8 |
+
+**Not designed away.** Firecracker, and everything the kit asks of it, is not built; gVisor shares the host kernel and is weaker. A
+run is evidence, not proof of what an agent can do, and no figure from one development VM is a capacity or cost claim.
+
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;
 download events with the person's address; contractors' payout amounts and references. Download events

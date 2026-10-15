@@ -256,3 +256,19 @@ export const CREDENTIAL_JWT_BYTES_MAX = 8_192;
 export const SHARE_LINK_DAYS_DEFAULT = 7;
 export const SHARE_LINK_DAYS_MAX = 30;
 export const CREDENTIAL_ISSUE_BATCH = 100; // events turned into credentials per tick
+
+// Tier-2 environments and agent evals (Stage 8, ADR 0034).
+export const ENV_SETUP_COMMANDS_MAX = 20;
+export const ENV_COMMAND_ARGS_MAX = 32;
+export const ENV_ARG_CHARS_MAX = 512;
+export const ENV_TIME_LIMIT_S_MAX = 3_600; // an agent phase is at most an hour of wall time
+export const ENV_MEMORY_LIMIT_MIB_MIN = 64;
+export const ENV_MEMORY_LIMIT_MIB_MAX = 8_192;
+export const ENV_DISK_LIMIT_MIB_MAX = 4_096;
+export const ENV_PIDS_MAX = 512;
+export const ENV_NETWORK_ALLOW_MAX = 16;
+export const ENV_PROTECTED_PATHS_MAX = 32;
+export const ENV_HONEYPOTS_MAX = 16;
+export const ENV_CANARIES_MAX = 8;
+export const ENV_TRACE_BYTES_MAX = 8 * 1024 * 1024; // a run's recorded trace; longer runs are cut and say so
+export const ENV_TRACE_EVENTS_MAX = 100_000;
