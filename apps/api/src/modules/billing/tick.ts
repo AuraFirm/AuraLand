@@ -3,7 +3,7 @@ import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
 import type { Clock } from "../../platform/clock.ts";
 import type { PaymentProvider } from "./provider.ts";
-import { reconcile, type UsageKind, type UsageLine } from "./reconcile.ts";
+import { reconcile, type UsageLine } from "./reconcile.ts";
 import { previousMonthUtc } from "./rules.ts";
 
 export interface BillingTickContext {
