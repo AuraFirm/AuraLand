@@ -1027,6 +1027,10 @@ const MATRIX: readonly Row[] = [
             currency: "USD",
         },
     },
+    { method: "POST", path: "/api/v1/me/support-access", access: "user", body: { hours: 1 } },
+    { method: "GET", path: "/api/v1/me/support-access", access: "user" },
+    { method: "DELETE", path: "/api/v1/me/support-access", access: "user" },
+    { method: "GET", path: "/api/v1/admin/support/users/:id", access: "admin", object: "usr" },
     { method: "GET", path: "/api/v1/orgs/:id/usage", access: "user", owned: true, object: "org" },
     {
         method: "PUT",

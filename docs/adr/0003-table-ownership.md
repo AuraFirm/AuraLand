@@ -90,6 +90,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `order_revenue` | `modules/revenue` | Revenue booked for one order item, once, with the ledger transaction that split it; never changed |
 | `payout_batches` | `modules/revenue` | A run of payments to setters: created (reserves amounts), paid (posts the ledger transaction) or cancelled |
 | `payout_batch_lines` | `modules/revenue` | How much of a batch goes to which setter |
+| `support_grants` | `modules/support` | A person's consent to let support staff see an account summary for up to 24 hours; theirs to make and end |
+| `support_views` | `modules/support` | Each time staff looked, written in the same statement that returned the data; the person sees it; never changed |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

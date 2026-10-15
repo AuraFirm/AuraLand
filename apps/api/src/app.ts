@@ -68,6 +68,7 @@ import {
     QueueFullError,
     submissionRoutes,
 } from "./modules/submissions/routes.ts";
+import { supportRoutes } from "./modules/support/routes.ts";
 import { assignmentRoutes } from "./modules/tasks/assignment-routes.ts";
 import { attackRoutes } from "./modules/tasks/attack-routes.ts";
 import { commentRoutes } from "./modules/tasks/comment-routes.ts";
@@ -341,6 +342,7 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", environmentRoutes({ clock: deps.clock }));
     app.route("/v1", customerWebhookRoutes({ clock: deps.clock, rng: deps.rng }));
     app.route("/v1", revenueRoutes({ clock: deps.clock }));
+    app.route("/v1", supportRoutes({ clock: deps.clock }));
     app.route(
         "/v1",
         scimAdminRoutes({
