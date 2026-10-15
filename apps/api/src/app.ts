@@ -55,6 +55,7 @@ import { employerRoutes } from "./modules/passport/employer-routes.ts";
 import { holderRoutes } from "./modules/passport/holder-routes.ts";
 import { publicPassportRoutes } from "./modules/passport/public-routes.ts";
 import { payoutRoutes } from "./modules/payouts/routes.ts";
+import { revenueRoutes } from "./modules/revenue/routes.ts";
 import { createPublicOidcTransport, type OidcTransport } from "./modules/sso/oidc.ts";
 import { ssoRoutes } from "./modules/sso/routes.ts";
 import { scimAdminRoutes } from "./modules/sso/scim-admin-routes.ts";
@@ -339,6 +340,7 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", employerRoutes({ clock: deps.clock }));
     app.route("/v1", environmentRoutes({ clock: deps.clock }));
     app.route("/v1", customerWebhookRoutes({ clock: deps.clock, rng: deps.rng }));
+    app.route("/v1", revenueRoutes({ clock: deps.clock }));
     app.route(
         "/v1",
         scimAdminRoutes({

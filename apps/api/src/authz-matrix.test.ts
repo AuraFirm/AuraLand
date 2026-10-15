@@ -36,7 +36,8 @@ interface Row {
         | "env"
         | "evr"
         | "whk"
-        | "sct";
+        | "sct"
+        | "pbt";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, unknown>;
 }
@@ -986,6 +987,45 @@ const MATRIX: readonly Row[] = [
         access: "user",
         owned: true,
         object: "sct",
+    },
+    { method: "GET", path: "/api/v1/me/earnings", access: "user" },
+    { method: "GET", path: "/api/v1/admin/payout-batches", access: "admin" },
+    {
+        method: "POST",
+        path: "/api/v1/admin/payout-batches",
+        access: "admin",
+        body: { currency: "USD" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/admin/payout-batches/:id/paid",
+        access: "admin",
+        object: "pbt",
+        body: { reference: "r" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/admin/payout-batches/:id/cancel",
+        access: "admin",
+        object: "pbt",
+    },
+    {
+        method: "PUT",
+        path: "/api/v1/admin/tasks/:id/setter-terms",
+        access: "admin",
+        object: "tsk",
+        body: { user_id: "usr_018f0000-0000-7000-8000-0000000000a1", share_bps: 100 },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/admin/orders/:id/revenue",
+        access: "admin",
+        object: "ord",
+        body: {
+            task_version_id: "tsv_018f0000-0000-7000-8000-0000000000ee",
+            amount_minor: 5,
+            currency: "USD",
+        },
     },
     { method: "GET", path: "/api/v1/orgs/:id/usage", access: "user", owned: true, object: "org" },
     {

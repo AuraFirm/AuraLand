@@ -39,6 +39,7 @@ export const ID_PREFIXES = [
     "whk",
     "whd",
     "sct",
+    "pbt",
 ] as const;
 export type IdPrefix = (typeof ID_PREFIXES)[number];
 
