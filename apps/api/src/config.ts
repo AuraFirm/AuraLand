@@ -69,6 +69,9 @@ const configSchema = z
         AURA_S3_SECRET_ACCESS_KEY: z.string().min(1).max(400).optional(),
         // The signing secret of the payment provider's webhook endpoint. Without it the billing webhook does not exist.
         AURA_STRIPE_WEBHOOK_SECRET: z.string().min(16).max(200).optional(),
+        // Which payment provider to use. Absent means none: buying and the portal answer "unavailable". "fake" moves no money and is for
+        // local development and tests; a real adapter does not exist yet.
+        AURA_BILLING_DRIVER: z.enum(["fake"]).optional(),
         // Sign-in with GitHub or Google. Each provider is on only when both of its values are set.
         AURA_OAUTH_GITHUB_CLIENT_ID: z.string().min(1).max(200).optional(),
         AURA_OAUTH_GITHUB_CLIENT_SECRET: z.string().min(1).max(400).optional(),
@@ -105,6 +108,12 @@ export function parseConfig(environment: Readonly<Record<string, string | undefi
         assert(
             config.AURA_ENV === "local" || config.AURA_ENV === "test",
             "the mailpit driver is for local development and tests only",
+        );
+    }
+    if (config.AURA_BILLING_DRIVER === "fake") {
+        assert(
+            config.AURA_ENV === "local" || config.AURA_ENV === "test",
+            "the fake billing driver is for local development and tests only",
         );
     }
     assertStorageSettings(config);

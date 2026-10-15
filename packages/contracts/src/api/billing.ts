@@ -54,3 +54,8 @@ export const usageResponseSchema = z
         env_runs_limit: z.number().int().min(0),
     })
     .strict();
+
+// Plans a person can buy by card. Free needs no purchase and enterprise is a contract set by staff.
+export const SELF_SERVE_PLANS = ["team", "employer"] as const;
+export const checkoutRequestSchema = z.object({ plan: z.enum(SELF_SERVE_PLANS) }).strict();
+export const sessionUrlSchema = z.object({ url: z.url().max(2000) }).strict();

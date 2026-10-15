@@ -15,6 +15,7 @@ import type { AppEnv } from "./app-env.ts";
 import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
+import { createFakePaymentProvider, type PaymentProvider } from "./modules/billing/provider.ts";
 import { billingRoutes } from "./modules/billing/routes.ts";
 import { webhookRoutes } from "./modules/billing/webhook-routes.ts";
 import { clarificationRoutes } from "./modules/contests/clarification-routes.ts";
@@ -88,6 +89,8 @@ export interface AppDeps {
     readonly storage: ObjectStorage;
     // The OAuth providers that are switched on; empty when none is configured.
     readonly oauthProviders: ReadonlyMap<ProviderName, OAuthProvider>;
+    // The payment provider; when absent it is chosen from the configuration (the fake, or none).
+    readonly paymentProvider?: PaymentProvider;
     // Rejects when the database is unreachable. Must be cheap (a `select 1`).
     readonly pingDatabase: () => Promise<void>;
     // Called after an invariant violation, when state may be corrupt: the process should stop.
@@ -323,7 +326,18 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", reportRoutes());
     app.route("/v1", employerRoutes({ clock: deps.clock }));
     app.route("/v1", environmentRoutes({ clock: deps.clock }));
-    app.route("/v1", billingRoutes({ clock: deps.clock }));
+    app.route(
+        "/v1",
+        billingRoutes({
+            clock: deps.clock,
+            publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+            provider:
+                deps.paymentProvider ??
+                (deps.config.AURA_BILLING_DRIVER === "fake"
+                    ? createFakePaymentProvider()
+                    : undefined),
+        }),
+    );
     app.route(
         "/v1",
         holderRoutes({
