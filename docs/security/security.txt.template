@@ -1,0 +1,5 @@
+# TEMPLATE. Not served. Fill in the contact and publish at /.well-known/security.txt (RFC 9116) once the owner has chosen them.
+Contact: mailto:SECURITY-ADDRESS-GOES-HERE
+Expires: 2027-10-15T00:00:00Z
+Preferred-Languages: en
+Policy: https://SITE-GOES-HERE/security-policy
