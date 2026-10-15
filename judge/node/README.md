@@ -86,3 +86,20 @@ SMT off or the judged core's sibling idle; CPU governor `performance`; swap off;
 on the work partition; automatic security updates with reboot windows; kernel parameter policy for
 unprivileged user namespaces; host firewall deny-all inbound; no cloud credentials on the machine. See
 `docs/kit/07_Judge_and_Sandbox_Spec.md` section 3.
+
+## Tier-2 (gVisor), verified once on 2026-10-15 on the same development VM
+Stage 8 slice 1. **Not KVM, not Firecracker, not a production node.** gVisor `runsc` release-20261005.0 (aarch64), systrap platform:
+- Download `gvisor.tar.bz2` and its `.sha512` from `storage.googleapis.com/gvisor/releases/release/<date>/<arch>/`, check the hash,
+  extract; install `runsc` to `/usr/local/bin` **and the `gvisor-bin/` directory beside it** (this release refuses to start without
+  its sidecar binaries: `gvisor_sentry`, `runsc-fd-parking` and others).
+- A root file system for a test: `docker create busybox`, `docker export | tar x -C /tmp/gvb/rootfs`.
+- Run the Tier-2 tests as root (runsc needs it here; delegating cgroups to the agent's user is a node-baseline task, not done):
+  `sudo -E env PATH=$PATH:/usr/local/go/bin AURA_TIER2_ROOTFS=/tmp/gvb/rootfs go test -tags gvisor ./internal/tier2 -v`.
+- Observed: the sandbox kernel reports `4.19.0-gvisor`; the program runs as uid 1000; the root file system and `/etc`, `/usr` are
+  read-only, only the workspace is writable; no network interface beyond `lo` and no connection out; a wall limit gives TLE; an
+  output flood stops at its cap (OLE); a memory hog is killed at its limit and counted by the kernel (MLE, `oom_kill` > 0);
+  a fork loop reaches the process limit (counted in `pids.events`) and leaves no process on the host.
+- Start time of `/bin/true`: min 30 ms, p50 34 ms, max 56 ms over 20 runs. **One VM, one image: not a capacity claim.**
+- Learned the hard way: runsc keeps its empty network namespace bind-mounted in the state directory (unmount it before removing the
+  directory); a cgroup created beforehand gets **no limits** from runsc (let runsc create it); `runsc wait` after the sandbox has
+  exited cannot give the exit status (use `run`); the cgroup disappears the instant the sandbox ends (sample it while it lives).
