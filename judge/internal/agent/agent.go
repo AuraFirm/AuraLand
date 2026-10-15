@@ -22,6 +22,8 @@ type ControlPlane interface {
 	Lease(ctx context.Context, waitMS int) (*wire.LeasedJob, error)
 	LeaseValidation(ctx context.Context, waitMS int) (*wire.ValidationJob, error)
 	CompleteValidation(ctx context.Context, jobID string, epoch int, result wire.ValidationResult) error
+	LeaseEnv(ctx context.Context, waitMS int) (*wire.EnvJob, error)
+	CompleteEnv(ctx context.Context, jobID string, epoch int, trace, signature string) error
 	LeaseWatermark(ctx context.Context, waitMS int) (*wire.WatermarkJob, error)
 	CompleteWatermark(ctx context.Context, jobID string, epoch int, result any) error
 	JobHeartbeat(ctx context.Context, jobID string, epoch int) error
@@ -47,16 +49,24 @@ type Watermarker interface {
 	Run(ctx context.Context, job wire.WatermarkJob) (any, error)
 }
 
+// EnvRunner runs an environment (Stage 8): the agent's session and the verifier, in sandboxes, and returns the trace
+// and the node's signature of it. A node without one never asks for environment runs.
+type EnvRunner interface {
+	Run(ctx context.Context, job wire.EnvJob) (trace, signature string, err error)
+}
+
 type Agent struct {
 	Plane ControlPlane
 	// Validator is optional; see Validator.
 	Validator Validator
 	// Watermarker is optional; see Watermarker.
 	Watermarker Watermarker
-	Box         sandbox.Sandbox
-	Bundles     Bundles
-	Version     string
-	Logf        func(format string, args ...any)
+	// EnvRunner is optional; see EnvRunner.
+	EnvRunner EnvRunner
+	Box       sandbox.Sandbox
+	Bundles   Bundles
+	Version   string
+	Logf      func(format string, args ...any)
 	// SelfTest runs the node's canary (escape suite, timing calibration). A failing node drains.
 	SelfTest func(ctx context.Context) bool
 	// LeaseWaitMS is how long a lease request may wait for work; 0 polls.
@@ -95,6 +105,16 @@ func (a *Agent) runOptionalWork(ctx context.Context) (bool, error) {
 			return true, nil
 		}
 	}
+	if a.EnvRunner != nil {
+		job, err := a.Plane.LeaseEnv(ctx, 0)
+		if err != nil {
+			return false, err
+		}
+		if job != nil {
+			a.processEnv(ctx, *job)
+			return true, nil
+		}
+	}
 	if a.Watermarker != nil {
 		job, err := a.Plane.LeaseWatermark(ctx, 0)
 		if err != nil {
@@ -125,6 +145,26 @@ func (a *Agent) processValidation(ctx context.Context, job wire.ValidationJob) {
 	}
 	if err := a.Plane.CompleteValidation(ctx, job.JobID, job.LeaseEpoch, result); err != nil {
 		a.Logf("validation %s: result not accepted: %v", job.JobID, err)
+	}
+}
+
+func (a *Agent) processEnv(ctx context.Context, job wire.EnvJob) {
+	jobCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var lost sync.Once
+	stop := a.keepAlive(jobCtx, job.JobID, job.LeaseEpoch, job.LeaseTTLS, func() { lost.Do(cancel) })
+	defer stop()
+	trace, signature, err := a.EnvRunner.Run(jobCtx, job)
+	if jobCtx.Err() != nil && ctx.Err() == nil {
+		a.Logf("environment run %s: lease lost, result discarded", job.JobID)
+		return
+	}
+	if err != nil {
+		a.reportFailure(ctx, job.JobID, job.LeaseEpoch, err)
+		return
+	}
+	if err := a.Plane.CompleteEnv(ctx, job.JobID, job.LeaseEpoch, trace, signature); err != nil {
+		a.Logf("environment run %s: result not accepted: %v", job.JobID, err)
 	}
 }
 

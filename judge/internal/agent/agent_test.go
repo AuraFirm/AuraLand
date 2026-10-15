@@ -69,6 +69,10 @@ func (p *plane) CompleteValidation(_ context.Context, _ string, _ int, r wire.Va
 	return nil
 }
 
+func (p *plane) LeaseEnv(context.Context, int) (*wire.EnvJob, error) { return nil, nil }
+
+func (p *plane) CompleteEnv(context.Context, string, int, string, string) error { return nil }
+
 func (p *plane) LeaseWatermark(context.Context, int) (*wire.WatermarkJob, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

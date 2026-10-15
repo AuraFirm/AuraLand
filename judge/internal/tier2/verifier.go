@@ -95,11 +95,6 @@ func (v VerifierSpec) Verify(ctx context.Context, rt Runtime, workspace string, 
 	if err := restoreProtected(v.Pristine, snapshot, v.Restore, int64(v.Limits.DiskMiB)<<20); err != nil {
 		return out, err
 	}
-	if v.UID > 0 {
-		if err := os.Chown(snapshot, v.UID, v.GID); err != nil {
-			return out, err
-		}
-	}
 	out.Sandbox, err = rt.Run(ctx, Env{
 		Rootfs: v.Rootfs, Workspace: snapshot, WorkDir: "/work", Argv: v.Argv, Env: v.Env, UID: v.UID, GID: v.GID, Limits: v.Limits,
 		Mounts: []Mount{{Host: v.Hidden, Dest: "/verifier"}},

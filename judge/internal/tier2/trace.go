@@ -116,9 +116,6 @@ func Replay(ctx context.Context, rt Runtime, spec SessionSpec, original Trace, p
 	if _, err := Snapshot(pristine, workspace, int64(spec.Limits.DiskMiB)<<20); err != nil {
 		return ReplayReport{}, err
 	}
-	if err := chownTree(workspace, spec.UID, spec.GID); err != nil {
-		return ReplayReport{}, err
-	}
 	spec.Workspace = workspace
 	run, err := spec.Run(ctx, rt)
 	if err != nil {
@@ -154,13 +151,4 @@ func compare(a, b Trace) ReplayReport {
 		}
 	}
 	return ReplayReport{Equal: len(diff) == 0, Differences: diff}
-}
-
-func chownTree(root string, uid, gid int) error {
-	return filepath.WalkDir(root, func(path string, _ os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		return os.Lchown(path, uid, gid)
-	})
 }

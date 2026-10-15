@@ -1,0 +1,20 @@
+{
+    "job": {
+        "job_id": "job_018f0000-0000-7000-8000-0000000000aa",
+        "lease_epoch": 1,
+        "lease_ttl_s": 30,
+        "run_id": "evr_018f0000-0000-7000-8000-0000000000bb",
+        "environment": {
+            "id": "env_018f0000-0000-7000-8000-0000000000cc",
+            "spec": {
+                "spec_version": 2,
+                "kind": "repo_env"
+            },
+            "image_key": "environments/image.tar",
+            "image_download_url": "http://storage.test/image.tar?sig=1",
+            "hidden_key": "environments/hidden.tar",
+            "hidden_download_url": "http://storage.test/hidden.tar?sig=2",
+            "hidden_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+    }
+}

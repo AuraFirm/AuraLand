@@ -18,8 +18,10 @@ import (
 	"github.com/AuraFirm/AuraLand/judge/internal/agent"
 	"github.com/AuraFirm/AuraLand/judge/internal/bundles"
 	"github.com/AuraFirm/AuraLand/judge/internal/client"
+	"github.com/AuraFirm/AuraLand/judge/internal/envnode"
 	"github.com/AuraFirm/AuraLand/judge/internal/isolate"
 	"github.com/AuraFirm/AuraLand/judge/internal/sandbox"
+	"github.com/AuraFirm/AuraLand/judge/internal/tier2"
 	"github.com/AuraFirm/AuraLand/judge/internal/validate"
 	"github.com/AuraFirm/AuraLand/judge/internal/watermark"
 	"github.com/AuraFirm/AuraLand/judge/internal/wire"
@@ -43,19 +45,28 @@ func run(args []string) int {
 	openerFile := flags.String("opener-file", "", "the built bundle opener (packages/bundle/dist/open-bundle.cjs)")
 	rewriterFile := flags.String("rewriter-file", "", "the built delivery rewriter (packages/bundle/dist/rewrite-bundle.cjs); without it the node takes no watermark jobs")
 	concurrency := flags.Int("concurrency", 1, "boxes available at once")
+	runsc := flags.String("tier2-runsc", "", "absolute path of runsc; with it the node takes Tier-2 environment runs (gVisor, lower assurance: see ADR 0034)")
+	tier2Dir := flags.String("tier2-dir", "/var/lib/aura/tier2", "directory for Tier-2 run files; needs room for images")
+	elevate := flags.String("tier2-elevate", "", "command prefix that gives runsc its privileges, for example 'sudo -n'")
 	flags.Parse(args)
 	if *plane == "" || *nodeID == "" || *keyFile == "" || *openerFile == "" {
 		fmt.Fprintln(os.Stderr, "run needs --control-plane, --node-id, --key-file and --opener-file")
 		return 2
 	}
-	if err := serve(*plane, *nodeID, *keyFile, *isolateBin, *openerFile, *rewriterFile, *concurrency); err != nil {
+	tier2Config := tier2Settings{runsc: *runsc, dir: *tier2Dir, elevate: strings.Fields(*elevate)}
+	if err := serve(*plane, *nodeID, *keyFile, *isolateBin, *openerFile, *rewriterFile, *concurrency, tier2Config); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		return 1
 	}
 	return 0
 }
 
-func serve(plane, nodeID, keyFile, isolateBin, openerFile, rewriterFile string, concurrency int) error {
+type tier2Settings struct {
+	runsc, dir string
+	elevate    []string
+}
+
+func serve(plane, nodeID, keyFile, isolateBin, openerFile, rewriterFile string, concurrency int, tier2Config tier2Settings) error {
 	key, err := readKey(keyFile)
 	if err != nil {
 		return err
@@ -90,6 +101,15 @@ func serve(plane, nodeID, keyFile, isolateBin, openerFile, rewriterFile string, 
 			return err
 		}
 		node.Watermarker = watermarker
+	}
+	if tier2Config.runsc != "" {
+		if err := os.MkdirAll(tier2Config.dir, 0o755); err != nil {
+			return err
+		}
+		node.EnvRunner = &envnode.Runner{
+			Runtime: &tier2.GVisor{Binary: tier2Config.runsc, Elevate: tier2Config.elevate, BaseDir: tier2Config.dir},
+			Key:     key, HTTP: &http.Client{Timeout: 10 * time.Minute}, WorkDir: tier2Config.dir,
+		}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

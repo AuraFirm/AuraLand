@@ -295,3 +295,35 @@ type WatermarkComplete struct {
 	LeaseEpoch int `json:"lease_epoch"`
 	Result     any `json:"result"`
 }
+
+// ---- environment runs (Stage 8) ----
+
+type EnvEnvironment struct {
+	ID                string          `json:"id"`
+	Spec              json.RawMessage `json:"spec"`
+	ImageKey          string          `json:"image_key"`
+	ImageDownloadURL  string          `json:"image_download_url"`
+	HiddenKey         string          `json:"hidden_key"`
+	HiddenDownloadURL string          `json:"hidden_download_url"`
+	HiddenSHA256      string          `json:"hidden_sha256"`
+}
+
+type EnvJob struct {
+	JobID       string         `json:"job_id"`
+	LeaseEpoch  int            `json:"lease_epoch"`
+	LeaseTTLS   int            `json:"lease_ttl_s"`
+	RunID       string         `json:"run_id"`
+	Environment EnvEnvironment `json:"environment"`
+}
+
+type EnvLeaseResponse struct {
+	Job *EnvJob `json:"job"`
+}
+
+// EnvComplete carries the trace as the exact text the node signed, so the control plane can check the signature over
+// those bytes before it parses anything.
+type EnvComplete struct {
+	LeaseEpoch     int    `json:"lease_epoch"`
+	Trace          string `json:"trace"`
+	TraceSignature string `json:"trace_signature"`
+}
