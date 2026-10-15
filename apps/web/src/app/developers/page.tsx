@@ -32,7 +32,8 @@ export default function DevelopersPage() {
                     more than five minutes from your clock. Failed deliveries are retried for 24
                     hours with growing delays, then given up on.
                 </p>
-                <pre className="overflow-x-auto rounded-[var(--radius-m)] border border-line p-3 text-sm">
+                {/* Wrapped, not scrolled: a scrolling region would need to be reachable by keyboard. */}
+                <pre className="whitespace-pre-wrap break-words rounded-[var(--radius-m)] border border-line p-3 text-sm">
                     {VERIFY_SNIPPET}
                 </pre>
                 <p>
