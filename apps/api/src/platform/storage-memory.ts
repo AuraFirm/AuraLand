@@ -6,6 +6,7 @@ import type {
     MeasureResult,
     ObjectStorage,
     PartUrlRequest,
+    SmallRead,
 } from "./object-storage.ts";
 
 // In-memory object storage for tests and simulation. Never used by the running service: the
@@ -89,6 +90,13 @@ function measure(state: State, key: string, bytesMax: number): MeasureResult {
     };
 }
 
+function getSmall(state: State, key: string, bytesMax: number): SmallRead {
+    const object = state.objects.get(key);
+    if (object === undefined) return { kind: "missing" };
+    if (object.length > bytesMax) return { kind: "too_large" };
+    return { kind: "found", bytes: Uint8Array.from(object) };
+}
+
 export function createMemoryStorage(clock: Clock): MemoryStorage {
     const state: State = {
         clock,
@@ -99,6 +107,8 @@ export function createMemoryStorage(clock: Clock): MemoryStorage {
         counter: 0,
     };
     return {
+        putSmall: async (key, bytes) => void state.objects.set(key, Uint8Array.from(bytes)),
+        getSmall: async (key, bytesMax) => getSmall(state, key, bytesMax),
         async beginMultipart(key) {
             state.counter++;
             const uploadId = `mem-upload-${state.counter}`;

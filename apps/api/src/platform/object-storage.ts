@@ -36,7 +36,16 @@ export type CompleteResult =
     // Parts are missing, or more or fewer than expected were uploaded. Nothing was assembled.
     | { readonly kind: "incomplete"; readonly partsFound: number };
 
+export type SmallRead =
+    | { readonly kind: "missing" }
+    | { readonly kind: "too_large" }
+    | { readonly kind: "found"; readonly bytes: Uint8Array };
+
 export interface ObjectStorage {
+    // Small public documents (Passport's keys and revocation lists): written whole, replacing what was there, and read
+    // whole up to `bytesMax`. Not for bundles; those go through the multipart path.
+    putSmall(key: string, bytes: Uint8Array, contentType: string): Promise<void>;
+    getSmall(key: string, bytesMax: number): Promise<SmallRead>;
     beginMultipart(key: string): Promise<string>;
     partUrl(request: PartUrlRequest): Promise<string>;
     // Assembles the object from the uploaded parts; the server lists them itself, so a client never

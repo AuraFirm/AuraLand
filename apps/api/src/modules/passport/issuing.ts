@@ -45,7 +45,7 @@ export async function issueOnce(
     const place = slot.parse(row);
     const nowMs = context.clock.nowUnixMs();
     const id = makeUuidV7(nowMs, context.rng.nextBytes(10));
-    const listUrl = `${context.publicOrigin}/passport/status/${place.status_list}.json`;
+    const listUrl = `${context.publicOrigin}/passport/status/${place.status_list}`;
     const jwt = await issueCredentialJwt(context.signer, {
         id,
         subject: makeUuidV7(nowMs, context.rng.nextBytes(10)),

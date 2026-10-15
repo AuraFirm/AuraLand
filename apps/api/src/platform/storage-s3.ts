@@ -11,6 +11,7 @@ import {
     HeadObjectCommand,
     ListPartsCommand,
     type ListPartsCommandOutput,
+    PutObjectCommand,
     S3Client,
     UploadPartCommand,
 } from "@aws-sdk/client-s3";
@@ -20,6 +21,7 @@ import {
     type MeasureResult,
     type ObjectStorage,
     type PartUrlRequest,
+    type SmallRead,
     StorageUnavailableError,
 } from "./object-storage.ts";
 
@@ -203,6 +205,26 @@ async function copy(context: Context, fromKey: string, toKey: string): Promise<v
     );
 }
 
+async function putSmall(context: Context, key: string, bytes: Uint8Array, contentType: string) {
+    await context.internal.send(
+        new PutObjectCommand({
+            Bucket: context.bucket,
+            Key: key,
+            Body: bytes,
+            ContentType: contentType,
+        }),
+    );
+}
+
+async function getSmall(context: Context, key: string, bytesMax: number): Promise<SmallRead> {
+    const response = await fetchObject(context, key);
+    if (response === null) return { kind: "missing" };
+    if ((response.ContentLength ?? 0) > bytesMax) return { kind: "too_large" };
+    assert(response.Body !== undefined, "S3 returned a body");
+    const bytes = await response.Body.transformToByteArray();
+    return bytes.length > bytesMax ? { kind: "too_large" } : { kind: "found", bytes };
+}
+
 function downloadUrl(context: Context, key: string, lifetimeS: number): Promise<string> {
     const command = new GetObjectCommand({
         Bucket: context.bucket,
@@ -229,6 +251,9 @@ export function createS3Storage(settings: S3Settings): ObjectStorage {
         bucket: settings.bucket,
     };
     return {
+        putSmall: (key, bytes, contentType) =>
+            guarded("putSmall", () => putSmall(context, key, bytes, contentType)),
+        getSmall: (key, bytesMax) => guarded("getSmall", () => getSmall(context, key, bytesMax)),
         beginMultipart: (key) => guarded("beginMultipart", () => beginMultipart(context, key)),
         partUrl: (request) => guarded("partUrl", () => partUrl(context, request)),
         completeMultipart: (key, uploadId, partsExpected) =>

@@ -5,12 +5,12 @@ export interface PublicKey {
     readonly kid: string;
     readonly alg: "ES256" | "EdDSA";
     readonly status: "active" | "retired" | "revoked";
-    // A public key only. EC keys have x and y; an Ed25519 key would have no y.
+    // A public key only. Only EC (P-256) keys exist until an ADR adds EdDSA.
     readonly jwk: {
         readonly kty: string;
         readonly crv: string;
         readonly x: string;
-        readonly y?: string;
+        readonly y: string;
     };
 }
 
