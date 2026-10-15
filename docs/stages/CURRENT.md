@@ -23,6 +23,6 @@ Open items are in [../cutlist.md](../cutlist.md); your manual tasks are the chec
 
 **Stage 7 — Passport (credentials): approved on 2026-10-15.** Plan: [stage-7-plan.md](stage-7-plan.md). Report: [stage-7-report.md](stage-7-report.md). Runbook: [../runbooks/passport.md](../runbooks/passport.md). **Not met: any production credential (no KMS signer, F62), human review of the signing code (F63), identity proof (F64), real employers (F67).**
 
-**Stage 8 — Tier-2 environments and agent evals: plan drafted, awaiting your approval.** Plan: [stage-8-plan.md](stage-8-plan.md). No Stage 8 code starts until you approve it. **No KVM is reachable here, so no Firecracker work; the plan builds on gVisor and says what that does not prove.**
+**Stage 8 — Tier-2 environments and agent evals: built, awaiting your review.** Plan: [stage-8-plan.md](stage-8-plan.md). Report: [stage-8-report.md](stage-8-report.md). Runbook: [../runbooks/environments.md](../runbooks/environments.md). ADRs 0034 and 0035. **Not met: any Firecracker microVM (no KVM here, F68), a network allowlist (F69), an external sandbox review (F73), a real agent or model (F72); every result is gVisor on one development VM and level-1-only by rule.**
 
 **What only you can do, with steps: [../owner-tasks.md](../owner-tasks.md).**
