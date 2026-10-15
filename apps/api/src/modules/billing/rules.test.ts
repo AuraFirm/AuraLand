@@ -2,7 +2,7 @@
 // usage is below it (zero allows none); nonsense usage is a bug and stops loudly.
 import type { Entitlements } from "@aura/contracts/api/billing";
 import { describe, expect, it } from "vitest";
-import { featureEnabled, monthBoundsUtc, withinLimit } from "./rules.ts";
+import { featureEnabled, monthBoundsUtc, previousMonthUtc, withinLimit } from "./rules.ts";
 
 const free: Entitlements = {
     plan: "free",
@@ -57,5 +57,19 @@ describe("monthBoundsUtc", () => {
     it("refuses a time that is not a time", () => {
         expect(() => monthBoundsUtc(Number.NaN)).toThrow();
         expect(() => monthBoundsUtc(-1)).toThrow();
+    });
+});
+
+describe("previousMonthUtc", () => {
+    it("is the month before, labelled, across a year end", () => {
+        expect(previousMonthUtc(Date.UTC(2026, 9, 15))).toEqual({
+            startMs: Date.UTC(2026, 8, 1),
+            endMs: Date.UTC(2026, 9, 1),
+            period: "2026-09",
+        });
+        expect(previousMonthUtc(Date.UTC(2027, 0, 1))).toMatchObject({
+            startMs: Date.UTC(2026, 11, 1),
+            period: "2026-12",
+        });
     });
 });

@@ -1,4 +1,6 @@
 import { assert } from "@aura/contracts/assert";
+import type { PaymentProvider } from "./modules/billing/provider.ts";
+import { BILLING_TICK_MS, reconcilePreviousMonth } from "./modules/billing/tick.ts";
 import { RATING_TICK_MS, rateNextContest } from "./modules/contests/rating-tick.ts";
 import {
     createPostgresScoreboardPort,
@@ -53,6 +55,8 @@ export interface WorkerDeps {
     readonly llm?: LlmProvider;
     // Absent in production until a KMS signer exists (F62): then no credential is issued or published.
     readonly passport?: { readonly signer: Signer; readonly publicOrigin: string };
+    // Absent when no payment provider is configured: then the previous month is not reconciled.
+    readonly billing?: { readonly provider: PaymentProvider };
 }
 
 export function maintenanceHandlers(): Map<string, Handler> {
@@ -174,6 +178,23 @@ async function tickPassport(deps: WorkerDeps, due: { nextAtMs: number }): Promis
     }
 }
 
+// Last month's usage against the provider's books, once; looking again costs one read.
+async function tickBilling(deps: WorkerDeps, due: { nextAtMs: number }): Promise<void> {
+    if (deps.billing === undefined || deps.clock.nowUnixMs() < due.nextAtMs) return;
+    due.nextAtMs = deps.clock.nowUnixMs() + BILLING_TICK_MS;
+    try {
+        const result = await reconcilePreviousMonth({
+            clock: deps.clock,
+            provider: deps.billing.provider,
+            inTransaction: deps.context.inTransaction,
+        });
+        if (result !== null && result.differences > 0)
+            deps.logger.error({ ...result }, "billing reconciliation found differences");
+    } catch (error) {
+        deps.logger.error({ err: error }, "billing tick error");
+    }
+}
+
 export function startWorker(deps: WorkerDeps): RunningWorker {
     let stopping = false;
     const loop = (async () => {
@@ -196,6 +217,7 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
     // The contest clock ticks on its own pace, apart from the job queue: a long job must not delay it.
     const scoreboards = createPostgresScoreboardPort(deps.context);
     const passportDue = { nextAtMs: 0 };
+    const billingDue = { nextAtMs: 0 };
     const ticks = (async () => {
         // unbounded: the tick runs until the process is told to stop
         while (!stopping) {
@@ -212,6 +234,7 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
             }
             await tickOralDefence(deps);
             await tickPassport(deps, passportDue);
+            await tickBilling(deps, billingDue);
             try {
                 await refreshScoreboards(scoreboards, deps.context.clock);
             } catch (error) {

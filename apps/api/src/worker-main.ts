@@ -2,6 +2,7 @@ import { createDatabase } from "@aura/db/client";
 import { withRequestContext } from "@aura/db/context";
 import { loadConfigFromProcess } from "./config.ts";
 import { SHUTDOWN_TIMEOUT_MS_MAX } from "./limits.ts";
+import { createFakePaymentProvider } from "./modules/billing/provider.ts";
 import { createPgJobStore } from "./modules/jobs/queries.ts";
 import { systemClock } from "./platform/clock.ts";
 import { createLogger } from "./platform/log.ts";
@@ -32,8 +33,13 @@ const passport = developmentEnvironment
     : undefined;
 if (passport === undefined) logger.warn({}, "passport is off: there is no production signer (F62)");
 
+// Only the fake exists (local development and tests); with no provider configured nothing is reconciled.
+const billing =
+    config.AURA_BILLING_DRIVER === "fake" ? { provider: createFakePaymentProvider() } : undefined;
+
 const worker = startWorker({
     ...(passport === undefined ? {} : { passport }),
+    ...(billing === undefined ? {} : { billing }),
     clock: systemClock,
     rng: systemRng,
     logger,
