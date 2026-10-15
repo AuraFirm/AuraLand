@@ -53,6 +53,15 @@ export const OAUTH_BY_ADDRESS: RateLimitRule = {
     windowS: MINUTE_S,
 };
 
+// Machine callers outside /v1 (Stage 9): an identity provider provisioning people, and the payment provider's events. Generous, because a
+// real provider bursts, but finite, because a flood of bad tokens or forged signatures should cost the sender, not us.
+export const SCIM_BY_ADDRESS: RateLimitRule = { name: "scim:address", max: 300, windowS: MINUTE_S };
+export const PAYMENT_WEBHOOK_BY_ADDRESS: RateLimitRule = {
+    name: "payment-webhook:address",
+    max: 600,
+    windowS: MINUTE_S,
+};
+
 // Keyed by "METHOD path". The provider segment of OAuth paths is folded to ":provider", so one
 // limit covers GitHub and Google together.
 const RULES: ReadonlyMap<string, RateLimitRule> = new Map([
@@ -68,6 +77,8 @@ const RULES: ReadonlyMap<string, RateLimitRule> = new Map([
 ]);
 
 function ruleFor(method: string, path: string): RateLimitRule | undefined {
+    if (path.startsWith("/api/scim/")) return SCIM_BY_ADDRESS;
+    if (path.startsWith("/api/webhooks/")) return PAYMENT_WEBHOOK_BY_ADDRESS;
     const folded = path.replace(
         /^\/api\/v1\/auth\/oauth\/[a-z]+\//,
         "/api/v1/auth/oauth/:provider/",

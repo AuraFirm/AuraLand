@@ -216,6 +216,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
         }),
         "/v1/*",
     );
+    mountMachineLimits(app, deps);
     // Everything under /v1 is the product API: identify the caller, refuse cross-site writes, and
     // give the handler its transaction. Health probes above and below it stay dependency-free.
     use("authenticate", authenticate(deps), "/v1/*");
@@ -468,6 +469,18 @@ function mountOrderRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
             trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
         }),
     );
+}
+
+// The machine endpoints outside /v1 are counted too (their rules are in the same table), before they cost any work.
+function mountMachineLimits(app: Hono<AppEnv>, deps: AppDeps): void {
+    const limit = rateLimit({
+        sql: deps.database.sql,
+        clock: deps.clock,
+        key: loginTokenKey(deps.config),
+        trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+    });
+    app.use("/scim/*", limit);
+    app.use("/webhooks/*", limit);
 }
 
 // The ways in: email, OAuth providers and passkeys.

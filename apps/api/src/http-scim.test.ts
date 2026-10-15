@@ -203,3 +203,24 @@ describe("switching a person off", () => {
         expect((await scim("GET", "/Users")).status).toBe(401);
     });
 });
+
+describe("flooding", () => {
+    it("is counted per address: a flood of bad tokens is answered 429 with a retry hint, while another address is unaffected", async () => {
+        const app = h.app({ AURA_TRUST_EDGE_REQUEST_ID: "true" });
+        const hit = (address: string) =>
+            Promise.resolve(
+                app.request("/api/scim/v2/Users", {
+                    headers: {
+                        authorization: `Bearer ${"x".repeat(43)}`,
+                        "x-forwarded-for": address,
+                    },
+                }),
+            );
+        let last = 0;
+        for (let i = 0; i < 301; i++) last = (await hit("198.51.100.200")).status;
+        expect(last).toBe(429);
+        const refused = await hit("198.51.100.200");
+        expect(refused.headers.get("retry-after")).toMatch(/^[0-9]+$/);
+        expect((await hit("198.51.100.201")).status).toBe(401);
+    });
+});

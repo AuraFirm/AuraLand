@@ -39,6 +39,9 @@ async function seedCredentials(sql: Harness["db"]["database"]["sql"]) {
     const [host] = await sql<
         { id: string }[]
     >`insert into orgs (kind, slug, name) values ('university', 'emp-uni', 'Uni') returning id`;
+    // A webhook endpoint of the host organization that wants `credential.issued`: each issued credential must be queued for it.
+    await sql`insert into webhook_endpoints (org_id, url, events, secret_current, created_by, created_at)
+        values (${host?.id ?? ""}, 'https://hooks.example.com/credentials', array['credential.issued'], ${"c".repeat(64)}, ${ALICE}, now())`;
     const work = <T>(fn: Parameters<typeof withRequestContext<T>>[2]) =>
         withRequestContext(sql, WORKER, fn);
     await work(
@@ -207,6 +210,17 @@ describe("search and reports", () => {
             { n: number }[]
         >`select count(*)::int as n from usage_events where kind = 'employer_report'`;
         expect(metered?.n).toBe(2);
+        // The four credentials issued in setup were queued for the host's endpoint, and the payloads name no person.
+        const queued = await h.db.database
+            .sql`select payload from webhook_deliveries where event_type = 'credential.issued'`;
+        expect(queued).toHaveLength(4);
+        for (const row of queued) {
+            expect(row["payload"]).toMatchObject({
+                type: "credential.issued",
+                data: { kind: "contest_rank" },
+            });
+            expect(JSON.stringify(row["payload"])).not.toContain(CAROL);
+        }
     });
 });
 
