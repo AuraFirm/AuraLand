@@ -95,7 +95,7 @@ describe("issueOnce", () => {
         expect(result.outcome).toBe("valid");
         if (result.outcome === "invalid") throw new Error("expected valid");
         expect(result.status.index).toBe(row?.status_index);
-        expect(result.status.listUrl).toBe(`${ORIGIN}/passport/status/${row?.status_list}`);
+        expect(result.status.listUrl).toBe(`${ORIGIN}/api/public/status-lists/${row?.status_list}`);
         expect(result.kid).toBe(row?.kid);
     });
 });

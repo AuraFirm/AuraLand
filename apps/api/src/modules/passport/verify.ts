@@ -19,6 +19,8 @@ export type Verified =
           readonly issuedAtMs: number;
           readonly status: { readonly listUrl: string; readonly index: number };
           readonly name: string;
+          readonly issuerName: string;
+          readonly achievement: { readonly name: string; readonly description: string };
       }
     | { readonly outcome: "invalid"; readonly reason: string };
 
@@ -31,6 +33,10 @@ const payloadSchema = z.object({
     aura_assurance: z.number().int(),
     vc: z.object({
         name: z.string(),
+        issuer: z.object({ name: z.string() }),
+        credentialSubject: z.object({
+            achievement: z.object({ name: z.string(), description: z.string() }),
+        }),
         credentialStatus: z.object({
             statusListCredential: z.string(),
             statusListIndex: z.string().regex(/^\d{1,9}$/),
@@ -106,6 +112,8 @@ function readVerified(payloadText: string, kid: string, nowMs: number): Verified
         issuedAtMs: p.nbf * 1000,
         status: { listUrl: status.statusListCredential, index: Number(status.statusListIndex) },
         name: p.vc.name,
+        issuerName: p.vc.issuer.name,
+        achievement: p.vc.credentialSubject.achievement,
     };
 }
 

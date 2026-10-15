@@ -46,6 +46,7 @@ import { judgeAdminRoutes } from "./modules/judge/admin-routes.ts";
 import { judgeRoutes } from "./modules/judge/routes.ts";
 import { deliveryRoutes } from "./modules/orders/delivery-routes.ts";
 import { orderRoutes } from "./modules/orders/routes.ts";
+import { publicPassportRoutes } from "./modules/passport/public-routes.ts";
 import { payoutRoutes } from "./modules/payouts/routes.ts";
 import { contestSubmissionRoutes } from "./modules/submissions/contest-routes.ts";
 import { examProblemRoutes } from "./modules/submissions/exam-routes.ts";
@@ -205,6 +206,15 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 
     // Liveness: the process is up. It must not touch dependencies, or an outage restarts everything.
     app.get("/healthz", (c) => c.json({ status: "ok" }));
+    // Passport's public documents come from storage alone, so they answer when the database does not.
+    app.route(
+        "/public",
+        publicPassportRoutes({
+            clock: deps.clock,
+            storage: deps.storage,
+            publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+        }),
+    );
     // Readiness: safe to receive traffic, meaning the database answers.
     app.get("/readyz", async (c) => {
         if (await pingWithTimeout(deps.pingDatabase)) return c.json({ status: "ready" });

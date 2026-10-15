@@ -15,6 +15,10 @@ import { encodeStatusList, signStatusList } from "./status-list.ts";
 export const DID_KEY = "public/passport/did.json";
 export const JWKS_KEY = "public/passport/jwks.json";
 export const statusKey = (list: number): string => `public/passport/status/${list}`;
+const CREDENTIAL_PREFIX = "public/passport/credentials/";
+export const credentialKey = (id: string): string => `${CREDENTIAL_PREFIX}${id}`;
+// A bound, not a feature: more public credentials than this wait for the next run.
+const PUBLIC_CREDENTIALS_PER_RUN_MAX = 10_000;
 
 export interface PublishContext {
     readonly clock: Clock;
@@ -96,13 +100,48 @@ export async function publishPassport(tx: Transaction, context: PublishContext):
             contentType: "application/vc+jwt",
             body: () =>
                 signStatusList(context.signer, {
-                    listUrl: `${context.publicOrigin}/passport/status/${list.status_list}`,
+                    listUrl: `${context.publicOrigin}/api/public/status-lists/${list.status_list}`,
                     issuerDid: context.issuerDid,
                     encodedList,
                     issuedAtMs: context.clock.nowUnixMs(),
                 }),
         });
         if (changed) written.push(name);
+    }
+    written.push(...(await publishPublicCredentials(tx, context)));
+    return written;
+}
+
+// The credentials their holders made public, one file each, so a verifier needs no database. A credential made
+// private again has its file removed.
+async function publishPublicCredentials(
+    tx: Transaction,
+    context: PublishContext,
+): Promise<string[]> {
+    const written: string[] = [];
+    const rows = await tx`select id, vc_jwt from credentials where visibility = 'public'
+        order by id limit ${PUBLIC_CREDENTIALS_PER_RUN_MAX}`;
+    const wanted = new Set<string>();
+    for (const raw of rows) {
+        const row = z.object({ id: z.string(), vc_jwt: z.string() }).parse(raw);
+        const name = credentialKey(row.id);
+        wanted.add(name);
+        const changed = await writeIfChanged(tx, context, {
+            name,
+            digest: digestOf(row.vc_jwt),
+            contentType: "application/vc+jwt",
+            body: async () => row.vc_jwt,
+        });
+        if (changed) written.push(name);
+    }
+    const published =
+        await tx`select name from passport_artifacts where name like ${`${CREDENTIAL_PREFIX}%`} order by name`;
+    for (const raw of published) {
+        const name = z.object({ name: z.string() }).parse(raw).name;
+        if (wanted.has(name)) continue;
+        await context.storage.remove(name);
+        await tx`select forget_passport_artifact(${name})`;
+        written.push(`-${name}`);
     }
     return written;
 }
