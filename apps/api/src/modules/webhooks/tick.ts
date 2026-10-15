@@ -1,4 +1,4 @@
-import { WEBHOOK_EVENTS } from "@aura/contracts/api/webhooks";
+import { webhookDeliveryTypeSchema } from "@aura/contracts/api/webhooks";
 import { encodeId } from "@aura/contracts/ids";
 import type { Transaction } from "@aura/db/context";
 import { z } from "zod";
@@ -25,7 +25,7 @@ const BATCH_MAX = 10;
 const dueRow = z.object({
     id: z.string(),
     url: z.string(),
-    event_type: z.enum(WEBHOOK_EVENTS),
+    event_type: webhookDeliveryTypeSchema,
     payload: z.record(z.string(), z.unknown()),
     created_at: z.date(),
     attempts: z.number().int(),

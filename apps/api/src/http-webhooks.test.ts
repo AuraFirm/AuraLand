@@ -143,6 +143,33 @@ describe("reading and changing endpoints", () => {
         expect(log.deliveries).toEqual([]);
         expect((await call(CAROL, "GET", `${path}/deliveries`)).status).toBe(404);
     });
+});
+
+describe("test events", () => {
+    it("sends one signed test event on request, only one at a time, only for owners and administrators", async () => {
+        const { sql } = h.db.database;
+        const made = webhookSecretSchema.parse(
+            await (await create(ALICE, "https://test.example.com/")).json(),
+        );
+        const path = `/webhooks/${made.webhook.id}/test`;
+        expect((await call(BOB, "POST", path)).status).toBe(404);
+        expect((await call(CAROL, "POST", path)).status).toBe(404);
+        expect((await call(ALICE, "POST", path)).status).toBe(202);
+        const [queued] =
+            await sql`select event_type, state, payload from webhook_deliveries where endpoint_id = ${made.webhook.id.slice(4)}`;
+        expect(queued).toMatchObject({
+            event_type: "webhook.test",
+            state: "pending",
+            payload: { type: "webhook.test" },
+        });
+        expect((await call(ALICE, "POST", path)).status).toBe(409); // one waiting test is enough
+        const log = webhookDeliveriesResponseSchema.parse(
+            await (await call(ALICE, "GET", `/webhooks/${made.webhook.id}/deliveries`)).json(),
+        );
+        expect(log.deliveries.map((d) => d.event_type)).toEqual(["webhook.test"]);
+        await call(ALICE, "DELETE", `/webhooks/${made.webhook.id}`);
+        expect((await call(ALICE, "POST", path)).status).toBe(404); // a switched-off endpoint gets none
+    });
 
     it("never lets the application role read a secret, even by mistake", async () => {
         const asOwner = (

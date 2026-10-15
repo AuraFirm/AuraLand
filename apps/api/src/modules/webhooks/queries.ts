@@ -88,3 +88,7 @@ export async function listDeliveries(tx: Transaction, endpoint: string) {
         });
     });
 }
+
+export async function sendTest(tx: Transaction, id: string, nowMs: number): Promise<void> {
+    await tx`select send_webhook_test(${id}, ${new Date(nowMs)})`;
+}

@@ -103,6 +103,20 @@ describe("delivering", () => {
     });
 });
 
+describe("test events", () => {
+    it("travel the real path: signed, with their own event name, delivered and recorded", async () => {
+        sent.length = 0;
+        // The request path is tested over HTTP; here the same row is queued directly to show the worker treats it like any delivery.
+        await db.database
+            .sql`insert into webhook_deliveries (endpoint_id, org_id, event_type, source_id, payload, next_attempt_at, created_at)
+            values (${endpoint}, ${org}, 'webhook.test', ${U(40)}, '{"type":"webhook.test","created":1,"data":{}}'::jsonb, ${new Date(clock.nowUnixMs())}, ${new Date(clock.nowUnixMs())})`;
+        await tick();
+        const test = sent.find((request) => request.headers["x-aura-event"] === "webhook.test");
+        expect(test?.headers["x-aura-signature"]).toMatch(/^t=\d+,v1=[0-9a-f]{64}/);
+        expect(await delivery(U(40))).toMatchObject({ state: "delivered" });
+    });
+});
+
 describe("failing and retrying", () => {
     it("retries after a rejection with doubling delays and records only a fixed reason", async () => {
         answer = { outcome: "rejected", status: 500 };
