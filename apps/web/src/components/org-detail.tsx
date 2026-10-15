@@ -39,6 +39,11 @@ export function OrgDetail({ orgId }: { orgId: string }) {
             <OrgMembers org={data} />
             {manages && <OrgInvitations org={data} />}
             {manages && <OrgApiKeys org={data} />}
+            {manages && (
+                <a className="text-accent underline" href={`/orgs/${orgId}/admin`}>
+                    Admin console: plan, single sign-on, provisioning, webhooks
+                </a>
+            )}
             <a className="text-accent underline" href="/orgs">
                 All organizations
             </a>

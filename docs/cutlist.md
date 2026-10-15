@@ -80,3 +80,10 @@ Nothing here blocks Stage 1 or Stage 2. Ranked by how much it matters; "owner" i
 | F74 | Admission control by node memory: a run's workspace memory file system is charged to the node, not the sandbox cgroup, so concurrency must be sized by cgroup peak plus disk limit; nothing enforces it | Real node sizing | engineering |
 | F75 | A cost model: price per 1,000 runs for gVisor, Firecracker and a managed provider, from a priced node and a real workload | Prices, a node, a workload | founder |
 | F76 | Centaur and agent contest formats; a leaderboard visible to people outside the customer; centaur/agent entries in Arena | Stage 5 format work and a customer who asks | founder |
+| F77 | A real payment-provider adapter (Stripe) behind `PaymentProvider`, tested against a real account; tax, invoices, dunning; today only a fake exists and the webhook signature is checked against signatures computed in tests | A legal entity and a Stripe (or merchant-of-record) account (D1, D2) | founder, engineering |
+| F78 | SAML single sign-on (needs an XML-signature library, an ADR and a conformance partner); IdP-initiated OIDC login; today only OIDC authorization-code sign-in exists and was tested only against a fake provider | A customer who needs SAML; a real provider to test against | engineering |
+| F79 | A real disaster-recovery drill (point-in-time recovery, multi-AZ, restore of a production-like database) and a second data region | A cloud account with backups (F1) | founder, engineering |
+| F80 | A rate limit on the SCIM path (`/api/scim/v2`), which sits outside `/v1` and therefore outside the per-address limit | Engineering time | engineering |
+| F81 | SCIM Groups and the remaining User attributes; SSO session mapping to SCIM deactivation across several organizations | A customer asking | engineering |
+| F82 | Webhook events beyond `env_run.finished` (`credential.issued` is accepted in endpoints but nothing raises it yet), a delivery-log screen, a "send test event" action | Product decision | engineering |
+

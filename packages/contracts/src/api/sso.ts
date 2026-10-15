@@ -53,3 +53,17 @@ export const SSO_FAILURE_REASONS = [
     "unavailable",
 ] as const;
 export type SsoFailureReason = (typeof SSO_FAILURE_REASONS)[number];
+
+// SCIM bearer tokens: the token itself is shown once, when it is made.
+export const scimTokenSchema = z
+    .object({
+        id: idSchema("sct"),
+        created_at: z.iso.datetime(),
+        last_used_at: z.iso.datetime().nullable(),
+        revoked: z.boolean(),
+    })
+    .strict();
+export const scimTokenCreatedSchema = z
+    .object({ token: z.string().min(20).max(100), scim_token: scimTokenSchema, base_url: z.url() })
+    .strict();
+export const scimTokensResponseSchema = z.object({ tokens: z.array(scimTokenSchema) }).strict();

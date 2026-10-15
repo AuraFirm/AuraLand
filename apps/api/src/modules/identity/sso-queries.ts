@@ -109,3 +109,9 @@ export async function orgHasRoom(tx: Transaction, org: string): Promise<boolean>
     const [row] = await tx`select sso_org_has_room(${org}) as room`;
     return z.object({ room: z.boolean() }).parse(row).room;
 }
+
+// True when the person's organization switched them off through SCIM: they cannot come back in through single sign-on.
+export async function scimInactive(tx: Transaction, org: string, userId: string): Promise<boolean> {
+    const [row] = await tx`select sso_scim_inactive(${org}, ${userId}) as inactive`;
+    return z.object({ inactive: z.boolean() }).parse(row).inactive;
+}

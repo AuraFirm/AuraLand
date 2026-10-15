@@ -57,6 +57,8 @@ import { publicPassportRoutes } from "./modules/passport/public-routes.ts";
 import { payoutRoutes } from "./modules/payouts/routes.ts";
 import { createPublicOidcTransport, type OidcTransport } from "./modules/sso/oidc.ts";
 import { ssoRoutes } from "./modules/sso/routes.ts";
+import { scimAdminRoutes } from "./modules/sso/scim-admin-routes.ts";
+import { scimRoutes } from "./modules/sso/scim-routes.ts";
 import { contestSubmissionRoutes } from "./modules/submissions/contest-routes.ts";
 import { examProblemRoutes } from "./modules/submissions/exam-routes.ts";
 import { practiceRoutes } from "./modules/submissions/practice-routes.ts";
@@ -240,6 +242,8 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
             stripeSecret: deps.config.AURA_STRIPE_WEBHOOK_SECRET,
         }),
     );
+    // SCIM provisioning by an identity provider: outside /v1 (no session, no CSRF); the bearer token is the credential.
+    app.route("/scim/v2", scimRoutes({ sql: deps.database.sql, clock: deps.clock }));
     // Readiness: safe to receive traffic, meaning the database answers.
     app.get("/readyz", async (c) => {
         if (await pingWithTimeout(deps.pingDatabase)) return c.json({ status: "ready" });
@@ -335,6 +339,14 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", employerRoutes({ clock: deps.clock }));
     app.route("/v1", environmentRoutes({ clock: deps.clock }));
     app.route("/v1", customerWebhookRoutes({ clock: deps.clock, rng: deps.rng }));
+    app.route(
+        "/v1",
+        scimAdminRoutes({
+            clock: deps.clock,
+            rng: deps.rng,
+            publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+        }),
+    );
     app.route(
         "/v1",
         ssoRoutes({
