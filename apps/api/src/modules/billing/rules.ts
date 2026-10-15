@@ -27,3 +27,17 @@ export function monthBoundsUtc(nowMs: number): { startMs: number; endMs: number 
     assert(startMs <= nowMs && nowMs < endMs, "the month contains the time asked about");
     return { startMs, endMs };
 }
+
+// The calendar month before the one that contains `nowMs`, and its label ("2026-09"), which names a reconciliation.
+export function previousMonthUtc(nowMs: number): {
+    startMs: number;
+    endMs: number;
+    period: string;
+} {
+    const { startMs: endMs } = monthBoundsUtc(nowMs);
+    const end = new Date(endMs);
+    const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 1, 1));
+    const period = `${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, "0")}`;
+    assert(start.getTime() < endMs, "the previous month ends where this one starts");
+    return { startMs: start.getTime(), endMs, period };
+}

@@ -75,6 +75,9 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `customers` | `modules/billing` | Which plan an organization is on, with billing and contract references (owners and administrators read it); set only by `set_org_plan`, a platform administrator's function |
 | `usage_events` | `modules/billing` | Billable facts (a finished environment run, an opened employer report), written only by triggers on the tables that record those facts, unique per (organization, kind, source), never changed; read by owners and administrators, counted for members through `org_usage` |
 | `billing_events` | `modules/billing` | Events from the payment provider, one row per provider event id (the idempotency), with what was done about it; written only by `apply_provider_event` for the worker role; never changed |
+| `ledger_txns` | `modules/billing` | Double-entry money transactions, one per business fact (kind, ref), posted by `post_ledger_txn`; never changed; worker role only |
+| `ledger_entries` | `modules/billing` | The debit and credit lines of a ledger transaction; amounts are positive whole minor units; debits equal credits per currency when the transaction commits (a deferred constraint trigger); never changed |
+| `reconciliations` | `modules/billing` | One row per month: our usage counts, the payment provider's, and the differences between them; recorded once, never changed; worker role only |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

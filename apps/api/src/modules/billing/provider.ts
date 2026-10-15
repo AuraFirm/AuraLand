@@ -10,26 +10,40 @@ export interface CheckoutRequest {
     readonly cancelUrl: string;
 }
 
+import type { UsageLine } from "./reconcile.ts";
+
 export interface PaymentProvider {
     createCheckoutSession(request: CheckoutRequest): Promise<{ sessionId: string; url: string }>;
     createPortalSession(request: {
         billingRef: string;
         returnUrl: string;
     }): Promise<{ url: string }>;
+    // Tell the provider what a closed month's usage was. The period names the month, so telling it twice replaces rather than adds.
+    reportUsage(period: string, lines: readonly UsageLine[]): Promise<void>;
+    // What the provider holds for that month.
+    listUsageLines(period: string): Promise<UsageLine[]>;
 }
 
 // Records what it was asked, so tests can see exactly what a route sent to the provider.
 export interface FakePaymentProvider extends PaymentProvider {
     readonly checkouts: CheckoutRequest[];
     readonly portals: { billingRef: string; returnUrl: string }[];
+    // Tests change what the "provider" holds to play a provider that disagrees.
+    readonly held: Map<string, UsageLine[]>;
 }
 
 export function createFakePaymentProvider(): FakePaymentProvider {
     const checkouts: CheckoutRequest[] = [];
     const portals: { billingRef: string; returnUrl: string }[] = [];
+    const held = new Map<string, UsageLine[]>();
     return {
         checkouts,
         portals,
+        held,
+        reportUsage: async (period, lines) => {
+            held.set(period, [...lines]);
+        },
+        listUsageLines: async (period) => [...(held.get(period) ?? [])],
         createCheckoutSession: async (request) => {
             checkouts.push(request);
             const sessionId = `cs_fake_${checkouts.length}`;
