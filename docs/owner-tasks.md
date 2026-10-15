@@ -129,6 +129,18 @@ mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRU
 6. **A human accessibility audit** of the candidate screens (timer, editor, forms); axe passes, but axe is not an audit.
 7. The same blockers as contests for any real exam: deployment and edge (F1, F33), a reviewed judge node (F32).
 
+### 3.9 Stage 7 (Passport): what only you can do
+1. **A cloud account with KMS** (F1), then I build and test the production signer (F62) and answer Ed25519 versus ES256. Until
+   then credentials are development credentials and Passport is off in production.
+2. **A domain for the issuer** (D3): the issuer's `did:web` is the site's host; changing it later invalidates credentials.
+3. **A human to read the signing and key-management code** (F63) before anything is called production.
+4. **Legal review** of the employer module and of what a credential may say about a person, per jurisdiction; decide the policy
+   for deleting an account that holds credentials (kit 05: revoke only where required).
+5. **Decide the exam-credential policy**: low bands (0-24%) currently issue a credential; the validity (5 years) and whether
+   hosts may opt out are yours to set.
+6. **A pilot employer**, if you want one, only after (4).
+7. An identity-verification vendor, if you want assurance above the event's own (F64).
+
 ## 4. Routine
 - [ ] Weekly: `pnpm audit:verify`; keep the printed audit-chain head outside the database (until F8).
 - [ ] Within 72 hours of a high or critical Next.js advisory: update (ADR 0005); CI shows it.
@@ -146,7 +158,7 @@ mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRU
 | Bundle opening on nodes; `task.validate`; re-validating waived releases | Need the sandbox | F30, F31 |
 | TLS/mTLS edge, deployment, alerts and dashboards | No cloud account yet | F1, F33, F39 |
 | Real GitHub/Google sign-in tested; production mail | Accounts missing | F11, F12 |
-| Credentials | Later stages | `docs/kit/12` |
+| A production signer; credentials that may be called production credentials; identity proof; real employers | Need KMS, a reviewer, a vendor and legal review | F62 to F67 |
 | A real exam with real people; identity proof, proctoring or a lockdown browser; a real LLM provider call | Need review, a deployment and accounts; assurance above level 1 is not built | F32, F41, F55 to F61 |
 | Contest pilot with real people, the scoreboard at kit load, a calibrated rating | Need a deployment, an edge and a reviewed judge fleet | F1, F32, F49, F50 |
 | Platform-administrator screens (nodes, orgs) | API only for now | F13 |
