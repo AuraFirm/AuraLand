@@ -69,6 +69,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `passport_events_done` | `modules/passport` | Which finished contests and exams have been turned into credentials, and how many were issued; written only by `mark_passport_event_done` (worker) |
 | `employer_orgs` | `modules/passport` | Company organizations a platform administrator approved to search public credentials; written only by `approve_employer_org` and `revoke_employer_org` |
 | `credential_views` | `modules/passport` | One row per employer report opened on a public credential (which organization, which person, why, when); written only by `employer_report`, never changed or deleted; readable by the holder (without the person) and by the looking organization |
+| `environments` | `modules/environments` | An organization's Tier-2 environment recipe (spec v2, image and hidden-material keys); written only by `create_environment` |
+| `env_runs` | `modules/environments` | One agent evaluated in an environment: what was asked, the node's signed trace, the isolation that contained it and whether the result is eligible for the use it was requested for (a generated column); asked by `request_env_run`, finished once by `finish_env_run`, never changed after |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

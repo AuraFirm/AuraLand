@@ -86,7 +86,7 @@ import { validationJobSchema } from "./validation.ts";
 
 export const leaseRequestSchema = z
     .object({
-        queue: z.enum(["judge", "validate", "watermark"]),
+        queue: z.enum(["judge", "validate", "watermark", "env"]),
         // 0 answers at once; up to 25 s holds the request until work arrives.
         wait_ms: z.number().int().min(0).max(LEASE_WAIT_MS_MAX),
     })
@@ -161,3 +161,83 @@ export const jobFailRequestSchema = z
     .strict();
 
 export const jobAcceptedSchema = z.object({ accepted: z.literal(true) }).strict();
+
+// Environment runs (Stage 8, ADR 0034): what a Tier-2 node is leased, and what it reports. The trace is sent as the exact
+// text the node signed (canonical JSON), so the signature can be checked over those bytes before anything is parsed.
+export const envJobSchema = z
+    .object({
+        job_id: idSchema("job"),
+        lease_epoch: z.number().int().min(1),
+        lease_ttl_s: z.number().int().min(1),
+        run_id: idSchema("evr"),
+        environment: z
+            .object({
+                id: idSchema("env"),
+                spec: z.record(z.string(), z.unknown()),
+                image_key: z.string(),
+                image_download_url: z.string(),
+                hidden_key: z.string(),
+                hidden_download_url: z.string(),
+                hidden_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+            })
+            .strict(),
+    })
+    .strict();
+export const envLeaseResponseSchema = z.object({ job: envJobSchema.nullable() }).strict();
+
+const traceStepSchema = z
+    .object({
+        name: z.string().max(40),
+        argv: z.array(z.string().max(512)).max(32),
+        verdict: z.enum(["OK", "TLE", "MLE", "OLE", "RTE", "SE"]),
+        exit_code: z.number().int(),
+        wall_ms: z.number().int().min(0),
+        peak_memory_mib: z.number().int().min(0),
+        pids_peak: z.number().int().min(0),
+        stdout_bytes: z.number().int().min(0),
+        stdout_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+        tree_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    })
+    .strict();
+export const ENV_FLAG_KINDS = [
+    "protected_path_changed",
+    "honeypot_touched",
+    "canary_in_output",
+    "link_in_workspace",
+] as const;
+export const envTraceSchema = z
+    .object({
+        version: z.literal(1),
+        isolation: z.enum(["gvisor", "firecracker"]),
+        outcome: z.enum(["completed", "setup_failed", "sandbox_error"]),
+        start_hash: z.string().regex(/^[0-9a-f]{64}$/),
+        steps: z.array(traceStepSchema).max(200),
+        flags: z
+            .array(
+                z
+                    .object({
+                        kind: z.enum(ENV_FLAG_KINDS),
+                        subject: z.string().max(300),
+                        explanation: z.string().max(600),
+                    })
+                    .strict(),
+            )
+            .max(100),
+        verifier: z
+            .object({
+                score: z.number().min(0).max(1),
+                detail: z.string().max(1024),
+                dropped: z.array(z.string().max(300)).max(100),
+            })
+            .strict()
+            .nullable(),
+    })
+    .strict();
+export type EnvTrace = z.infer<typeof envTraceSchema>;
+export const envCompleteRequestSchema = z
+    .object({
+        lease_epoch: z.number().int().min(1),
+        trace: z.string().min(2).max(1_048_576),
+        trace_signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/),
+    })
+    .strict();
