@@ -29,6 +29,7 @@ import {
 } from "./modules/maintenance/handlers.ts";
 import { buildDelivery, DELIVERY_BUILD_KIND } from "./modules/orders/handlers.ts";
 import { PASSPORT_TICK_MS, runPassportTick } from "./modules/passport/tick.ts";
+import { deliverDueWebhooks, WEBHOOK_TICK_MS } from "./modules/webhooks/tick.ts";
 import type { Clock } from "./platform/clock.ts";
 import type { LlmProvider } from "./platform/llm.ts";
 import type { Logger } from "./platform/log.ts";
@@ -179,6 +180,17 @@ async function tickPassport(deps: WorkerDeps, due: { nextAtMs: number }): Promis
 }
 
 // Last month's usage against the provider's books, once; looking again costs one read.
+// Customer webhooks that are due, sent one after another and recorded.
+async function tickWebhooks(deps: WorkerDeps, due: { nextAtMs: number }): Promise<void> {
+    if (deps.clock.nowUnixMs() < due.nextAtMs) return;
+    due.nextAtMs = deps.clock.nowUnixMs() + WEBHOOK_TICK_MS;
+    try {
+        await deliverDueWebhooks({ clock: deps.clock, inTransaction: deps.context.inTransaction });
+    } catch (error) {
+        deps.logger.error({ err: error }, "webhook tick error");
+    }
+}
+
 async function tickBilling(deps: WorkerDeps, due: { nextAtMs: number }): Promise<void> {
     if (deps.billing === undefined || deps.clock.nowUnixMs() < due.nextAtMs) return;
     due.nextAtMs = deps.clock.nowUnixMs() + BILLING_TICK_MS;
@@ -218,6 +230,7 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
     const scoreboards = createPostgresScoreboardPort(deps.context);
     const passportDue = { nextAtMs: 0 };
     const billingDue = { nextAtMs: 0 };
+    const webhooksDue = { nextAtMs: 0 };
     const ticks = (async () => {
         // unbounded: the tick runs until the process is told to stop
         while (!stopping) {
@@ -235,6 +248,7 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
             await tickOralDefence(deps);
             await tickPassport(deps, passportDue);
             await tickBilling(deps, billingDue);
+            await tickWebhooks(deps, webhooksDue);
             try {
                 await refreshScoreboards(scoreboards, deps.context.clock);
             } catch (error) {

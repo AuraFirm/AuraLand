@@ -69,6 +69,7 @@ import { reviewRoutes } from "./modules/tasks/review-routes.ts";
 import { taskRoutes } from "./modules/tasks/task-routes.ts";
 import { versionRoutes } from "./modules/tasks/version-routes.ts";
 import { validationRoutes } from "./modules/validation/routes.ts";
+import { webhookRoutes as customerWebhookRoutes } from "./modules/webhooks/routes.ts";
 import { assertPipelineOrder, type PipelineName } from "./pipeline.ts";
 import type { Clock } from "./platform/clock.ts";
 import type { Logger } from "./platform/log.ts";
@@ -326,6 +327,7 @@ function mountExamRoutes(app: Hono<AppEnv>, deps: AppDeps): void {
     app.route("/v1", reportRoutes());
     app.route("/v1", employerRoutes({ clock: deps.clock }));
     app.route("/v1", environmentRoutes({ clock: deps.clock }));
+    app.route("/v1", customerWebhookRoutes({ clock: deps.clock, rng: deps.rng }));
     app.route(
         "/v1",
         billingRoutes({

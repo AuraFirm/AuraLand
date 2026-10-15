@@ -241,6 +241,10 @@ describe("asking for a run and running it", () => {
         expect(
             (await call(CAROL, "POST", `/environments/${env}/runs`, { agent_label: "x" })).status,
         ).toBe(404);
+        // A customer webhook endpoint that wants this event: the finished run must be queued for it.
+        await h.db.database
+            .sql`insert into webhook_endpoints (org_id, url, events, secret_current, created_by, created_at)
+            values (${org}, 'https://hooks.example.com/runs', array['env_run.finished'], ${"f".repeat(64)}, ${ALICE}, now())`;
         const id = await request(env);
         expect(
             (await call(ALICE, "POST", `/environments/${env}/runs`, { agent_label: "agent-1" }))
@@ -286,6 +290,18 @@ describe("asking for a run and running it", () => {
                 })
             ).status,
         ).toBe(409); // a second report
+        const [queued] = await h.db.database
+            .sql`select payload from webhook_deliveries where source_id = ${decodeId("evr", id)}`;
+        expect(queued?.["payload"]).toMatchObject({
+            type: "env_run.finished",
+            data: {
+                run_id: id,
+                state: "done",
+                outcome: "completed",
+                isolation: "gvisor",
+                eligible: true,
+            },
+        });
         // The finished run is one billable event, keyed by the run.
         const [metered] = await h.db.database.sql<
             { n: number }[]
