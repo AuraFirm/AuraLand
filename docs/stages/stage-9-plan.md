@@ -34,9 +34,10 @@ client (SSRF-safe), payouts (Stage 4A), `orgs.data_region`, the storage port, th
 3. **Entitlements are checked server-side in one function**; plans are data (a table), not code; unknown plan means the free plan.
 4. **Metering** is an append-only event table keyed by an idempotency key; usage per org per month is a fold; billing
    reconciliation compares our fold with the provider's lines through the port.
-5. **Customer webhooks** are signed (HMAC-SHA-256, timestamp, per-endpoint secret shown once, stored encrypted-free as a hash is
-   impossible for HMAC, so stored with the application secret box already used for login tokens if it exists, else an ADR),
-   delivered by the worker with retry and a dead-letter, SSRF-checked at resolve and again at connect.
+5. **Customer webhooks** are signed (HMAC-SHA-256 over timestamp and body, a per-endpoint secret shown once). HMAC needs the
+   secret itself, so it cannot be stored as a hash: it is kept in a column only the worker's database role can read, never
+   returned by the API after creation, and rotated by creating a new one. Deliveries are made by the worker with retry and a
+   dead letter, and the target is SSRF-checked when resolved and again at connect.
 6. **SSO** is OIDC authorization-code with PKCE, per-organization, domain verified by a DNS TXT proof through a resolver port;
    JIT provisioning; SCIM bearer tokens hashed. A person with SSO enforced cannot use other sign-in for that org.
 7. **Impersonation** only with the target's consent token, time-boxed, read-only by default, every action audited with both ids,
