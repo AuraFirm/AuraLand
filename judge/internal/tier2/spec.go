@@ -21,6 +21,14 @@ func Spec(e Env) ([]byte, error) {
 	const mib = 1 << 20
 	memory := int64(e.Limits.MemoryMiB) * mib
 	none := []string{}
+	mounts := []map[string]any{
+		{"destination": "/proc", "type": "proc", "source": "proc"},
+		{"destination": "/tmp", "type": "tmpfs", "source": "tmpfs", "options": []string{"nosuid", "nodev", "noexec", fmt.Sprintf("size=%dm", e.Limits.DiskMiB)}},
+		{"destination": e.WorkDir, "type": "bind", "source": e.Workspace, "options": []string{"rbind", "rw", "nosuid", "nodev"}},
+	}
+	for _, m := range e.Mounts {
+		mounts = append(mounts, map[string]any{"destination": m.Dest, "type": "bind", "source": m.Host, "options": []string{"rbind", "ro", "nosuid", "nodev", "noexec"}})
+	}
 	cfg := map[string]any{
 		"ociVersion": "1.0.2",
 		"process": map[string]any{
@@ -41,11 +49,7 @@ func Spec(e Env) ([]byte, error) {
 		},
 		"root":     map[string]any{"path": e.Rootfs, "readonly": true},
 		"hostname": "env",
-		"mounts": []map[string]any{
-			{"destination": "/proc", "type": "proc", "source": "proc"},
-			{"destination": "/tmp", "type": "tmpfs", "source": "tmpfs", "options": []string{"nosuid", "nodev", "noexec", fmt.Sprintf("size=%dm", e.Limits.DiskMiB)}},
-			{"destination": e.WorkDir, "type": "bind", "source": e.Workspace, "options": []string{"rbind", "rw", "nosuid", "nodev"}},
-		},
+		"mounts":   mounts,
 		"linux": map[string]any{
 			"namespaces": []map[string]string{{"type": "pid"}, {"type": "ipc"}, {"type": "uts"}, {"type": "mount"}, {"type": "network"}},
 			"resources": map[string]any{

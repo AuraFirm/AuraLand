@@ -116,3 +116,12 @@ again unconfined as root (all escape), so a pass means contained, not broken.
   probe's target was `/tmp`; controls now mount only over their own work directory, and ptrace/signal probes use a harmless process the
   test starts, never PID 1.
 - Not covered: kernel-surface fuzzing, side channels, other platforms (KVM/ptrace), x86, and anything an external reviewer would add.
+
+### Tier-2 verifier, 2026-10-15 (same VM, same caveats)
+The verifier runs in a second sandbox on a **snapshot** of the agent's workspace with the hidden material mounted read-only at
+`/verifier`; the agent's sandbox never has it. Observed: an honest agent scores 1, a wrong one 0; an agent hunting the file system
+for the hidden answer finds nothing; the verifier cannot write to what it was shown.
+- **A real reward hack, reproduced and stopped:** an agent that makes `answer.txt` a symlink to `/verifier/expected.txt` is graded
+  against the verifier's own copy and scores 1 if the workspace is handed over as it is (mutation-checked: copying links makes the
+  test fail with "the link earned a score of 1"). `Snapshot` therefore carries only regular files and directories, drops links,
+  devices and pipes, reports their names as evidence, and caps files, depth and bytes.
