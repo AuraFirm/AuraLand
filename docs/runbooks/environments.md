@@ -35,7 +35,7 @@ select state, count(*) from env_runs group by 1;                                
 select id, state, last_error from jobs where queue = 'env' and state in ('dead','failed') order by updated_at desc limit 20;
 select isolation, eligible, count(*) from env_runs where state = 'done' group by 1, 2;  -- gvisor is eligible only up to level 1
 ```
-On the node: `ls /sys/fs/cgroup/aura/` and `grep aura /proc/mounts` should be empty when idle (see F71 for why they may not be);
+At startup the node removes sandboxes, cgroups, memory file systems and directories that belong to a node process that no longer exists (it logs how many); a run of a live process is never touched. On the node: `ls /sys/fs/cgroup/aura/` and `grep aura /proc/mounts` should be empty when idle (see F71 for why they may not be);
 `ps -eo pid,ppid,stat,cmd | grep runsc` should show nothing when idle except defunct entries owned by init.
 
 ## 4. Drill: the guest is compromised

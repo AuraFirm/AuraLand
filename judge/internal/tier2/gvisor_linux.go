@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 )
 
@@ -294,4 +295,52 @@ func classify(exit int, timedOut, outputOver bool, stdout []byte, wall time.Dura
 		r.Verdict = "RTE"
 	}
 	return r
+}
+
+// SweepStale removes what runs of a node that is no longer alive left behind: sandboxes still running, their cgroups, memory file
+// systems, state directories. A run's name carries its node's process id; a name whose process still exists is left alone (it may
+// be this very node, or another one sharing the directory), and a name that is not ours is never touched. Call it once at startup,
+// before taking work. It returns how many runs it cleaned up. Found while writing the compromised-guest drill (cutlist F71): a
+// sandbox from a killed test run was still alive an hour and a half later.
+func (g *GVisor) SweepStale() (int, error) {
+	stale := map[string]bool{}
+	entries, err := os.ReadDir(g.BaseDir)
+	if err != nil {
+		return 0, err
+	}
+	for _, entry := range entries {
+		if pid, ok := RunPID(entry.Name()); ok && entry.IsDir() && !processExists(pid) {
+			stale[entry.Name()] = true
+		}
+	}
+	if cgroups, err := os.ReadDir(cgroupRoot); err == nil {
+		for _, entry := range cgroups {
+			if pid, ok := RunPID(entry.Name()); ok && !processExists(pid) {
+				stale[entry.Name()] = true
+			}
+		}
+	}
+	for id := range stale {
+		g.removeStale(id)
+	}
+	return len(stale), nil
+}
+
+// processExists is true when the process id belongs to a live process (EPERM still means it exists).
+func processExists(pid int) bool {
+	err := syscall.Kill(pid, 0)
+	return err == nil || errors.Is(err, syscall.EPERM)
+}
+
+func (g *GVisor) removeStale(id string) {
+	dir := filepath.Join(g.BaseDir, id)
+	state := filepath.Join(dir, "state")
+	g.delete(state, id)
+	// Anything still in the cgroup is killed first, because a cgroup with processes in it cannot be removed.
+	cgroup := filepath.Join(cgroupRoot, id)
+	_ = g.elevated("sh", "-c", "echo 1 > "+filepath.Join(cgroup, "cgroup.kill"))
+	g.unmount(filepath.Join(state, "null-netns"))
+	g.unmount(filepath.Join(dir, "work"))
+	_ = g.elevated("rmdir", cgroup)
+	_ = g.elevated("rm", "-rf", dir)
 }

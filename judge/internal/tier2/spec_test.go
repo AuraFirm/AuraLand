@@ -87,3 +87,17 @@ func TestValidateRefusesWhatCouldNotBeRunSafely(t *testing.T) {
 		t.Errorf("a good environment was refused: %v", err)
 	}
 }
+
+func TestRunPIDReadsOnlyOurOwnNames(t *testing.T) {
+	good := map[string]int{"aura-1234-1": 1234, "aura-4242-99": 4242}
+	for name, want := range good {
+		if pid, ok := RunPID(name); !ok || pid != want {
+			t.Errorf("%s: got %d, %v", name, pid, ok)
+		}
+	}
+	for _, name := range []string{"", "aura", "aura-1-", "aura--1", "aura-0-1", "aura-01-1", "aura-1-01", "aura-1-1-1", "aura-x-1", "envrun-123", "AURA-1-1", "aura-1-0", "aura--5-1"} {
+		if pid, ok := RunPID(name); ok {
+			t.Errorf("%q was accepted as pid %d", name, pid)
+		}
+	}
+}
