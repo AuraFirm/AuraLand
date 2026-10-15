@@ -363,6 +363,8 @@ run is evidence, not proof of what an agent can do, and no figure from one devel
 | Elevation: an organization gives itself a better plan | `customers` | Writes only through `set_org_plan` (platform administrator, checked in the database, fresh passkey check at the route, audited); no application role can insert or update | `http-billing.test.ts` |
 | Information disclosure: a member or stranger learns another organization's plan or billing references | `org_entitlements`, `customers` | Entitlements only to members of that organization; `customers` rows only to owners and administrators; a stranger and a missing organization answer identically | `http-billing.test.ts` |
 | Elevation: a feature check that forgets the plan | Every sold feature | One function and two pure checks; an unknown plan or missing row means the free plan | `rules.test.ts` |
+| Tampering: usage is double counted, forgotten or edited | `usage_events` | Written by triggers in the transaction that records the fact, unique on (organization, kind, source), guard trigger refuses update and delete | `http-billing.test.ts`, `http-environments.test.ts`, `http-passport-employer.test.ts` |
+| Denial of service: an organization queues unlimited runs | Environment run requests | Monthly allowance from the plan, counting finished and waiting runs, answered `plan_limit_reached` (402); soft by at most the concurrency of requests | `http-environments.test.ts` |
 
 ## Privacy review (Stage 4A)
 New personal data: customer organizations' staff names and email (existing identity data) in orders;

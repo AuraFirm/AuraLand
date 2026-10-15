@@ -2,6 +2,7 @@ import {
     entitlementsSchema,
     planChangedSchema,
     setPlanRequestSchema,
+    usageResponseSchema,
 } from "@aura/contracts/api/billing";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
 import { appendAudit } from "@aura/db/audit";
@@ -12,6 +13,7 @@ import type { Clock } from "../../platform/clock.ts";
 import { problemResponse } from "../../platform/problem-response.ts";
 import { hasFreshStepUp } from "../../platform/step-up.ts";
 import * as q from "./queries.ts";
+import { monthBoundsUtc } from "./rules.ts";
 
 export interface BillingRouteDeps {
     readonly clock: Clock;
@@ -25,6 +27,7 @@ const NO_DATA_FOUND = "P0002";
 export function billingRoutes(deps: BillingRouteDeps): Hono<AppEnv> {
     const routes = new Hono<AppEnv>();
     routes.get("/orgs/:id/plan", handleRead);
+    routes.get("/orgs/:id/usage", (c) => handleUsage(c, deps));
     routes.put("/admin/orgs/:id/plan", (c) => handleSet(c, deps));
     return routes;
 }
@@ -83,6 +86,31 @@ async function handleSet(c: Context<AppEnv>, deps: BillingRouteDeps) {
         planChangedSchema.parse({
             org_id: encodeId("org", orgId),
             entitlements: entitlementsSchema.parse(row),
+        }),
+    );
+}
+
+async function handleUsage(c: Context<AppEnv>, deps: BillingRouteDeps) {
+    const actor = c.get("actor");
+    if (actor.kind !== "user")
+        return problemResponse(c, "unauthenticated", "Authentication required");
+    const org = idSchema("org").safeParse(c.req.param("id"));
+    if (!org.success) return problemResponse(c, "invalid_request", "Invalid request");
+    const orgId = decodeId("org", org.data);
+    const { startMs, endMs } = monthBoundsUtc(deps.clock.nowUnixMs());
+    const tx = c.get("tx");
+    const [entitlements, usage] = [
+        await q.entitlementsOf(tx, orgId),
+        await q.usageOf(tx, orgId, startMs, endMs),
+    ];
+    if (entitlements === null || usage === null) return notFound(c);
+    return c.json(
+        usageResponseSchema.parse({
+            period_start: new Date(startMs).toISOString(),
+            period_end: new Date(endMs).toISOString(),
+            env_runs: usage.env_run,
+            employer_reports: usage.employer_report,
+            env_runs_limit: entitlements.env_runs_per_month,
         }),
     );
 }

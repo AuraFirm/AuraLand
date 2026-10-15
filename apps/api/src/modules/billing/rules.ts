@@ -16,3 +16,14 @@ export function withinLimit(entitlements: Entitlements, limit: Limit, used: numb
     assert(Number.isInteger(allowed) && allowed >= 0, "a limit is a non-negative count");
     return used < allowed;
 }
+
+// The calendar month (UTC) that contains `nowMs`: [start, end). Usage and limits are counted per month, in UTC, so the answer
+// does not depend on where a server or a customer happens to be.
+export function monthBoundsUtc(nowMs: number): { startMs: number; endMs: number } {
+    assert(Number.isFinite(nowMs) && nowMs >= 0, "a time is a non-negative number of milliseconds");
+    const now = new Date(nowMs);
+    const startMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+    const endMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
+    assert(startMs <= nowMs && nowMs < endMs, "the month contains the time asked about");
+    return { startMs, endMs };
+}

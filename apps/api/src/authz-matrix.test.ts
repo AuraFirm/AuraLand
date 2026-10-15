@@ -865,6 +865,7 @@ const MATRIX: readonly Row[] = [
         },
     },
     { method: "GET", path: "/api/v1/orgs/:id/plan", access: "user", owned: true, object: "org" },
+    { method: "GET", path: "/api/v1/orgs/:id/usage", access: "user", owned: true, object: "org" },
     {
         method: "PUT",
         path: "/api/v1/admin/orgs/:id/plan",

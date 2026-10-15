@@ -286,6 +286,46 @@ describe("asking for a run and running it", () => {
                 })
             ).status,
         ).toBe(409); // a second report
+        // The finished run is one billable event, keyed by the run.
+        const [metered] = await h.db.database.sql<
+            { n: number }[]
+        >`select count(*)::int as n from usage_events where kind = 'env_run' and source_id = ${decodeId("evr", id)}`;
+        expect(metered?.n).toBe(1);
+    });
+});
+
+describe("the plan's monthly allowance of runs", () => {
+    it("refuses the next run once the month's runs are used up, and counts only this month", async () => {
+        const { sql } = h.db.database;
+        // A fresh organization, so the other tests' finished runs do not count and the append-only events need no cleanup.
+        const [fresh] = await sql<
+            { id: string }[]
+        >`insert into orgs (kind, slug, name) values ('company', 'limit-team', 'Limit Team') returning id`;
+        const limitOrg = fresh?.id ?? "";
+        await sql`insert into memberships (org_id, user_id, role) values (${limitOrg}, ${ALICE}, 'owner')`;
+        const made = await call(ALICE, "POST", `/orgs/org_${limitOrg}/environments`, body("over"));
+        const env = environmentSchema.parse(await made.json()).id;
+        const now = new Date(h.clock.nowUnixMs());
+        const lastMonth = new Date(h.clock.nowUnixMs() - 40 * 24 * 3600 * 1000);
+        // The free plan allows 20 runs a month. Twenty old ones do not count; nineteen new ones leave room for exactly one.
+        await sql`insert into usage_events (org_id, kind, source_id, occurred_at)
+            select ${limitOrg}, 'env_run', gen_random_uuid(), ${lastMonth} from generate_series(1, 20)`;
+        await sql`insert into usage_events (org_id, kind, source_id, occurred_at)
+            select ${limitOrg}, 'env_run', gen_random_uuid(), ${now} from generate_series(1, 19)`;
+        const last = await call(ALICE, "POST", `/environments/${env}/runs`, { agent_label: "a" });
+        expect(last.status).toBe(202);
+        const over = await call(ALICE, "POST", `/environments/${env}/runs`, { agent_label: "b" });
+        expect(over.status).toBe(402);
+        expect(await over.json()).toMatchObject({ code: "plan_limit_reached" });
+        // A bigger plan lifts it.
+        h.clock.advance(61_000);
+        const admin = await call(ALICE, "PUT", `/admin/orgs/org_${limitOrg}/plan`, {
+            plan: "team",
+        });
+        expect(admin.status).toBe(200);
+        expect(
+            (await call(ALICE, "POST", `/environments/${env}/runs`, { agent_label: "b" })).status,
+        ).toBe(202);
     });
 });
 

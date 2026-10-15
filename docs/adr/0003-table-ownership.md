@@ -73,6 +73,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `env_runs` | `modules/environments` | One agent evaluated in an environment: what was asked, the node's signed trace, the isolation that contained it and whether the result is eligible for the use it was requested for (a generated column); asked by `request_env_run`, finished once by `finish_env_run`, never changed after |
 | `plans` | `modules/billing` | The catalogue of plans: limits and switches (members, environment runs, verifications, webhook endpoints, SSO, SCIM, employer search) and a placeholder price; changed by migration only |
 | `customers` | `modules/billing` | Which plan an organization is on, with billing and contract references (owners and administrators read it); set only by `set_org_plan`, a platform administrator's function |
+| `usage_events` | `modules/billing` | Billable facts (a finished environment run, an opened employer report), written only by triggers on the tables that record those facts, unique per (organization, kind, source), never changed; read by owners and administrators, counted for members through `org_usage` |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

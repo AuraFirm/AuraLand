@@ -196,6 +196,11 @@ describe("search and reports", () => {
             { n: number }[]
         >`select count(*)::int as n from credential_views`;
         expect(logged?.n).toBe(2); // the two that opened; none for private, link, a bad purpose, no factor, a stranger
+        // Each report that was opened is one billable event for the employer's organization, written by the same transaction.
+        const [metered] = await h.db.database.sql<
+            { n: number }[]
+        >`select count(*)::int as n from usage_events where kind = 'employer_report'`;
+        expect(metered?.n).toBe(2);
     });
 });
 

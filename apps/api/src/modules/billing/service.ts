@@ -1,3 +1,3 @@
 // The billing module's surface for other modules: ask what an organization may do, in one call.
-export { entitlementsOf } from "./queries.ts";
-export { featureEnabled, withinLimit } from "./rules.ts";
+export { entitlementsOf, usageOf } from "./queries.ts";
+export { featureEnabled, monthBoundsUtc, withinLimit } from "./rules.ts";
