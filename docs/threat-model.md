@@ -93,7 +93,6 @@ uploaded bytes from storage to hash them; **bundles are untrusted archives** and
 validator library, which runs in the Stage 3 sandbox, never on the API host; statements are
 user-written Markdown shown to other users.
 
-| Threat | Surface | Control | Evidence |
 |---|---|---|---|
 | **Tampering**: replace a verified bundle by uploading other bytes under its hash | Upload and finalize | Uploads land under `uploads/<org>/<id>`; size and SHA-256 are re-read from storage and compared before the object is copied to `bundles/<org>/<sha256>`; an existing bundle is never overwritten | `upload-verify.test.ts` (forged hash, same-size forgery), `http-task-versions.test.ts` |
 | Tampering: change a released version | Task versions | Three layers: the state machine refuses, the application role has no way to update released rows except retiring, a trigger raises on any other change or delete | `tasks.test.ts` (frozen, delete), `rules.test.ts`, simulation |
@@ -136,7 +135,6 @@ New trust boundaries: **a judge node is a machine that runs hostile code** and t
 send source code to be run; the queue connects the API, workers and nodes; the worker role holds
 privileges the application role does not.
 
-| Threat | Surface | Control | Evidence |
 |---|---|---|---|
 | **Spoofing**: pretend to be a judge node | `/judge/v1` | Enrollment needs a single-use 256-bit token that only a platform administrator (with a fresh passkey check) can create and that expires in an hour; afterwards every request is an Ed25519 signature over method, path and query, timestamp, single-use nonce and body hash; every failure is the same bare 401 | `http-judge.test.ts`, `signing.test.ts`, Go `sign_test.go` (shared vector) |
 | Spoofing: replay a captured request | Node requests | Timestamps within 60 s, nonces spent in their own committed transaction (a failed request cannot be replayed either), nonces kept 10 minutes | `http-judge.test.ts` (replays, 4xx replays) |
@@ -172,7 +170,6 @@ organization. Deletion of an account does not yet remove submissions (the purge 
 deletion job, F24). Judge nodes see source code and test data for the jobs they lease and nothing else.
 
 ## STRIDE for the Stage 4A surface (orders, deliveries, payments, authoring workspace, v4)
-| Threat | Surface | Control | Evidence |
 |---|---|---|---|
 | **Spoofing/Elevation**: a customer or setter creates or changes orders | Order routes and tables | Platform-administrator role checked in the route, again in every database function; the application role has no insert or update on the four tables; step-up (fresh passkey) on every change | `http-orders.test.ts`, `orders.test.ts`, authorization matrix |
 | **Information disclosure**: a customer reads another customer's order or delivery | Orders, deliveries, download log | Forced row-level security by the customer organization's role (owner, admin, buyer); strangers get 404 | `orders.test.ts`, `http-deliveries.test.ts`, authorization matrix |
@@ -196,7 +193,6 @@ system and no card data enters it; payment and payout rows are staff records. A 
 original bytes, so it is not traceable to a customer by content (F41).
 
 ## STRIDE for the Stage 4B surface (validation, v5)
-| Threat | Surface | Control | Evidence |
 |---|---|---|---|
 | **Spoofing/Elevation**: a node claims a task is good, or claims to be a production node | Validation result, node attestation | A node reports raw verdicts only; `evaluateValidation` and the score are computed by the control plane. The attestation is declared by a platform administrator at enrollment, copied to the node row, immutable, and read from that row inside `settle_validation`; no caller supplies it | `rules.test.ts`, `score.test.ts`, `validation.test.ts` (db), `http-judge.test.ts` |
 | **Tampering**: mark a version validated without evidence | Task version state | The application role cannot set `validating` or `validated` (policy); `request_validation` and `settle_validation` are the only doors; a trigger refuses `validated` without a passing report; the report's `passed` must agree with its checks | `validation.test.ts` (db) |
@@ -224,7 +220,6 @@ original bytes, so it is not traceable to a customer by content (F41).
 No new personal data. Reports hold task content derivatives (verdicts, scores) and node ids.
 
 ## STRIDE for the Stage 4C surface (per-delivery watermarks and the leak trace, v6)
-| Threat | Surface | Control | Evidence |
 |---|---|---|---|
 | **Repudiation/Disclosure**: a leaked bundle names nobody | Delivered bundles | Each delivered copy carries a tag derived by the database from the delivery's secret watermark id (answer-line trailing spaces for whitespace-blind checkers, a comment in each solution), recorded in `delivery_bundles`; `trace-leak-cli` names candidates and a person decides | `watermark.test.ts`, `trace.test.ts`, `trace-leak-cli.test.ts`, `pack-e2e-cli.ts` |
 | **Tampering**: a mark changes a customer's results | Rewritten bundles | Marks only where a verdict cannot change (answers a token checker ignores; solution comments); test inputs never touched; the node re-runs the harness on the original and the copy and the control plane delivers the copy only if every verdict, mutant and attacker outcome is identical | `rules.test.ts` (watermark), `watermark_isolate_test.go` |
@@ -346,7 +341,6 @@ revokes credentials only where required; the policy is the owner's).
 | Spoofing: a forged result for a run | Node protocol | as Tier-1: mTLS, lease epochs, schema/bounds/consistency validation; node signs traces | slice 8 |
 
 **Added by slices 8 to 10 (v11), observed on one development VM.**
-| Threat | Surface | Control | Evidence |
 |---|---|---|---|
 | Elevation: a malicious image archive writes outside its directory, through a link, or via a hard link | The node's unpacker | Names cleaned and kept inside; nothing written through a link; hard links copied from an unpacked regular file and refused otherwise; entry, byte and depth caps; archives pinned by SHA-256 | `extract_test.go`. **The unpacker runs in the agent's process, not in a sandbox (F70)** |
 | Elevation: an unprivileged node needs privilege to run `runsc` | Node host | Helper commands run through a configurable elevation prefix; the agent itself is unprivileged; files go back to the node's user after each run | End-to-end run on the VM. **The VM's sudo is unrestricted; narrowing it is not done** |
@@ -358,7 +352,6 @@ revokes credentials only where required; the policy is the owner's).
 run is evidence, not proof of what an agent can do, and no figure from one development VM is a capacity or cost claim.
 
 ## STRIDE for the Stage 9 surface (business systems, v12; added slice by slice, ADR 0036)
-| Threat | Surface | Control | Evidence |
 |---|---|---|---|
 | Elevation: an organization gives itself a better plan | `customers` | Writes only through `set_org_plan` (platform administrator, checked in the database, fresh passkey check at the route, audited); no application role can insert or update | `http-billing.test.ts` |
 | Information disclosure: a member or stranger learns another organization's plan or billing references | `org_entitlements`, `customers` | Entitlements only to members of that organization; `customers` rows only to owners and administrators; a stranger and a missing organization answer identically | `http-billing.test.ts` |
@@ -371,7 +364,6 @@ run is evidence, not proof of what an agent can do, and no figure from one devel
 | Elevation (SSRF): a customer's webhook address makes us reach our network or the cloud metadata service | `platform/webhook-egress.ts` | https only, ports 443/8443, a DNS name never an IP literal, no credentials; our own lookup refuses the connection when any resolved address is not global unicast, so the address checked is the address connected (no rebinding gap); no redirects; body capped at 64 KiB; connect 5 s and total 10 s limits; errors carry fixed words, never the address or the remote's text | `webhook-egress.test.ts` (a real local server counts connections: blocked means none) |
 | Tampering: money lines that do not add up, or are edited afterwards | `ledger_*` | Debits equal credits per currency at commit (deferred constraint triggers, also against writes that bypass the posting function); positive whole-unit amounts; rows never changed; posting the same fact twice returns the first | `ledger.database.test.ts` |
 | Repudiation: our usage and the provider's books drift apart unnoticed | Monthly reconciliation | Each month compared once, differences recorded (never repaired automatically) and logged as an error by the worker | `reconcile.test.ts`, `tick.database.test.ts`. **Against a fake provider only (F77)** |
-| Elevation (SSRF): a customer's webhook address makes us reach our network or the cloud metadata service | `platform/webhook-egress.ts` | https only, ports 443/8443, a DNS name never an IP literal, no credentials; our own lookup refuses the connection when any resolved address is not global unicast, so the address checked is the address connected (no rebinding gap); no redirects; body capped at 64 KiB; connect 5 s and total 10 s limits; errors carry fixed words, never the address or the remote's text | `webhook-egress.test.ts` (a real local server counts connections: blocked means none) |
 | Information disclosure: a webhook signing secret leaks through the API, a log or a query | `webhook_endpoints` | Secrets are absent from the application role's column privileges (a `select *` fails), shown once in the answer that creates or rotates them, not in audit or logs; rotation keeps the old one signing for 24 hours only | `http-webhooks.test.ts` |
 | Spoofing: a receiver cannot tell our delivery from a forgery or a replay | Webhook deliveries | `X-Aura-Signature: t=<seconds>,v1=<HMAC-SHA-256 of "t.body">` (one v1 per secret in force); receivers reject timestamps more than five minutes off | `rules.test.ts`, `tick.database.test.ts` |
 | Denial of service: a dead receiver is hammered, or two workers send the same delivery | Delivery worker | Backoff doubling from 30 s to 4 h, given up after 24 h; claims are `skip locked` with a one-minute lapse; at most ten per pass, sent one after another | `tick.database.test.ts` |
@@ -383,7 +375,6 @@ and payouts are readable by the people named above only. Retention is not yet de
 events or payouts (F40). Deleting an account does not yet remove them (F24).
 
 ## v0 rows (Stage 0, unchanged)
-| Threat | Surface | Control | Evidence |
 |---|---|---|---|
 | Spoofing a request id to poison logs | API request id | Inbound `X-Request-Id` accepted only when the edge is trusted, charset and length checked | `app.test.ts` |
 | Tampering with applied migrations | Migration runner | SHA-256 per migration, edit after merge rejected, database ahead of code rejected | `migrate.test.ts` |
