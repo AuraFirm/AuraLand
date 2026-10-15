@@ -46,3 +46,10 @@ slice 8 turns them on together with their validation.
 - **Slice 2: the workspace is a memory file system of exactly the disk limit**, copied in and out without following links,
   because the escape suite showed a per-file limit does not bound the total. The agent's disk therefore counts against host
   memory.
+- **Slice 6: the network stays off.** An allowlist needs a per-run network namespace with a veth pair, default-drop rules,
+  pinned name resolution and flow logging, and proof that a hostile run cannot get past it. That is a project of its own and I
+  did not make it contained on this VM, so the node refuses any environment whose `network.mode` is `allowlist` (slice 8) and
+  every run has no network. The spec still carries the allowlist so recipes written now keep working when it exists (cutlist F69).
+- **Slice 7: traces.** A trace holds hashes of what was printed, never the text; its canonical bytes are signed by the node with a
+  domain (`AURA-TRACE-V1`) no request signature uses. `Replay` re-runs a session from a pristine copy and compares every step; an
+  environment is called deterministic only when its replay reports equal (a test shows a random one is caught).

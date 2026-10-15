@@ -65,3 +65,21 @@ func TestEveryPartOfTheRequestChangesTheText(t *testing.T) {
 		t.Fatal("the method is case-insensitive")
 	}
 }
+
+func TestATraceSignatureVerifiesOnlyForItsBytesKeyAndPurpose(t *testing.T) {
+	pub, key, _ := ed25519.GenerateKey(nil)
+	other, _, _ := ed25519.GenerateKey(nil)
+	body := []byte(`{"version":1}`)
+	sig := SignTrace(key, body)
+	if !VerifyTrace(pub, body, sig) {
+		t.Fatal("a trace signature must verify")
+	}
+	if VerifyTrace(pub, []byte(`{"version":2}`), sig) || VerifyTrace(other, body, sig) || VerifyTrace(pub, body, "not base64!") || VerifyTrace(pub, body, "") {
+		t.Fatal("a trace signature verified for something else")
+	}
+	// The same key's request signature over the same bytes must not pass as a trace signature.
+	asRequest := Sign(key, "POST", "/x", 1, "n", body)
+	if VerifyTrace(pub, body, asRequest) {
+		t.Fatal("a request signature verified as a trace signature")
+	}
+}

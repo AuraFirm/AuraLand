@@ -133,3 +133,9 @@ is put back from a pristine copy before the verifier looks) and raises `protecte
 `honeypot_touched` (its access time moved; run-time atime is normalized to the epoch on copy-in, files are opened with O_NOATIME
 when we look at them, so our own hashing never looks like the agent reading); one that links `answer.txt` to the hidden file scores 0
 and raises `link_in_workspace`. A companion test shows the unrestored edit WOULD score 1. Flags are evidence for a person, never a verdict.
+
+### Tier-2 trace and replay, 2026-10-15 (same VM, same caveats)
+A trace (steps with verdict, exit status, wall time, peak memory, process peak, SHA-256 of the output, the workspace hash after each
+step; the integrity flags; the verifier's result) is canonical JSON, capped at 8 MiB, and signed by the node's Ed25519 key under its
+own domain. Replay re-runs the session from a pristine copy: a deterministic sample replays equal; a step that reads `/dev/urandom` is
+reported as "the workspace afterwards differs". **The network is off for every run** (no allowlist implementation; see ADR 0034).
