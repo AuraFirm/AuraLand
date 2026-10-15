@@ -35,6 +35,7 @@ import {
 import { findAccountLabels } from "./queries.ts";
 import type { SessionDeps } from "./service.ts";
 import { issueLoginSession, type LoginSessionInput, userAudit } from "./sign-in.ts";
+import { ssoBlocks } from "./sso-queries.ts";
 
 // Passkey use-cases over SimpleWebAuthn (ADR 0015). Settings follow the Stage 1 plan: attestation
 // "none" (we do not vet device makers), user verification required (a passkey is a second factor
@@ -212,6 +213,15 @@ export async function finishLogin(
                 reason: "suspended",
             }),
         });
+        return { ok: false };
+    }
+    if (await ssoBlocks(tx, stored.userId, "passkey")) {
+        await appendAudit(
+            tx,
+            userAudit(stored.userId, "auth.login_refused", input.session.ip, {
+                reason: "sso_required",
+            }),
+        );
         return { ok: false };
     }
     await recordPasskeyUse(tx, stored.id, {

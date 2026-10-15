@@ -937,6 +937,14 @@ const MATRIX: readonly Row[] = [
         object: "org",
     },
     {
+        method: "PUT",
+        path: "/api/v1/orgs/:id/sso/enforcement",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: { enforced: false },
+    },
+    {
         method: "POST",
         path: "/api/v1/orgs/:id/sso/domains/:domain/verify",
         access: "user",
@@ -950,6 +958,13 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "org",
     },
+    {
+        method: "POST",
+        path: "/api/v1/auth/sso/start",
+        access: "public",
+        body: { email: "a@b.example" },
+    },
+    { method: "GET", path: "/api/v1/auth/sso/callback", access: "public" },
     { method: "GET", path: "/api/v1/orgs/:id/usage", access: "user", owned: true, object: "org" },
     {
         method: "PUT",

@@ -29,6 +29,8 @@ export interface FakeIdp extends OidcTransport {
     readonly codes: Map<string, string>;
     jwks: JSONWebKeySet | null;
     discoverable: boolean;
+    // The time tokens are minted at (milliseconds); tests that run on a fake clock point this at it.
+    now: () => number;
 }
 
 interface Pair {
@@ -42,11 +44,11 @@ interface Keys {
 
 function signIdToken(
     keys: Keys,
-    who: { issuer: string; clientId: string },
+    who: { issuer: string; clientId: string; nowMs: number },
     claims: IdTokenClaims,
     options: { signWith?: "own" | "other"; alg?: "ES256" | "RS256" },
 ): Promise<string> {
-    const now = Math.floor(Date.now() / 1000);
+    const now = Math.floor(who.nowMs / 1000);
     const alg = options.alg ?? "ES256";
     const privateKey =
         options.signWith === "other"
@@ -103,8 +105,14 @@ export async function createFakeIdp(
         codes: new Map(),
         jwks: { keys },
         discoverable: true,
+        now: () => Date.now(),
         mint: (claims, options = {}) =>
-            signIdToken({ own, rsa, other }, { issuer, clientId }, claims, options),
+            signIdToken(
+                { own, rsa, other },
+                { issuer, clientId, nowMs: idp.now() },
+                claims,
+                options,
+            ),
         async discover(asked) {
             return idp.discoverable && asked === issuer ? discovery : null;
         },

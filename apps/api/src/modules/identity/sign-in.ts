@@ -18,6 +18,7 @@ import { isPrivilegedAccount } from "./org-queries.ts";
 import { findOrCreateAccount } from "./queries.ts";
 import type { AuthMethod } from "./rules.ts";
 import { createSession, revokeSession, type SessionDeps } from "./service.ts";
+import { ssoBlocks } from "./sso-queries.ts";
 
 // Email sign-in use-cases. `startSignIn` stores a challenge; `sendSignInEmail` delivers it (after
 // the challenge is committed, so no database transaction waits on the mail service). `completeSignIn`
@@ -178,6 +179,13 @@ export async function completeSignIn(
         await appendAudit(
             tx,
             userAudit(account.id, "auth.login_refused", input.ip, { reason: "suspended" }),
+        );
+        return { ok: false };
+    }
+    if (await ssoBlocks(tx, account.id, input.method)) {
+        await appendAudit(
+            tx,
+            userAudit(account.id, "auth.login_refused", input.ip, { reason: "sso_required" }),
         );
         return { ok: false };
     }

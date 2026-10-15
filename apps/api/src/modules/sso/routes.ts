@@ -5,6 +5,7 @@ import {
     ssoConnectionSchema,
     ssoDomainSchema,
     ssoDomainsResponseSchema,
+    ssoEnforcementRequestSchema,
 } from "@aura/contracts/api/sso";
 import { decodeId, idSchema } from "@aura/contracts/ids";
 import { appendAudit } from "@aura/db/audit";
@@ -31,6 +32,7 @@ const NO_DATA_FOUND = "P0002";
 const FEATURE_NOT_SUPPORTED = "0A000";
 const PROGRAM_LIMIT_EXCEEDED = "54000";
 const UNIQUE_VIOLATION = "23505";
+const OBJECT_NOT_IN_STATE = "55000";
 const DOMAIN_TOKEN_BYTES = 16;
 
 // Single sign-on administration (Stage 9, slice 6a): the owners and administrators of an organization on a plan that includes it
@@ -41,6 +43,7 @@ export function ssoRoutes(deps: SsoRouteDeps): Hono<AppEnv> {
     routes.put("/orgs/:id/sso", (c) => handleSave(c, deps));
     routes.get("/orgs/:id/sso", (c) => handleRead(c, deps));
     routes.delete("/orgs/:id/sso", (c) => handleDelete(c, deps));
+    routes.put("/orgs/:id/sso/enforcement", (c) => handleEnforce(c, deps));
     routes.post("/orgs/:id/sso/domains", (c) => handleAddDomain(c, deps));
     routes.get("/orgs/:id/sso/domains", (c) => handleListDomains(c, deps));
     routes.post("/orgs/:id/sso/domains/:domain/verify", (c) => handleVerify(c, deps));
@@ -86,6 +89,13 @@ function translated(c: Context<AppEnv>, error: unknown) {
             "this plan does not include single sign-on",
         );
     if (code === PROGRAM_LIMIT_EXCEEDED) return invalid(c, "too many domains");
+    if (code === OBJECT_NOT_IN_STATE)
+        return problemResponse(
+            c,
+            "conflict",
+            "Conflict",
+            "verify a domain and sign in through single sign-on yourself first",
+        );
     if (code === UNIQUE_VIOLATION)
         return problemResponse(
             c,
@@ -235,4 +245,28 @@ async function handleRemoveDomain(c: Context<AppEnv>, deps: SsoRouteDeps) {
         return translated(c, error);
     }
     return c.body(null, 204);
+}
+
+// Requiring SSO locks out everyone but owners who use anything else, so it needs a verified domain and an administrator who has
+// already signed in through SSO themselves (the database checks both).
+async function handleEnforce(c: Context<AppEnv>, deps: SsoRouteDeps) {
+    const who = await administrator(c, deps, true);
+    if ("problem" in who) return who.problem;
+    const body = ssoEnforcementRequestSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return invalid(c);
+    const tx = c.get("tx");
+    try {
+        await q.setEnforced(tx, who.orgId, body.data.enforced);
+    } catch (error) {
+        return translated(c, error);
+    }
+    await appendAudit(tx, {
+        actorKind: "user",
+        actorUserId: who.actor.userId,
+        orgId: null,
+        action: body.data.enforced ? "sso.enforced" : "sso.enforcement_removed",
+        target: who.orgPublicId,
+        detail: {},
+    });
+    return c.json(ssoConnectionSchema.parse(await q.getConnection(tx, who.orgId)));
 }

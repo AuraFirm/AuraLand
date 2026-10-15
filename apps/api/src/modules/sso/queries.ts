@@ -25,18 +25,20 @@ const connectionRow = z.object({
     org_id: z.string(),
     issuer: z.string(),
     client_id: z.string(),
+    enforced: z.boolean(),
     updated_at: z.date(),
 });
 
 export async function getConnection(tx: Transaction, org: string) {
     const [row] =
-        await tx`select org_id, issuer, client_id, updated_at from sso_connections where org_id = ${org}`;
+        await tx`select org_id, issuer, client_id, enforced, updated_at from sso_connections where org_id = ${org}`;
     if (row === undefined) return null;
     const parsed = connectionRow.parse(row);
     return ssoConnectionSchema.parse({
         org_id: encodeId("org", parsed.org_id),
         issuer: parsed.issuer,
         client_id: parsed.client_id,
+        enforced: parsed.enforced,
         updated_at: parsed.updated_at.toISOString(),
     });
 }
@@ -101,4 +103,8 @@ export async function markVerified(
 
 export async function removeDomain(tx: Transaction, org: string, domain: string): Promise<void> {
     await tx`select remove_sso_domain(${org}, ${domain})`;
+}
+
+export async function setEnforced(tx: Transaction, org: string, enforced: boolean): Promise<void> {
+    await tx`select set_sso_enforced(${org}, ${enforced})`;
 }

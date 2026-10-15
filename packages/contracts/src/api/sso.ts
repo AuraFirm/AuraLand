@@ -19,6 +19,7 @@ export const ssoConnectionSchema = z
         org_id: idSchema("org"),
         issuer: z.string(),
         client_id: z.string(),
+        enforced: z.boolean(),
         updated_at: z.iso.datetime(),
     })
     .strict();
@@ -35,3 +36,20 @@ export const ssoDomainSchema = z
     })
     .strict();
 export const ssoDomainsResponseSchema = z.object({ domains: z.array(ssoDomainSchema) }).strict();
+
+// Signing in. `start` takes the address the person types and answers with where to send the browser.
+export const ssoStartRequestSchema = z.object({ email: z.email().max(254) }).strict();
+export const ssoStartResponseSchema = z.object({ authorization_url: z.url() }).strict();
+export const ssoEnforcementRequestSchema = z.object({ enforced: z.boolean() }).strict();
+
+// The callback sends the browser to /auth/done with one of these words, nothing else.
+export const SSO_FAILURE_REASONS = [
+    "denied",
+    "invalid",
+    "email_unverified",
+    "wrong_domain",
+    "suspended",
+    "plan_full",
+    "unavailable",
+] as const;
+export type SsoFailureReason = (typeof SSO_FAILURE_REASONS)[number];

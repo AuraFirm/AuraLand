@@ -120,6 +120,13 @@ export const orgRoleSchema = z.enum(ORG_ROLES);
 export type OrgRole = z.infer<typeof orgRoleSchema>;
 
 // How a session was started. Shared because the sessions API reports it to the person.
-export const AUTH_METHODS = ["email_link", "email_code", "passkey", "github", "google"] as const;
+export const AUTH_METHODS = [
+    "email_link",
+    "email_code",
+    "passkey",
+    "github",
+    "google",
+    "sso",
+] as const;
 export const authMethodSchema = z.enum(AUTH_METHODS);
 export type AuthMethod = z.infer<typeof authMethodSchema>;

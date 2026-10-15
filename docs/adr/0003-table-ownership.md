@@ -82,6 +82,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `webhook_deliveries` | `modules/webhooks` | One queued event for one endpoint, its attempts and outcome; queued once per (endpoint, event, source) by triggers, claimed and recorded by the worker, given up on after 24 hours |
 | `sso_connections` | `modules/sso` | An organization's OpenID Connect connection (issuer, client id and secret, discovered endpoints); owners and administrators read it without the secret (column privileges); saved and deleted by definer functions; only on plans that include SSO |
 | `sso_domains` | `modules/sso` | Email domains an organization claimed for single sign-on, with the token to publish in DNS and when it was verified; a domain can be verified by one organization only (unique partial index) |
+| `sso_identities` | `modules/identity` | Which person an organization's identity provider subject is (unique per organization and per person); written only by the sign-in role |
+| `sso_flows` | `modules/identity` | One single sign-on attempt in flight: hashed state and verifier, the nonce, used once within ten minutes |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

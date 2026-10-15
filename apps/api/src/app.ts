@@ -46,6 +46,7 @@ import { relyingPartyId } from "./modules/identity/passkey.ts";
 import { passkeyRoutes } from "./modules/identity/passkey-routes.ts";
 import { identityRoutes } from "./modules/identity/routes.ts";
 import { signInRoutes } from "./modules/identity/sign-in-routes.ts";
+import { ssoSignInRoutes } from "./modules/identity/sso-routes.ts";
 import { judgeAdminRoutes } from "./modules/judge/admin-routes.ts";
 import { judgeRoutes } from "./modules/judge/routes.ts";
 import { deliveryRoutes } from "./modules/orders/delivery-routes.ts";
@@ -480,6 +481,20 @@ function mountSignInRoutes(app: Hono<AppEnv>, deps: AppDeps, secureCookies: bool
             publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
             logger: deps.logger,
             providers: deps.oauthProviders,
+            secureCookies,
+            trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
+        }),
+    );
+    app.route(
+        "/v1",
+        ssoSignInRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            rng: deps.rng,
+            key: loginTokenKey(deps.config),
+            publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+            oidc: deps.oidcTransport ?? createPublicOidcTransport(),
+            logger: deps.logger,
             secureCookies,
             trustEdge: deps.config.AURA_TRUST_EDGE_REQUEST_ID,
         }),
