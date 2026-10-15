@@ -34,7 +34,8 @@ interface Row {
         | "exm"
         | "crd"
         | "env"
-        | "evr";
+        | "evr"
+        | "whk";
     // A valid request body for rows that need one, so the check reaches authorization.
     readonly body?: Record<string, unknown>;
 }
@@ -880,6 +881,36 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "org",
     },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/webhooks",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: { url: "https://hooks.example.com/x", events: ["env_run.finished"] },
+    },
+    {
+        method: "GET",
+        path: "/api/v1/orgs/:id/webhooks",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
+    {
+        method: "POST",
+        path: "/api/v1/webhooks/:id/rotate-secret",
+        access: "user",
+        owned: true,
+        object: "whk",
+    },
+    { method: "DELETE", path: "/api/v1/webhooks/:id", access: "user", owned: true, object: "whk" },
+    {
+        method: "GET",
+        path: "/api/v1/webhooks/:id/deliveries",
+        access: "user",
+        owned: true,
+        object: "whk",
+    },
     { method: "GET", path: "/api/v1/orgs/:id/usage", access: "user", owned: true, object: "org" },
     {
         method: "PUT",
@@ -1096,6 +1127,21 @@ async function victimObject(row: Row, sessionId: string): Promise<string> {
         await h.db.database
             .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${owner?.id ?? ""}, 'owner')`;
         return encodeId("org", org?.id ?? "");
+    }
+    if (row.object === "whk") {
+        const [owner] = await h.db.database.sql<{ id: string }[]>`
+            insert into users (email, email_verified_at)
+            values (${`hook-${randomBytes(4).toString("hex")}@example.com`}, now()) returning id`;
+        const [org] = await h.db.database.sql<{ id: string }[]>`
+            insert into orgs (kind, slug, name) values ('company', ${`hooks-${randomBytes(4).toString("hex")}`}, 'Hook team')
+            returning id`;
+        await h.db.database
+            .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${owner?.id ?? ""}, 'owner')`;
+        const [hook] = await h.db.database.sql<{ id: string }[]>`
+            insert into webhook_endpoints (org_id, url, events, secret_current, created_by, created_at)
+            values (${org?.id ?? ""}, 'https://hooks.example.com/v', array['env_run.finished'], ${"e".repeat(64)}, ${owner?.id ?? ""}, now())
+            returning id`;
+        return encodeId("whk", hook?.id ?? "");
     }
     if (row.object === "cst") return encodeId("cst", await victimContest());
     if (row.object === "exm") return encodeId("exm", await victimExam());

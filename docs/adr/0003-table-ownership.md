@@ -78,6 +78,8 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `ledger_txns` | `modules/billing` | Double-entry money transactions, one per business fact (kind, ref), posted by `post_ledger_txn`; never changed; worker role only |
 | `ledger_entries` | `modules/billing` | The debit and credit lines of a ledger transaction; amounts are positive whole minor units; debits equal credits per currency when the transaction commits (a deferred constraint trigger); never changed |
 | `reconciliations` | `modules/billing` | One row per month: our usage counts, the payment provider's, and the differences between them; recorded once, never changed; worker role only |
+| `webhook_endpoints` | `modules/webhooks` | A customer's webhook address, wanted events and signing secrets; read by the organization's owners and administrators without the secrets (column privileges), created, rotated and switched off only by definer functions; the plan limits how many |
+| `webhook_deliveries` | `modules/webhooks` | One queued event for one endpoint, its attempts and outcome; queued once per (endpoint, event, source) by triggers, claimed and recorded by the worker, given up on after 24 hours |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |
