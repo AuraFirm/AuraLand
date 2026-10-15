@@ -44,3 +44,17 @@ export async function usageOf(
     for (const row of rows) counts[row.kind] = row.used;
     return counts;
 }
+
+// The caller's role in the organization: null for a stranger (or a missing organization), so both look the same.
+export async function roleOf(tx: Transaction, org: string): Promise<string | null> {
+    const [row] = await tx`select app_org_role(${org}) as role`;
+    return z.object({ role: z.string().nullable() }).parse(row).role;
+}
+
+// The provider's customer reference for the organization; only owners and administrators can see the row.
+export async function billingRefOf(tx: Transaction, org: string): Promise<string | null> {
+    const [row] = await tx`select billing_ref from customers where org_id = ${org}`;
+    return row === undefined
+        ? null
+        : z.object({ billing_ref: z.string().nullable() }).parse(row).billing_ref;
+}

@@ -865,6 +865,21 @@ const MATRIX: readonly Row[] = [
         },
     },
     { method: "GET", path: "/api/v1/orgs/:id/plan", access: "user", owned: true, object: "org" },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/billing/checkout",
+        access: "user",
+        owned: true,
+        object: "org",
+        body: { plan: "team" },
+    },
+    {
+        method: "POST",
+        path: "/api/v1/orgs/:id/billing/portal",
+        access: "user",
+        owned: true,
+        object: "org",
+    },
     { method: "GET", path: "/api/v1/orgs/:id/usage", access: "user", owned: true, object: "org" },
     {
         method: "PUT",
@@ -1070,11 +1085,16 @@ async function victimExam(): Promise<string> {
 
 async function victimObject(row: Row, sessionId: string): Promise<string> {
     if (row.object === "org") {
+        // Each row gets its own organization with its own owner: a person may belong to only 20, and no check needs the
+        // victim to be ALICE, only for the intruder (BOB) to be a stranger.
+        const [owner] = await h.db.database.sql<{ id: string }[]>`
+            insert into users (email, email_verified_at)
+            values (${`owner-${randomBytes(4).toString("hex")}@example.com`}, now()) returning id`;
         const [org] = await h.db.database.sql<{ id: string }[]>`
             insert into orgs (kind, slug, name) values ('company', ${`victim-${randomBytes(4).toString("hex")}`}, 'Victim team')
             returning id`;
         await h.db.database
-            .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${ALICE}, 'owner')`;
+            .sql`insert into memberships (org_id, user_id, role) values (${org?.id ?? ""}, ${owner?.id ?? ""}, 'owner')`;
         return encodeId("org", org?.id ?? "");
     }
     if (row.object === "cst") return encodeId("cst", await victimContest());
