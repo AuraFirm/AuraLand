@@ -39,3 +39,13 @@ test("a person with no credentials is told when they appear", async ({ browser }
     await page.goto("/passport");
     await expect(page.getByText("You have no credentials yet", { exact: false })).toBeVisible();
 });
+
+test("the employer page says plainly that access is by invitation", async ({ browser }) => {
+    const context = await browser.newContext();
+    await loginAs(context, freshEmail());
+    const page = await context.newPage();
+    await page.goto("/employer");
+    await expect(page.getByRole("heading", { name: "Employer" })).toBeVisible();
+    await expect(page.getByText("by invitation of the platform", { exact: false })).toBeVisible();
+    await expectAccessible(page);
+});

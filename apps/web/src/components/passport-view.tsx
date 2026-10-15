@@ -2,6 +2,7 @@
 
 import {
     createShareResponseSchema,
+    credentialViewsResponseSchema,
     myCredentialsResponseSchema,
 } from "@aura/contracts/api/passport";
 import { VISIBILITIES } from "@aura/contracts/credentials";
@@ -97,6 +98,7 @@ function CredentialCard({ credential, onChanged }: { credential: Mine; onChanged
                 </div>
             )}
             <ShareList credential={credential} run={run} />
+            {credential.visibility === "public" && <Views id={credential.id} />}
             {message !== "" && <Notice text={message} bad />}
         </Section>
     );
@@ -148,5 +150,32 @@ function ShareList(props: { credential: Mine; run: (work: () => Promise<void>) =
                 </li>
             ))}
         </ul>
+    );
+}
+
+// Who looked at a public credential: the organization and why, not the person. Holders can always see this.
+function Views({ id }: { id: string }) {
+    const { data } = useLoad(
+        useCallback(() => apiGet(`/credentials/${id}/views`, credentialViewsResponseSchema), [id]),
+    );
+    if (data === null) return null;
+    return (
+        <div className="mt-3">
+            <h3 className="font-semibold">Who has looked</h3>
+            {data.views.length === 0 && (
+                <p className="text-sm text-muted">Nobody has opened a report yet.</p>
+            )}
+            <ul>
+                {data.views.map((view) => (
+                    <li key={`${view.org_name}${view.viewed_at}`}>
+                        {view.org_name},{" "}
+                        {view.purpose === "hiring_screening"
+                            ? "hiring screening"
+                            : "verifying a claim"}
+                        , {showInstant(view.viewed_at)}
+                    </li>
+                ))}
+            </ul>
+        </div>
     );
 }
