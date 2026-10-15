@@ -68,8 +68,7 @@ func (g *GVisor) runsc(ctx context.Context, state string, args ...string) *exec.
 func (g *GVisor) Run(ctx context.Context, env Env) (Result, error) {
 	id := fmt.Sprintf("aura-%d-%d", os.Getpid(), g.counter.Add(1))
 	env.CgroupName = id
-	config, err := Spec(env)
-	if err != nil {
+	if err := env.Validate(); err != nil {
 		return Result{}, err
 	}
 	dir := filepath.Join(g.BaseDir, id)
@@ -77,11 +76,24 @@ func (g *GVisor) Run(ctx context.Context, env Env) (Result, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return Result{}, err
 	}
+	hostWorkspace := env.Workspace
+	// The agent writes into a memory file system of exactly the disk limit, not into the host's disk: a per-file size
+	// limit alone lets many files fill whatever the workspace lives on (the escape suite's disk_fill probe found this).
+	scratch := filepath.Join(dir, "work")
 	defer func() {
 		// runsc leaves its empty network namespace bind-mounted in the state directory; unmount it first.
 		g.unmount(filepath.Join(state, "null-netns"))
+		g.unmount(scratch)
 		_ = os.RemoveAll(dir)
 	}()
+	if err := g.prepareWorkspace(scratch, hostWorkspace, env); err != nil {
+		return Result{Verdict: "SE", Isolation: IsolationGVisor}, err
+	}
+	env.Workspace = scratch
+	config, err := Spec(env)
+	if err != nil {
+		return Result{}, err
+	}
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), config, 0o600); err != nil {
 		return Result{}, err
 	}
@@ -98,6 +110,9 @@ func (g *GVisor) Run(ctx context.Context, env Env) (Result, error) {
 	go func() { waited <- cmd.Wait() }()
 	defer g.delete(state, id)
 	exit, timedOut, outputKilled := g.supervise(ctx, env, state, id, stdout, watcher, waited)
+	if err := g.collectWorkspace(scratch, hostWorkspace); err != nil {
+		return Result{Verdict: "SE", Isolation: IsolationGVisor}, err
+	}
 	result := classify(exit, timedOut, outputKilled || stdout.exceeded.Load(), stdout.buf.Bytes(), time.Since(started), stderr.buf.String())
 	watcher.apply(&result, env.Limits)
 	return result, nil
@@ -139,6 +154,36 @@ func exitStatus(err error) int {
 		return exit.ExitCode()
 	}
 	return -1
+}
+
+// elevated runs a helper command (mount, cp, find) with the node's privilege prefix.
+func (g *GVisor) elevated(name string, args ...string) error {
+	full := append(append(append([]string{}, g.Elevate...), name), args...)
+	if out, err := exec.Command(full[0], full[1:]...).CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// prepareWorkspace makes a size-limited memory file system owned by the agent's user and copies the workspace into it.
+func (g *GVisor) prepareWorkspace(scratch, workspace string, env Env) error {
+	if err := os.MkdirAll(scratch, 0o700); err != nil {
+		return err
+	}
+	options := fmt.Sprintf("size=%dm,uid=%d,gid=%d,mode=0700,nosuid,nodev", env.Limits.DiskMiB, env.UID, env.GID)
+	if err := g.elevated("mount", "-t", "tmpfs", "-o", options, "tmpfs", scratch); err != nil {
+		return err
+	}
+	return g.elevated("cp", "-a", "--no-dereference", workspace+"/.", scratch)
+}
+
+// collectWorkspace replaces the host workspace's contents with what the agent left. Links are copied as links and never
+// followed; nothing here reads a file the agent wrote.
+func (g *GVisor) collectWorkspace(scratch, workspace string) error {
+	if err := g.elevated("find", workspace, "-mindepth", "1", "-delete"); err != nil {
+		return err
+	}
+	return g.elevated("cp", "-a", "--no-dereference", scratch+"/.", workspace)
 }
 
 func (g *GVisor) unmount(path string) {

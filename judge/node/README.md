@@ -103,3 +103,16 @@ Stage 8 slice 1. **Not KVM, not Firecracker, not a production node.** gVisor `ru
 - Learned the hard way: runsc keeps its empty network namespace bind-mounted in the state directory (unmount it before removing the
   directory); a cgroup created beforehand gets **no limits** from runsc (let runsc create it); `runsc wait` after the sandbox has
   exited cannot give the exit status (use `run`); the cgroup disappears the instant the sandbox ends (sample it while it lives).
+
+### Tier-2 escape suite, run 2026-10-15 (same VM, same caveats)
+`internal/tier2/testdata/escape` is a static Go program with 15 probes (chroot, mount, network, host file by canary, ptrace of a host
+process, raw socket, setuid to root, writes to `/etc` `/usr` `/bin`, `/dev/mem` and friends, `/proc/kcore`, mknod, module load, signalling a
+host process, the host's cgroup tree, reboot, and filling the workspace). `escape_test.go` runs each inside gVisor (all contained) and
+again unconfined as root (all escape), so a pass means contained, not broken.
+- It found one real gap on its first run: **disk_fill** wrote past the limit, because a per-file size limit does not bound the total.
+  The driver now gives each run a memory file system of exactly the disk limit and copies the workspace in and out (links copied as
+  links, never followed). The agent's disk use therefore counts against host memory: size concurrency accordingly.
+- The first version of the unconfined control mounted a tmpfs over the VM's `/tmp` (three stacked mounts, since removed) because the
+  probe's target was `/tmp`; controls now mount only over their own work directory, and ptrace/signal probes use a harmless process the
+  test starts, never PID 1.
+- Not covered: kernel-surface fuzzing, side channels, other platforms (KVM/ptrace), x86, and anything an external reviewer would add.
