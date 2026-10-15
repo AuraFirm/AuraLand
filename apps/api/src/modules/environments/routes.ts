@@ -4,6 +4,7 @@ import {
     environmentsResponseSchema,
     envRunSchema,
     envRunsResponseSchema,
+    leaderboardResponseSchema,
     requestRunSchema,
 } from "@aura/contracts/api/environments";
 import { decodeId, encodeId, idSchema } from "@aura/contracts/ids";
@@ -32,6 +33,7 @@ export function environmentRoutes(deps: EnvironmentRouteDeps): Hono<AppEnv> {
     routes.get("/environments", handleList);
     routes.post("/environments/:id/runs", (c) => handleRequest(c, deps));
     routes.get("/environments/:id/runs", handleRuns);
+    routes.get("/environments/:id/leaderboard", handleLeaderboard);
     routes.get("/env-runs/:id", handleRun);
     return routes;
 }
@@ -192,4 +194,29 @@ async function handleRun(c: Context<AppEnv>) {
     if (!run.success) return invalid(c);
     const row = await q.getRun(c.get("tx"), decodeId("evr", run.data));
     return row === null ? notFound(c) : c.json(toRun(row));
+}
+
+async function handleLeaderboard(c: Context<AppEnv>) {
+    const who = user(c);
+    if ("problem" in who) return who.problem;
+    const env = idSchema("env").safeParse(c.req.param("id"));
+    if (!env.success) return invalid(c);
+    const tx = c.get("tx");
+    const id = decodeId("env", env.data);
+    const visible = await tx`select 1 as one from environments where id = ${id}`;
+    if (visible.length === 0) return notFound(c);
+    const rows = await q.leaderboard(tx, id);
+    return c.json(
+        leaderboardResponseSchema.parse({
+            rows: rows.map((row, index) => ({
+                rank: index + 1,
+                agent_label: row.agent_label,
+                best_score: row.best_score,
+                runs: row.runs,
+                flagged_runs: row.flagged_runs,
+                isolation: row.isolation,
+                achieved_at: row.achieved_at.toISOString(),
+            })),
+        }),
+    );
 }
