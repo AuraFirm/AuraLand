@@ -39,11 +39,47 @@ export function OrgWebhooks({ org }: { org: OrgItem }) {
             setMessage(messageOf(failure));
         }
     };
+    const { create, rotate, test, remove, showLog } = useWebhookActions(
+        org.id,
+        run,
+        setSecret,
+        setLog,
+    );
+
+    return (
+        <Section id="webhooks" title="Webhooks">
+            {error !== "" && <Notice text={error} bad />}
+            {secret !== "" && <ShownSecret secret={secret} />}
+            <ul className="mb-4 flex flex-col gap-2">
+                {data?.webhooks.map((hook) => (
+                    <HookRow key={hook.id} hook={hook} on={{ rotate, remove, showLog, test }} />
+                ))}
+            </ul>
+            {log !== "" && (
+                <pre className="mb-4 whitespace-pre-wrap rounded-[var(--radius-m)] border border-line p-3">
+                    {log}
+                </pre>
+            )}
+            <AddForm onAdd={create} />
+            {message !== "" && <Notice text={message} bad={failed} />}
+        </Section>
+    );
+}
+
+type Run = (work: () => Promise<void>, done: string) => Promise<void>;
+
+// The things a person can do to an endpoint, each reporting through `run`.
+function useWebhookActions(
+    orgId: string,
+    run: Run,
+    setSecret: (secret: string) => void,
+    setLog: (log: string) => void,
+) {
     const create = (url: string) =>
         run(async () => {
             const body = { url, events: [...WEBHOOK_EVENTS].slice(0, 1) };
             const made = await withStepUp(() =>
-                apiSend(`/orgs/${org.id}/webhooks`, webhookSecretSchema, { method: "POST", body }),
+                apiSend(`/orgs/${orgId}/webhooks`, webhookSecretSchema, { method: "POST", body }),
             );
             setSecret(made.secret);
         }, "Endpoint added.");
@@ -54,6 +90,11 @@ export function OrgWebhooks({ org }: { org: OrgItem }) {
             );
             setSecret(made.secret);
         }, "Secret replaced. The old one keeps working for 24 hours.");
+    const test = (id: string) =>
+        run(
+            () => apiDo(`/webhooks/${id}/test`, { method: "POST" }),
+            "Test event queued. Show deliveries to see the result.",
+        );
     const remove = (id: string) =>
         run(() => apiDo(`/webhooks/${id}`, { method: "DELETE" }), "Endpoint switched off.");
     const showLog = (id: string) =>
@@ -67,25 +108,7 @@ export function OrgWebhooks({ org }: { org: OrgItem }) {
             );
             setLog(lines.join("\n") || "No deliveries yet.");
         }, "Deliveries loaded.");
-
-    return (
-        <Section id="webhooks" title="Webhooks">
-            {error !== "" && <Notice text={error} bad />}
-            {secret !== "" && <ShownSecret secret={secret} />}
-            <ul className="mb-4 flex flex-col gap-2">
-                {data?.webhooks.map((hook) => (
-                    <HookRow key={hook.id} hook={hook} on={{ rotate, remove, showLog }} />
-                ))}
-            </ul>
-            {log !== "" && (
-                <pre className="mb-4 whitespace-pre-wrap rounded-[var(--radius-m)] border border-line p-3">
-                    {log}
-                </pre>
-            )}
-            <AddForm onAdd={create} />
-            {message !== "" && <Notice text={message} bad={failed} />}
-        </Section>
-    );
+    return { create, rotate, test, remove, showLog };
 }
 
 function ShownSecret({ secret }: { secret: string }) {
@@ -103,6 +126,7 @@ interface Actions {
     readonly rotate: (id: string) => void;
     readonly remove: (id: string) => void;
     readonly showLog: (id: string) => void;
+    readonly test: (id: string) => void;
 }
 
 function HookRow({ hook, on }: { hook: Hook; on: Actions }) {

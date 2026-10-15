@@ -25,6 +25,7 @@ export interface WebhookRouteDeps {
 const NO_DATA_FOUND = "P0002";
 const PROGRAM_LIMIT_EXCEEDED = "54000";
 const SECRET_BYTES = 32;
+const OBJECT_NOT_IN_STATE = "55000";
 
 // Customer webhooks (Stage 9, slice 5b): the organization's owners and administrators register addresses, rotate secrets and read
 // the delivery log. Creating and rotating show a secret, so they need a fresh passkey check. A stranger gets 404; so does a member
@@ -34,6 +35,7 @@ export function webhookRoutes(deps: WebhookRouteDeps): Hono<AppEnv> {
     routes.post("/orgs/:id/webhooks", (c) => handleCreate(c, deps));
     routes.get("/orgs/:id/webhooks", handleList);
     routes.post("/webhooks/:id/rotate-secret", (c) => handleRotate(c, deps));
+    routes.post("/webhooks/:id/test", (c) => handleTest(c, deps));
     routes.delete("/webhooks/:id", handleDisable);
     routes.get("/webhooks/:id/deliveries", handleDeliveries);
     return routes;
@@ -55,6 +57,8 @@ const newSecret = (rng: Rng) => Buffer.from(rng.nextBytes(SECRET_BYTES)).toStrin
 function translated(c: Context<AppEnv>, error: unknown) {
     const code = postgresErrorCode(error);
     if (code === NO_DATA_FOUND) return notFound(c);
+    if (code === OBJECT_NOT_IN_STATE)
+        return problemResponse(c, "conflict", "Conflict", "a test is already waiting");
     if (code === PROGRAM_LIMIT_EXCEEDED)
         return problemResponse(
             c,
@@ -180,4 +184,27 @@ async function handleDeliveries(c: Context<AppEnv>) {
     return c.json(
         webhookDeliveriesResponseSchema.parse({ deliveries: await q.listDeliveries(tx, raw) }),
     );
+}
+
+// One test delivery, sent by the worker like any other. The answer is 202: whether the receiver accepted it shows in the delivery log.
+async function handleTest(c: Context<AppEnv>, deps: WebhookRouteDeps) {
+    const who = user(c);
+    if ("problem" in who) return who.problem;
+    const id = idSchema("whk").safeParse(c.req.param("id"));
+    if (!id.success) return invalid(c);
+    const tx = c.get("tx");
+    try {
+        await q.sendTest(tx, decodeId("whk", id.data), deps.clock.nowUnixMs());
+    } catch (error) {
+        return translated(c, error);
+    }
+    await appendAudit(tx, {
+        actorKind: "user",
+        actorUserId: who.actor.userId,
+        orgId: null,
+        action: "webhook.test_sent",
+        target: id.data,
+        detail: {},
+    });
+    return c.body(null, 202);
 }

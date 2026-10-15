@@ -26,7 +26,7 @@ select last_reason, count(*) from webhook_deliveries where state = 'dead' group 
 ```
 A customer reports missing events: check their endpoint is `active`, that `webhook_deliveries` has rows for the event, and `last_reason`
 (`receiver answered 500`, `address not allowed`, `timed out`). `address not allowed` means their name resolves to a non-public address; we
-will never deliver there. Rotating a secret keeps the old one signing for 24 hours.
+will never deliver there. Rotating a secret keeps the old one signing for 24 hours. "Send a test event" in the console queues one `webhook.test` delivery (one waiting at a time) that is signed and retried like a real one: if the customer cannot verify it, their code is the first suspect, and `docs/developers` has a verifier.
 
 ## 4. Single sign-on and SCIM
 Set-up order for a customer: plan with SSO, connection (issuer, client id and secret), domain TXT record, verify, sign in once through SSO

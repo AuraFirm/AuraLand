@@ -905,6 +905,13 @@ const MATRIX: readonly Row[] = [
         owned: true,
         object: "whk",
     },
+    {
+        method: "POST",
+        path: "/api/v1/webhooks/:id/test",
+        access: "user",
+        owned: true,
+        object: "whk",
+    },
     { method: "DELETE", path: "/api/v1/webhooks/:id", access: "user", owned: true, object: "whk" },
     {
         method: "GET",
