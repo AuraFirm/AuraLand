@@ -4,6 +4,7 @@ package tier2
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,7 +49,8 @@ func hostFacts(t *testing.T, base string) (processes, mounts, cgroups []string) 
 			mounts = append(mounts, line)
 		}
 	}
-	found, _ := filepath.Glob("/sys/fs/cgroup/aura/aura-*")
+	// Only this process's own runs: another test package may be running sandboxes of its own at the same time.
+	found, _ := filepath.Glob(fmt.Sprintf("/sys/fs/cgroup/aura/aura-%d-*", os.Getpid()))
 	return processes, mounts, append(cgroups, found...)
 }
 
