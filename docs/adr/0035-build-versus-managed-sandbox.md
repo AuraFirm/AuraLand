@@ -1,5 +1,5 @@
 # 0035 — Build or buy the Tier-2 sandbox (gVisor now, Firecracker later, or a managed service)
-Status: proposed (a decision for the owner; the engineering recommendation is below)
+Status: accepted on 2026-10-15 (the owner delegated the decision; items 1 to 4 below stand, and no managed provider is chosen or bought until one is evaluated against the unknowns)
 Date: 2026-10-15   Deciders: owner (human-owned decision, kit 15 section 3)
 
 ## Context
