@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -48,12 +49,14 @@ func run(args []string) int {
 	runsc := flags.String("tier2-runsc", "", "absolute path of runsc; with it the node takes Tier-2 environment runs (gVisor, lower assurance: see ADR 0034)")
 	tier2Dir := flags.String("tier2-dir", "/var/lib/aura/tier2", "directory for Tier-2 run files; needs room for images")
 	elevate := flags.String("tier2-elevate", "", "command prefix that gives runsc its privileges, for example 'sudo -n'")
+	extract := flags.String("tier2-extract", "sandbox", "where image and hidden-material archives are unpacked: 'sandbox' (a gVisor sandbox, the default) or 'in-process' (the agent's own process; the repository rule forbids this for untrusted archives, so use it only knowingly)")
+	extractMiB := flags.Int("tier2-extract-mib", 1024, "most MiB one archive may unpack to; a sandboxed unpack holds this in memory")
 	flags.Parse(args)
 	if *plane == "" || *nodeID == "" || *keyFile == "" || *openerFile == "" {
 		fmt.Fprintln(os.Stderr, "run needs --control-plane, --node-id, --key-file and --opener-file")
 		return 2
 	}
-	tier2Config := tier2Settings{runsc: *runsc, dir: *tier2Dir, elevate: strings.Fields(*elevate)}
+	tier2Config := tier2Settings{runsc: *runsc, dir: *tier2Dir, elevate: strings.Fields(*elevate), extract: *extract, extractMiB: *extractMiB}
 	if err := serve(*plane, *nodeID, *keyFile, *isolateBin, *openerFile, *rewriterFile, *concurrency, tier2Config); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		return 1
@@ -64,6 +67,8 @@ func run(args []string) int {
 type tier2Settings struct {
 	runsc, dir string
 	elevate    []string
+	extract    string
+	extractMiB int
 }
 
 func serve(plane, nodeID, keyFile, isolateBin, openerFile, rewriterFile string, concurrency int, tier2Config tier2Settings) error {
@@ -115,9 +120,13 @@ func serve(plane, nodeID, keyFile, isolateBin, openerFile, rewriterFile string, 
 		if swept > 0 {
 			node.Logf("removed %d stale sandbox(es) left by a node that is gone", swept)
 		}
+		extractor, err := makeExtractor(runtime, tier2Config)
+		if err != nil {
+			return err
+		}
 		node.EnvRunner = &envnode.Runner{
-			Runtime: runtime,
-			Key:     key, HTTP: &http.Client{Timeout: 10 * time.Minute}, WorkDir: tier2Config.dir,
+			Runtime: runtime, Extractor: extractor,
+			Key: key, HTTP: &http.Client{Timeout: 10 * time.Minute}, WorkDir: tier2Config.dir,
 		}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -198,4 +207,21 @@ func newWatermarker(control *client.Client, box sandbox.Sandbox, rewriterFile, o
 			return &validate.Runner{Box: box, Open: &bundles.Opener{Box: box, Script: openerScript, Fetch: fetch}}
 		},
 	}, nil
+}
+
+// makeExtractor chooses where archives are unpacked. The sandboxed way runs this very binary inside a gVisor sandbox, so the binary must
+// be statically linked (CGO_ENABLED=0); the node proves it can before it takes work.
+func makeExtractor(runtime *tier2.GVisor, config tier2Settings) (envnode.Extractor, error) {
+	switch config.extract {
+	case "in-process":
+		return envnode.InProcessExtractor{Limits: envnode.DefaultLimits}, nil
+	case "sandbox":
+		self, err := os.Executable()
+		if err != nil {
+			return nil, err
+		}
+		return envnode.NewSandboxExtractor(context.Background(), runtime, self, filepath.Join(config.dir, "extractor-rootfs"), config.extractMiB)
+	default:
+		return nil, fmt.Errorf("--tier2-extract must be 'sandbox' or 'in-process', not %q", config.extract)
+	}
 }

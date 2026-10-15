@@ -31,7 +31,9 @@ type Runner struct {
 	HTTP    *http.Client
 	// WorkDir holds the per-run files (downloads, root file system, workspace); it must have room.
 	WorkDir string
-	Logf    func(format string, args ...any)
+	// Extractor unpacks the downloaded archives; nil means in the agent's own process (see InProcessExtractor for why that is not the default of the command line).
+	Extractor Extractor
+	Logf      func(format string, args ...any)
 }
 
 // Run executes one leased environment run and returns the canonical trace and the node's signature of it.
@@ -118,12 +120,11 @@ func (r *Runner) fetchAndExtract(ctx context.Context, url, wantSHA256, into, tmp
 	if got := hex.EncodeToString(hash.Sum(nil)); got != wantSHA256 {
 		return fmt.Errorf("its SHA-256 is %s, not the pinned %s", got, wantSHA256)
 	}
-	archive, err := os.Open(tmp)
-	if err != nil {
-		return err
+	extractor := r.Extractor
+	if extractor == nil {
+		extractor = InProcessExtractor{Limits: DefaultLimits}
 	}
-	defer archive.Close()
-	return Extract(archive, into, DefaultLimits)
+	return extractor.Extract(ctx, tmp, into)
 }
 
 // execute runs the session, the integrity observation and the verifier, and builds the trace.

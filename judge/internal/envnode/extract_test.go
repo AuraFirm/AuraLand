@@ -92,8 +92,8 @@ func TestExtractStopsAtItsCaps(t *testing.T) {
 	}
 }
 
-// Real images carry hard links; the copy must hold the same bytes and be its own file.
-func TestExtractCopiesAHardLink(t *testing.T) {
+// Real images carry hard links (busybox has hundreds): the extra names must hold the same bytes without multiplying them.
+func TestExtractMakesAHardLinkToAnUnpackedFile(t *testing.T) {
 	dir := t.TempDir()
 	link := entry{tar.Header{Name: "bin/adduser", Typeflag: tar.TypeLink, Linkname: "bin/busybox"}, ""}
 	if err := Extract(archive(t, file("bin/busybox", "payload"), link), dir, DefaultLimits); err != nil {
@@ -101,11 +101,23 @@ func TestExtractCopiesAHardLink(t *testing.T) {
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, "bin/adduser"))
 	if err != nil || string(raw) != "payload" {
-		t.Fatalf("copy = %q, %v", raw, err)
+		t.Fatalf("link = %q, %v", raw, err)
 	}
 	a, _ := os.Stat(filepath.Join(dir, "bin/busybox"))
 	b, _ := os.Stat(filepath.Join(dir, "bin/adduser"))
-	if os.SameFile(a, b) {
-		t.Fatal("the hard link shares an inode")
+	if !os.SameFile(a, b) {
+		t.Fatal("the hard link is a second copy")
+	}
+}
+
+// A thousand names for a 1 MiB file must not count as a thousand MiB.
+func TestExtractDoesNotCountALinkAsBytes(t *testing.T) {
+	entries := []entry{file("big", strings.Repeat("x", 1<<20))}
+	for i := 0; i < 50; i++ {
+		entries = append(entries, entry{tar.Header{Name: "l" + string(rune('a'+i%26)) + string(rune('a'+i/26)), Typeflag: tar.TypeLink, Linkname: "big"}, ""})
+	}
+	limits := ExtractLimits{Entries: 100, Bytes: 2 << 20, Depth: 8}
+	if err := Extract(archive(t, entries...), t.TempDir(), limits); err != nil {
+		t.Fatal(err)
 	}
 }

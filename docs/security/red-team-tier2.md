@@ -30,7 +30,7 @@ leaderboard.
 | 5 | End-to-end run | An unprivileged node cannot chown host files to the agent's user | Fixed: chown happens on the in-memory copy, files are handed back to the node's user |
 | 6 | Drill | A sandbox and cgroup from an earlier killed test run were still alive 90 minutes later; no startup sweep exists | Fixed: the node sweeps stale sandboxes at startup (`SweepStale`, tested on the VM) |
 | 7 | Drill | 49 defunct `runsc-fd-parking` children of the VM's init, never reaped | **Open, cause unknown (F71)** |
-| 8 | Design | The unpacker runs in the node agent's process, not in a sandbox | **Open (F70)**; the archive comes from an organization's author, not from a candidate |
+| 8 | Design | The unpacker ran in the node agent's process, not in a sandbox | Fixed (F70): unpacked inside gVisor by default; the in-process way remains as an explicit, documented opt-out |
 | 9 | Design | The workspace's bytes are charged to the node, not to the sandbox's cgroup | **Open (F74)**: no admission control by memory |
 
 ## Not tried

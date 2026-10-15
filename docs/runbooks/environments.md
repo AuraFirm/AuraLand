@@ -51,6 +51,8 @@ Tier-2 result reaches a credential above level 1; (5) record it in `docs/securit
 ## 5. Red team
 Use `docs/security/red-team-tier2.md`: the checklist, the findings table, and what has not been tried.
 
+Archives are unpacked inside a gVisor sandbox by default (`--tier2-extract`, `--tier2-extract-mib`; the node binary must be built with `CGO_ENABLED=0`; see `judge/node/README.md`).
+
 ## 6. Known gaps (so nobody assumes otherwise)
-Network allowlist (F69), the archive unpacker running outside a sandbox (F70), stale-sandbox sweep and a reaping supervisor (F71),
+Network allowlist (F69), stale-sandbox sweep and a reaping supervisor (F71),
 customer model endpoints (F72), external review (F73), memory admission control (F74), Firecracker (F68), cost model (F75).
