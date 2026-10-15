@@ -16,6 +16,7 @@ import { authenticate, csrf, dbContext } from "./auth-middleware.ts";
 import { type Config, loginTokenKey, usesSecureCookies } from "./config.ts";
 import { READINESS_CHECK_TIMEOUT_MS_MAX } from "./limits.ts";
 import { billingRoutes } from "./modules/billing/routes.ts";
+import { webhookRoutes } from "./modules/billing/webhook-routes.ts";
 import { clarificationRoutes } from "./modules/contests/clarification-routes.ts";
 import { ratingRoutes } from "./modules/contests/rating-routes.ts";
 import { contestRoutes } from "./modules/contests/routes.ts";
@@ -217,6 +218,15 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
             clock: deps.clock,
             storage: deps.storage,
             publicOrigin: deps.config.AURA_PUBLIC_ORIGIN,
+        }),
+    );
+    // The payment provider's webhook: outside /v1 (no session, no CSRF); its signature is the credential.
+    app.route(
+        "/webhooks",
+        webhookRoutes({
+            sql: deps.database.sql,
+            clock: deps.clock,
+            stripeSecret: deps.config.AURA_STRIPE_WEBHOOK_SECRET,
         }),
     );
     // Readiness: safe to receive traffic, meaning the database answers.

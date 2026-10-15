@@ -74,6 +74,7 @@ This file is the ownership map. Add a row in the same pull request that creates 
 | `plans` | `modules/billing` | The catalogue of plans: limits and switches (members, environment runs, verifications, webhook endpoints, SSO, SCIM, employer search) and a placeholder price; changed by migration only |
 | `customers` | `modules/billing` | Which plan an organization is on, with billing and contract references (owners and administrators read it); set only by `set_org_plan`, a platform administrator's function |
 | `usage_events` | `modules/billing` | Billable facts (a finished environment run, an opened employer report), written only by triggers on the tables that record those facts, unique per (organization, kind, source), never changed; read by owners and administrators, counted for members through `org_usage` |
+| `billing_events` | `modules/billing` | Events from the payment provider, one row per provider event id (the idempotency), with what was done about it; written only by `apply_provider_event` for the worker role; never changed |
 | `telemetry_events` | `modules/exams` | Consent-gated events of a sitting (closed kinds, counts only), range-partitioned by month; written only by `ingest_telemetry`, deleted only by the retention job |
 | `node_enrollments` | `modules/judge` | Single-use enrollment tokens (SHA-256 only) created by platform administrators |
 | `node_nonces` | `modules/judge` | Nonces of signed node requests, kept 10 minutes to refuse replays |

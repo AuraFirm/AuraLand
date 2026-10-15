@@ -67,6 +67,8 @@ const configSchema = z
             .optional(),
         AURA_S3_ACCESS_KEY_ID: z.string().min(1).max(200).optional(),
         AURA_S3_SECRET_ACCESS_KEY: z.string().min(1).max(400).optional(),
+        // The signing secret of the payment provider's webhook endpoint. Without it the billing webhook does not exist.
+        AURA_STRIPE_WEBHOOK_SECRET: z.string().min(16).max(200).optional(),
         // Sign-in with GitHub or Google. Each provider is on only when both of its values are set.
         AURA_OAUTH_GITHUB_CLIENT_ID: z.string().min(1).max(200).optional(),
         AURA_OAUTH_GITHUB_CLIENT_SECRET: z.string().min(1).max(400).optional(),
