@@ -5,110 +5,104 @@ reports (`docs/stages/stage-N-report.md`) hold the evidence behind each item; th
 **steps**. Tick items in a pull request, or tell me and I will. Anything marked **BLOCKS** stops a
 whole class of work until it is done.
 
-## A. Master list: everything that remains for you, in the order that unblocks the most
+## A. The initial release: free for everyone, for the first year
 
-Nothing here is optional if you want real customers, real money or real exams. Each item says **what it is**, **why**, **what you hand me**, and
-**what I do next**. "Account" means an account in your name that I never hold the keys to: you create it and give me only what the software
-needs (identifiers and non-secret settings; secrets go into the secret store, not into chat or git).
+**Decision (2026-10-15): the first release is free for all kinds of users, to build a user base over about a year.** That removes a whole class of
+work from the critical path (payments, tax, invoices, payouts, enterprise sign-in, paid-plan enforcement) and moves it to **section Z** at the end of
+this file, with the event that brings each item back. It does not remove the safety work: the product still runs strangers' code and stores people's
+data, so the judge review, legal basics and abuse control stay.
 
-### A1. Decide and create (week 1; everything else waits on these)
+### A0. What the initial release contains (my proposal; tell me if you want it different)
+| In the initial release | Deferred (section Z) |
+|---|---|
+| Sign-in (email, passkeys, GitHub and Google), profiles, organizations | Payments, plans that cost money, invoices, tax |
+| Practice bank, contests, Arena, ratings, scoreboards | Exams and everything that needs legal review of exams |
+| Task authoring, review and release for setters and reviewers (Forge, no selling) | Selling task packs to companies (orders, deliveries as a paid service), setter payouts |
+| Tier-1 judging on a reviewed production node | Tier-2 environments and agent evals (gVisor review, Firecracker) |
+| Customer webhooks (free, with the free-plan limits) | Enterprise SSO/SCIM, employer module, support-access tooling for customers, SOC 2 |
+| Passport credentials **only after** the signer is real (Z1): launching with development credentials would claim more than is true | Data residency promises, SDK/API-key scopes |
+
+The code for the deferred items is already built and tested; "deferred" means **not switched on, not promised, not paid for**. I will add a switch so
+that the deferred routes are really off in the free release rather than merely unadvertised (see A9).
+
+### A1. Decide and create (first week; the rest waits on these)
 | # | Item | Why | You do | I do next |
 |---|---|---|---|---|
-| A1.1 | **Legal entity and jurisdiction** (D1) | Stripe, contracts, tax, the DPA and who is "the company" in the privacy text all depend on it | Pick the entity (for example a Delaware C-corp or a UK Ltd via an incorporation service) and tell me its name and country | Put the entity into the privacy and consent texts and the DPA template; choose direct Stripe or a merchant of record with you (D2) |
-| A1.2 | **Domain name** (D8) | The credential issuer address (`did:web`) is the site's host and **cannot change later without invalidating credentials**; cookies, CSP, OAuth callbacks and `security.txt` use it | Buy the domain; choose the registrar. Decide the production host (for example `auraland.<tld>`) and a separate staging host | Set `AURA_PUBLIC_ORIGIN`, the issuer DID and the redirect addresses; configure staging and production hosts |
-| A1.3 | **Cloud account: AWS (recommended)** (F1, D3) | One account gives everything the design names: ECS Fargate or EC2 for web/API/worker, RDS PostgreSQL 18 with backups and PITR, S3 for bundles and Passport documents, **KMS for the credential signing key**, SES for mail, Secrets Manager, CloudWatch | Create an AWS Organization with a **separate staging and production account**; turn on MFA for the root user and do not use it; create an IAM role for infrastructure work that I can describe in code (tell me how you want to grant me access: usually you run the infrastructure code yourself and I write it) | Write the infrastructure as code (new ADR first), the staging deploy (F1), the production signer on KMS (F62), backups and the recovery drill (F79), alerts and dashboards (F39) |
-| A1.4 | **Region and data-residency promise** (D3, ADR 0038) | Decides where data lives; the residency code is a primitive until a second region exists | Choose the primary region (kit default: EU, Frankfurt or Ireland). Say whether you will promise any customer a specific region | Switch each module's storage to region routing if you do; otherwise state clearly that there is one region |
-| A1.5 | **Cloudflare (optional, my suggestion: yes for DNS, TLS edge, WAF, Turnstile)** (F7, F33) | If you want a CDN/edge in front (kit allows CloudFront or Cloudflare): TLS termination, DDoS protection, the request-id and client-address headers the API trusts, optional Turnstile on sign-in | Create a Cloudflare account, add the domain, and tell me whether the edge is Cloudflare or CloudFront. If Cloudflare, create a Turnstile site key (free) | Set `AURA_TRUST_EDGE_REQUEST_ID`, write the edge rules and the cache rules for Passport's static documents (F65), re-check ASVS V4 and V12 (F33) |
+| A1.1 | **Who runs the service** (legal entity, D1) | A free service still collects personal data and runs strangers' code; someone is the data controller and carries liability. A company (or a nonprofit) limits your personal exposure; running it as yourself is possible for a hobby launch but you carry that risk | Decide: form a company now (recommended, even a small one via an incorporation service), or launch as an individual and form one before the first institution or paying customer. Tell me the name and country | Put it into the privacy policy and terms; nothing else depends on it yet (Stripe is deferred) |
+| A1.2 | **Domain name** (D8) | The site's host is also the credential issuer address (`did:web`) and **cannot change later without invalidating credentials**; cookies, CSP, OAuth callbacks and `security.txt` use it | Buy the domain you will keep for years. Decide the production and a separate staging host | Set `AURA_PUBLIC_ORIGIN` and the redirect addresses; staging and production hosts |
+| A1.3 | **AWS account (recommended)** (F1, D3) | Hosting for web/API/worker, RDS PostgreSQL 18 with backups, S3 for files, SES for mail, Secrets Manager, CloudWatch; KMS later for Passport (Z1) | Create an AWS Organization with a **staging and a production account**, MFA on the root user (then do not use it), and **a budget alert at a monthly cap you choose** (a free service has no revenue to absorb a surprise bill). Tell me how you want to grant access: usually you run the infrastructure code and I write it | Write the infrastructure as code (ADR first), the staging deploy (F1), backups and one real restore drill (F79), alerts and dashboards (F39), a cost-conscious footprint (one small database, a small web/API/worker, one judge node to start) |
+| A1.4 | **Region** (D3) | Where data lives. One region is fine for launch; do not promise residency (ADR 0038) | Choose the primary region (kit default: EU, Frankfurt or Ireland) | Deploy there; the privacy text says where data is |
+| A1.5 | **Cloudflare (recommended, free tier is enough to start)** (F7, F33) | In front of AWS: DNS, TLS, DDoS and bot protection, rate limiting at the edge, and **Turnstile on sign-in and sign-up**, which matters more for a free service because anyone can sign up and use compute | Create the account, add the domain, create a Turnstile site key, and tell me Cloudflare is the edge (or choose CloudFront and Route 53 instead) | Set `AURA_TRUST_EDGE_REQUEST_ID`, write the edge rules, wire Turnstile (F7), re-check ASVS V4 and V12 (F33) |
 
-AWS and Cloudflare are not either/or: AWS runs the product, Cloudflare (if you choose it) sits in front. If you would rather use one vendor, say
-so and I will plan for CloudFront and Route 53 instead.
-
-### A2. Money (needs A1.1)
+### A2. Mail, sign-in and accounts (needs A1.2, A1.3)
 | # | Item | You do | I do next |
 |---|---|---|---|
-| A2.1 | **Stripe account** (or a merchant of record: Paddle, Polar) (F77, D2) | Create the account for the entity; complete their verification; create the products/prices you decide on (see A5.1); give me the **publishable key and the product/price ids** (not the secret key) and put the secret key and the webhook signing secret into the secret store | Write the real adapter behind `PaymentProvider`, run it against Stripe's test mode, wire the webhook (`/api/webhooks/stripe`), run reconciliation against real data |
-| A2.2 | **Tax and invoicing decision** | Decide: Stripe Tax, a merchant of record, or manual invoices for the first customers (orders are manual today) | Build what you choose; until then plans can only be set by staff or bought in test mode |
-| A2.3 | **A bank account and a payout process for setters** | Decide how setters are paid (the product records "paid" with a bank reference; it moves no money) | Adjust the payout batch export to your bank's format if needed |
+| A2.1 | **Mail provider** (F12) | Choose SES (natural with AWS) or Postmark; verify the sending domain (SPF, DKIM, DMARC at your DNS); ask SES for production access (it starts in a sandbox) | Write the adapter; email sign-in and invitations go live |
+| A2.2 | **OAuth apps** (F11) | Create a GitHub OAuth App and a Google Cloud OAuth client; callback `<origin>/api/v1/auth/oauth/<provider>/callback`; secrets into the secret store | Run the real-provider checks |
+| A2.3 | **First platform administrator** | Follow `docs/runbooks/identity.md` section 6 with a second person watching | - |
 
-### A3. Identity, signing and mail (needs A1.3)
+### A3. Judging: the one thing that must be safe before the public arrives (**BLOCKS** the launch)
 | # | Item | You do | I do next |
 |---|---|---|---|
-| A3.1 | **AWS KMS signing key for credentials** (F62) | After A1.3, create the key in KMS (I give you the exact spec: asymmetric, sign/verify, ECC NIST P-256 for ES256) and tell me its ARN; decide **Ed25519 vs ES256** with me (KMS support for Ed25519 must be checked in your region) | Write and test the KMS adapter behind the `Signer` port, rotate/retire keys by runbook, switch Passport on in staging then production |
-| A3.2 | **A person to review the signing and key-management code** (F63) | Find a security reviewer (a colleague, a consultancy or a freelancer). I list exactly what to read: `platform/signer.ts`, `modules/passport/{vc,issue,verify,status-list,publish,reissue}.ts`, migrations 0053-0060 | Fix what they find |
-| A3.3 | **Mail provider** (F12) | Choose SES (natural with AWS) or Postmark; verify the sending domain (SPF, DKIM, DMARC records at your DNS); get production sending access (SES starts in a sandbox) | Write the adapter; email sign-in, invitations and exam notices go live |
-| A3.4 | **OAuth apps** (F11) | Create a GitHub OAuth App and a Google Cloud OAuth client; callback `<origin>/api/v1/auth/oauth/<provider>/callback`; put client id and secret in the secret store | Run the real-provider checks |
-| A3.5 | **A real identity-provider test tenant** (F78) | Create a free Okta developer tenant, a Microsoft Entra ID test tenant and/or a Google Workspace trial so SSO and SCIM can be tested against something real | Run SSO and SCIM against each, fix what differs from my fakes, publish setup guides |
-| A3.6 | **First platform administrator** | Follow `docs/runbooks/identity.md` section 6 with a second person watching | - |
-| A3.7 | **Identity-proof vendor** (F64), only if a customer needs assurance above level 1 | Pick Persona, Veriff or Stripe Identity and open an account | Build the `IdentityVerifier` adapter and the higher credential levels |
+| A3.1 | **A production judge node** (F32) | Provision a dedicated Linux x86-64 VM (Ubuntu 24.04, cgroup v2) that runs nothing else; follow `judge/node/README.md`. Start with one; add more as load appears | Run the escape suite on it, harden the baseline, enroll it as `production` (never before the review) |
+| A3.2 | **An external review of the sandbox configuration** (F32, F73) | Hire a sandbox reviewer or pentester; give them `docs/security/red-team-tier2.md`'s method, the Tier-1 escape suite and the threat model; budget for a retest. **This is the one unavoidable cost of the free launch** | Fix findings; keep the findings table |
+| A3.3 | **Abuse limits you are comfortable with** | Decide the free allowances: submissions per person per hour/day, maximum concurrent runs, time/memory limits, and what happens on abuse (suspend, ban) | Set the rate limits and quotas; write the abuse runbook; make the free plan's limits generous but finite (A9) |
 
-### A4. Judging and sandboxes (needs A1.3 for hosting; a reviewer for the gate)
-| # | Item | You do | I do next |
-|---|---|---|---|
-| A4.1 | **A production judge node** (F32, **BLOCKS any real use of the judge**) | Provision a Linux x86-64 host (Ubuntu 24.04, cgroup v2) that is **not** a shared machine; for Tier-1 any cloud VM works; follow `judge/node/README.md` | Run the escape suite on it, harden the baseline, enroll it as `production` (never before the review) |
-| A4.2 | **An external review of the sandbox configuration** (F32, F73) | Hire a sandbox reviewer or pentester; give them `docs/security/red-team-tier2.md`, the escape suites and the threat model; budget for a retest | Fix findings; keep the findings table |
-| A4.3 | **A KVM-capable host for Firecracker** (F68) | AWS **bare-metal instances** (`.metal`) or an instance type with nested virtualization on another cloud (check current availability and price yourself); give me SSH access to a throwaway machine | Build the Firecracker driver with its own escape suite, snapshot/restore, density figures, cost per 1,000 runs (F75); then Tier-2 results can be eligible for credentials above level 1 |
-| A4.4 | **Decide build versus buy for the first microVM customer** (ADR 0035) | If a customer needs microVM-grade assurance before A4.3 is done: evaluate a managed sandbox (price, regions, who can see code, security record) | Write the adapter behind the `Runtime` port |
-| A4.5 | **A model-provider account and budget** (F41, F56, F72) | Anthropic or another provider; set a monthly cap; decide zero-retention terms | Difficulty calibration, agent attack runs, oral defence for exams, customer-model endpoints for agent evals |
-
-### A5. Business decisions only you can make
-| # | Decision | Notes |
-|---|---|---|
-| A5.1 | **Plans, limits and prices** | The numbers in `plans` are my placeholders. Decide names, member/run/verification limits, prices and currency; I change them by migration |
-| A5.2 | **Employer module**: who may buy it, and is self-serve OK? | It can be bought by card today (in test mode); legal review first (A6.2) |
-| A5.3 | **Whether customers may opt in to gVisor-grade scores** (ADR 0034) | The code refuses otherwise |
-| A5.4 | **Key scopes and an SDK** (F83) | Decide whether machine access by API key is a product; if yes, I write the design (ADR) first |
-| A5.5 | **Exam series / courses** (F55), **outcome mapping** (F59), **similarity across exams** | Needs a pilot institution to say what it wants |
-| A5.6 | **Cross-check my other delegated decisions** | Listed per stage in each stage report under "Decisions I made that you may overrule" |
-
-### A6. Legal, compliance and trust (can start now, in parallel)
+### A4. Legal basics (can start now, in parallel; needed before the public arrives)
 | # | Item | You do |
 |---|---|---|
-| A6.1 | **Legal review of exams** | A lawyer reads `docs/security/privacy-impact-assessment-exams.md`, the consent text and `dpa-template-exams.md` for each jurisdiction in kit 15 item 33. **Nothing about exams goes to real people before this** |
-| A6.2 | **Legal review of the employer module** (F67) | Employer access to candidates' public credentials, per jurisdiction |
-| A6.3 | **Privacy policy, terms of service, sub-processor list, DPAs, breach-notification procedure** | A lawyer drafts; I supply the facts (what data, where, which vendors) |
-| A6.4 | **SOC 2**: pick an auditor, adopt policies (incident response, access review, vendor management, change management) | `docs/compliance/evidence-*.md` shows what the repository can already prove and what needs people. Re-run the collector after each change |
-| A6.5 | **Security contact and bug bounty** | Choose the security address, publish `/.well-known/security.txt` (template in `docs/security/`), decide on a platform and budget, have a lawyer read the safe-harbour sentence |
-| A6.6 | **A human accessibility audit** of the candidate screens | axe passes but axe is not an audit |
-| A6.7 | **Incident response**: who is on call, who tells customers, the 72-hour breach clock | Needed before the first customer; I write the runbook with you |
+| A4.1 | **Privacy policy and terms of service** | A lawyer or a reputable template reviewed by one; I supply the facts (what data, where, which vendors: AWS, Cloudflare, the mail provider, GitHub/Google sign-in) |
+| A4.2 | **Content and conduct rules** | The service hosts user-written solutions and setter-written problems: rules on plagiarism, leaking problems, harassment, and a takedown address |
+| A4.3 | **Security contact** | Choose an address, publish `/.well-known/security.txt` (template in `docs/security/`), and say how you will answer reports. A paid bounty is deferred (Z4), a way to be told is not |
+| A4.4 | **Incident basics** | Who is reachable, who decides, and the 72-hour data-breach notification clock; I write the short runbook with you |
+| A4.5 | **Children**: decide a minimum age in the terms | Free public services attract students; the rules differ by country |
 
-### A7. People and pilots
+### A5. People and the first year
 | # | Item | You do |
 |---|---|---|
-| A7.1 | **A first customer or pilot** | Pick one: a contest (200+ people with a partner and a date), an exam at a pilot institution, a company wanting a task pack, or an agent-eval customer. Each needs the earlier items it names (contest: A1.3, A1.5, A4.1-4.2; exam: A6.1, A3.3, A4.1-4.2, A4.5) |
-| A7.2 | **Name two staff per exam host** (appeals need a reviewer other than the decider) and **who decides a confirmed case** | Before any exam |
-| A7.3 | **Contest-day support** (D11) | Who answers questions and watches the queue |
-| A7.4 | **Put problems in the practice bank** (F53) | `docs/runbooks/contests.md` |
-| A7.5 | **Approve the stage reports** | Stages 3, 5 and 9 are marked built, awaiting your review; the others you approved |
+| A5.1 | **Seed the practice bank** (F53) | Create a platform organization, add public tasks, release them (`docs/runbooks/contests.md`); a contest site with nothing to solve does not grow |
+| A5.2 | **A first contest** | Pick a date and a partner (a university club, a community); 200+ people is the design point; I run `contest-start-spike` on the real deployment (F49) and we rehearse |
+| A5.3 | **Who answers users** | Contest-day support (D11), a support address, a status page; decide office hours honestly |
+| A5.4 | **Approve the stage reports** | Stages 3, 5 and 9 are marked built, awaiting your review |
+| A5.5 | **Say "rating", not "Elo-MMR", in public** until it is calibrated on real contests (F50) | Wording only |
 
-### A8. Routine once live
-Weekly: `pnpm audit:verify` and keep the audit-chain head somewhere the database cannot reach (F8: external anchor, needs object lock in S3). Within 72 hours
-of a high or critical Next.js advisory: update. Quarterly: review platform administrators; re-run `node apps/api/src/soc2-evidence-cli.ts`; run the
-recovery drill (`node apps/api/src/dr-drill-cli.ts`) against a restored backup once A1.3 exists. After 2026-10-28: ask me for the ADR recording Node 26 as LTS (F2).
+### A6. Routine once live
+Weekly: `pnpm audit:verify`; keep the audit-chain head somewhere the database cannot reach (F8: needs S3 object lock). Within 72 hours of a high or
+critical Next.js advisory: update. Monthly: look at the AWS bill against the budget alert, and at abuse reports. Quarterly: review platform administrators;
+run the recovery drill (`node apps/api/src/dr-drill-cli.ts`) against a restored backup. After 2026-10-28: ask me for the ADR recording Node 26 as LTS (F2).
 
-### A9. The shortest path to a first real customer
-1. A1.1 entity, A1.2 domain, A1.3 AWS (and A1.5 Cloudflare if you want it). 2. I deploy staging (F1) and the edge (F33).
-3. A3.1 KMS key, A3.3 mail, A3.4 OAuth: sign-in, credentials and notices work for real. 4. A4.1 production judge node and A4.2 review.
-5. A2.1 Stripe (test mode first). 6. A6.1/A6.3 legal. 7. A7.1 the pilot. Everything else can follow the pilot.
+### A7. The shortest path to a free public launch
+1. A1.2 domain, A1.3 AWS (with the budget alert), A1.5 Cloudflare, A1.1 decision on the entity.
+2. I deploy staging (F1) and the edge (F33). 3. A2.1 mail, A2.2 OAuth, A2.3 first administrator: sign-in works for real.
+4. A3.1 production judge node, A3.2 the review (the long pole: book the reviewer early). 5. A4.1 to A4.5 legal basics, in parallel with 3 and 4.
+6. A5.1 seed the bank, A5.2 first contest. 7. Launch. Everything in section Z can wait for its trigger.
 
-### A10. What I can do without any of this
-Not much that matters is left: the unblocked backlog is done. If you want me working meanwhile, the useful options are (a) the disk-backed
-workspace so images larger than the unpack limit work (F70 remainder), (b) a design for API-key scopes (F83) once you say you want it, (c) SCIM
-Groups and more webhook events when a customer asks (F81, F82), and (d) writing the infrastructure code for A1.3 as a draft you review before an
-account exists (it cannot be tested without one).
+### A8. What the free launch costs you (so nothing surprises you)
+Not prices (I cannot quote them reliably; check each provider's current page): a domain; AWS (small database, small web/API/worker, one judge VM, storage,
+mail, backups, KMS later); Cloudflare free tier; the sandbox reviewer (one-off, the biggest item); a lawyer for A4.1; and your time for A5. The judge nodes
+are the part that grows with users, which is why A3.3 (allowances) and the AWS budget alert exist.
+
+### A9. What I will do for the free release (engineering; I start on your word)
+1. **A launch configuration** that switches off the deferred features at the routes (billing and checkout, exams, environments, orders and deliveries,
+   employer, SSO/SCIM, revenue share, support access), so "deferred" is enforced, not just unadvertised; plus hiding their screens.
+2. **Free-plan limits made generous but finite** (members, webhook endpoints, runs) and the default plan for everyone; the billing screens show nothing to buy.
+3. **Abuse controls**: per-person and per-address submission quotas, signup throttling with Turnstile, a suspend tool and runbook (A3.3).
+4. **Cost controls**: a hard cap on concurrent judge work and queue length (the queue already sheds load), and a monthly usage report.
+5. **Infrastructure as code, staging, edge, backups, alerts** (A1.3), and the launch runbook.
 
 ## 0. Where things stand
 | Stage | State |
 |---|---|
-| 0 Foundations | Approved (2026-10-10). Open: the staging deploy (A1.3) |
+| 0 Foundations | Approved (2026-10-10). Open: the staging deploy (A1.3, A7) |
 | 1 Identity, tenancy, audit | Approved (2026-10-10) |
 | 2 Tasks and bundles | Approved (2026-10-11) |
-| 3 Queue, submissions, judge | **Built, awaiting your review.** The production judge node and the external sandbox review are open (A4.1, A4.2) |
-| 4A, 4B, 4C Forge v0, validation, watermarks | Approved (2026-10-14); calibration and agent attack runs wait for a model-provider account (A4.5) |
-| 5 Contests, Arena, ratings | Built, awaiting your review; the load target and a pilot need a deployment (A1.3, A7.1) |
-| 6 Exams and integrity | Approved (2026-10-15); no real exam before legal review (A6.1) |
-| 7 Passport | Approved (2026-10-15); development signer only until KMS (A3.1) |
-| 8 Tier-2 environments | Approved (2026-10-15); gVisor only, no Firecracker (A4.3) |
-| 9 Business systems | Built, awaiting your review; everything ran against fakes (A2, A3.5, A6) |
+| 3 Queue, submissions, judge | **Built, awaiting your review.** The production judge node and the external sandbox review are open (A3.1, A3.2) |
+| 4A, 4B, 4C Forge v0, validation, watermarks | Approved (2026-10-14); calibration and agent attack runs wait for a model-provider account (Z1) |
+| 5 Contests, Arena, ratings | Built, awaiting your review; **the heart of the free launch**; the load target and the first contest need a deployment (A1.3, A5.2) |
+| 6 Exams and integrity | Approved (2026-10-15); **deferred for the free launch (Z2)**; no real exam before legal review |
+| 7 Passport | Approved (2026-10-15); development signer only; **real signer is Z1, soon after launch** |
+| 8 Tier-2 environments | Approved (2026-10-15); gVisor only, no Firecracker; **deferred for the free launch (Z2)** |
+| 9 Business systems | Built, awaiting your review; ran against fakes; **deferred for the free launch (section Z)** |
 
 ## 1. Stage 3: review, sign-off and the sandbox gate (**BLOCKS** any real use of the judge)
 ### 1.1 Review and sign off (about half a day)
@@ -277,3 +271,53 @@ mTLS for `/api/judge/v1`. Then I re-check ASVS V4 and V12 rows and set `AURA_TRU
 | Contest pilot with real people, the scoreboard at kit load, a calibrated rating | Need a deployment, an edge and a reviewed judge fleet | F1, F32, F49, F50 |
 | Firecracker, a network allowlist for environments, an unpacker inside a sandbox, a real agent or model, a cost model | Need a KVM host, time, a provider account and prices | F68 to F76 |
 | Platform-administrator screens (nodes, orgs) | API only for now | F13 |
+
+## Z. Deferred: not needed for the free initial release
+
+Everything here is built (or designed) and waits for a trigger. Do not start any of it for the launch. The "Trigger" column says when it comes back. The
+code stays in the repository, tested, switched off by the launch configuration (A9).
+
+### Z1. Soon after launch (first months; cheap, and they make the product more trustworthy)
+| Item | Trigger | You do | I do |
+|---|---|---|---|
+| **Passport with a real signer** (F62, F63) | You want to issue credentials to contest participants (a growth feature that costs little) | Create an AWS KMS key (asymmetric P-256 sign/verify), tell me its ARN; decide Ed25519 vs ES256 with me; find someone to read the signing code (`platform/signer.ts`, `modules/passport/*`, migrations 0053 to 0060) | KMS adapter and tests, switch Passport on in staging then production, runbook for rotation and compromise |
+| **External anchor for the audit chain** (F8) | Right after launch: it is cheap and protects the audit trail | S3 bucket with object lock | The nightly verifier and anchor job |
+| **Editorial and community tools** (F13 administrator screens, F53 content) | When volunteers help run it | Choose helpers | Build the screens |
+| **Model-provider account** (F41) for difficulty calibration of problems and agent attack runs on problems | When you want problem difficulty measured, not guessed | Account and a monthly cap | Calibration and attack runs |
+
+### Z2. When you serve institutions or companies (second year, or the first paying/pilot customer)
+| Item | Trigger | You do |
+|---|---|---|
+| **Exams** (Stage 6) | A university or employer wants a real exam | Legal review of the privacy assessment, consent text and DPA for each jurisdiction (kit 15 item 33); a pilot institution and course; two staff per exam host and who decides a confirmed case; an LLM provider and budget for oral defence (F41, F56); a human accessibility audit |
+| **Tier-2 environments and agent evals** (Stage 8) | A customer wants agent evals | A KVM host (AWS bare metal or nested virtualization) so I can build Firecracker (F68); a sandbox reviewer for Tier-2 (F73); or buy a managed sandbox for the first customer (ADR 0035); a model provider (F72) |
+| **Selling task packs** (orders, deliveries, watermarks as a service) | A company wants to buy | Pricing, contract terms, legal entity (A1.1) in place |
+| **Employer module** (F67) | An employer wants to search credentials | Legal review per jurisdiction; Passport real signer (Z1) |
+| **Identity-proof vendor** (F64) | A customer needs assurance above level 1 | Pick and open an account (Persona, Veriff, Stripe Identity) |
+| **Exam series, outcome mapping** (F55, F59) | The pilot institution says what it wants | The institution's answers |
+
+### Z3. When you start charging (the end of the free year, or the first paid customer)
+| Item | You do | I do |
+|---|---|---|
+| **Stripe account or a merchant of record** (F77, D2) | Entity (A1.1) first; create the account, products and prices; secret key and webhook secret into the secret store | The real adapter behind `PaymentProvider`, test mode first, reconciliation on real data |
+| **Plans, limits and prices** (the numbers in `plans` are my placeholders) | Decide names, limits, prices and currency; announce the end of the free period fairly (existing users: grandfather, or give notice) | Change the plans by migration, switch billing on |
+| **Tax and invoicing** | Stripe Tax, a merchant of record, or manual invoices | Build what you choose |
+| **Setter payouts** (revenue share) | A bank account and a payout process | Export formats for your bank |
+| **Real cost per verification** | Real unit costs from the bills of the free year | Replace the placeholders in `docs/compliance/unit-costs.json` |
+
+### Z4. When enterprises or auditors ask
+| Item | You do |
+|---|---|
+| **Enterprise SSO and SCIM** (F78) | A real Okta/Entra/Google test tenant to test against; a customer who needs SAML |
+| **SOC 2** | An auditor and adopted policies (incident response, access review, vendor management); re-run `node apps/api/src/soc2-evidence-cli.ts` |
+| **Bug bounty** (`docs/security/bug-bounty-policy.md`) | A platform, a budget, and a lawyer's read of the safe-harbour sentence |
+| **Data residency as a promise** (ADR 0038) | A second region and a decision per customer |
+| **A real disaster-recovery programme** (F79) | Multi-AZ, point-in-time recovery, written recovery objectives, regular drills |
+| **API-key scopes and an SDK** (F83) | Decide that machine access is a product; I write the design first |
+| **SCIM groups, more webhook events, delivery search** (F81, F82) | A customer asking |
+| **Microsoft/Apple sign-in, other providers** | When users ask |
+
+### Z5. Notes kept from earlier lists
+The detailed steps for these items are in sections 1 to 5 above (older text; where it conflicts with section A, section A wins): the first platform
+administrator (3.5), database roles and TLS (3.2), object storage and lifecycle rules (3.3), the stage-specific lists 3.7 (contests: needed), 3.8 (exams: Z2),
+3.9 (Passport: Z1), 3.10 (Tier-2: Z2) and 3.11 (business systems: Z3 and Z4).
+
