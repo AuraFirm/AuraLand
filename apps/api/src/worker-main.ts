@@ -6,6 +6,7 @@ import { createPgJobStore } from "./modules/jobs/queries.ts";
 import { systemClock } from "./platform/clock.ts";
 import { createLogger } from "./platform/log.ts";
 import { systemRng } from "./platform/rng.ts";
+import { createDevelopmentSigner } from "./platform/signer.ts";
 import { createStorageFromConfig } from "./platform/storage.ts";
 import { maintenanceHandlers, startWorker } from "./worker.ts";
 
@@ -17,7 +18,22 @@ const WORKER = { role: "aura_worker", actorKind: "worker", userId: null, orgIds:
 const inTransaction = <T>(work: Parameters<typeof withRequestContext<T>>[2]) =>
     withRequestContext(database.sql, WORKER, work);
 
+// Credentials are signed in development and test by a key held in memory. There is no production signer yet (a KMS
+// adapter waits for an account to run it against, F62), so elsewhere nothing is issued or published.
+const developmentEnvironment = config.AURA_ENV === "local" || config.AURA_ENV === "test";
+const passport = developmentEnvironment
+    ? {
+          signer: createDevelopmentSigner({
+              keyId: `dev-${Buffer.from(systemRng.nextBytes(4)).toString("hex")}`,
+              appEnvironment: config.AURA_ENV,
+          }),
+          publicOrigin: config.AURA_PUBLIC_ORIGIN,
+      }
+    : undefined;
+if (passport === undefined) logger.warn({}, "passport is off: there is no production signer (F62)");
+
 const worker = startWorker({
+    ...(passport === undefined ? {} : { passport }),
     clock: systemClock,
     rng: systemRng,
     logger,

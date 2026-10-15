@@ -25,10 +25,12 @@ import {
     type HandlerContext,
 } from "./modules/maintenance/handlers.ts";
 import { buildDelivery, DELIVERY_BUILD_KIND } from "./modules/orders/handlers.ts";
+import { PASSPORT_TICK_MS, runPassportTick } from "./modules/passport/tick.ts";
 import type { Clock } from "./platform/clock.ts";
 import type { LlmProvider } from "./platform/llm.ts";
 import type { Logger } from "./platform/log.ts";
 import type { Rng } from "./platform/rng.ts";
+import type { Signer } from "./platform/signer.ts";
 
 // The worker: takes jobs from the queue and runs their handlers. One entry point of the API package
 // (AURA_ROLE=worker). Leasing, completing and failing each use their own short transaction; the
@@ -48,6 +50,8 @@ export interface WorkerDeps {
     readonly name: string;
     // Absent until a provider account exists (owner item F41): oral defence requests then wait, pending.
     readonly llm?: LlmProvider;
+    // Absent in production until a KMS signer exists (F62): then no credential is issued or published.
+    readonly passport?: { readonly signer: Signer; readonly publicOrigin: string };
 }
 
 export function maintenanceHandlers(): Map<string, Handler> {
@@ -151,6 +155,24 @@ async function tickOralDefence(deps: WorkerDeps): Promise<void> {
     }
 }
 
+// Credentials from finished events and the static documents that verify them, at their own slower pace.
+async function tickPassport(deps: WorkerDeps, due: { nextAtMs: number }): Promise<void> {
+    if (deps.passport === undefined || deps.clock.nowUnixMs() < due.nextAtMs) return;
+    due.nextAtMs = deps.clock.nowUnixMs() + PASSPORT_TICK_MS;
+    try {
+        await runPassportTick({
+            clock: deps.clock,
+            rng: deps.rng,
+            signer: deps.passport.signer,
+            storage: deps.context.storage,
+            publicOrigin: deps.passport.publicOrigin,
+            inTransaction: deps.context.inTransaction,
+        });
+    } catch (error) {
+        deps.logger.error({ err: error }, "passport tick error");
+    }
+}
+
 export function startWorker(deps: WorkerDeps): RunningWorker {
     let stopping = false;
     const loop = (async () => {
@@ -172,6 +194,7 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
     })();
     // The contest clock ticks on its own pace, apart from the job queue: a long job must not delay it.
     const scoreboards = createPostgresScoreboardPort(deps.context);
+    const passportDue = { nextAtMs: 0 };
     const ticks = (async () => {
         // unbounded: the tick runs until the process is told to stop
         while (!stopping) {
@@ -186,6 +209,7 @@ export function startWorker(deps: WorkerDeps): RunningWorker {
                 deps.logger.error({ err: error }, "exam tick error");
             }
             await tickOralDefence(deps);
+            await tickPassport(deps, passportDue);
             try {
                 await refreshScoreboards(scoreboards, deps.context.clock);
             } catch (error) {
